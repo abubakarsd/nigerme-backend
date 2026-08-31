@@ -8,6 +8,7 @@ import { ResendEmailService } from "../services/resend/index.js";
 import { OrganizationService } from "../application/services/organization.service.js";
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
+import { PackageService } from "../application/services/package.service.js";
 import { UserModel, OrganizationModel, TransactionModel, KycRecordModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService } from "../application/services/otp.service.js";
@@ -72,6 +73,15 @@ export const resolvers = {
     getAbuseCases: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       return AbuseService.listCases(authUser.organizationId);
+    },
+
+    // ─── Product Packages Queries ───
+    getPackages: async () => {
+      return PackageService.getAllPackages();
+    },
+
+    getPackage: async (_: any, { packageId }: { packageId: string }) => {
+      return PackageService.getPackageById(packageId);
     },
   },
 
@@ -213,6 +223,21 @@ export const resolvers = {
         success: result.success,
         message: result.success ? `Verification code dispatched to ${email}` : (result.error || "Failed to send OTP email"),
       };
+    },
+
+    // ─── Product Package Mutations ───
+    updatePackagePricing: async (
+      _: any,
+      { packageId, input }: { packageId: string; input: any },
+      context: GraphQLContext
+    ) => {
+      requireAuth(context);
+      return PackageService.updatePackagePricing(packageId, input);
+    },
+
+    resetPackagesToDefault: async (_: any, __: any, context: GraphQLContext) => {
+      requireAuth(context);
+      return PackageService.resetPackagesToDefault();
     },
   },
 };

@@ -134,6 +134,41 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     createdAt: String!
   }
 
+  type SubFeature {
+    id: String!
+    name: String!
+    shortDesc: String!
+    badge: String!
+    iconName: String!
+  }
+
+  type ProductPackage {
+    id: ID!
+    packageId: String!
+    name: String!
+    shortName: String!
+    tagline: String!
+    description: String!
+    category: String!
+    badge: String!
+    badgeTone: String!
+    isCore: Boolean!
+    autoChecked: Boolean!
+    priceMonthly: Float!
+    priceAnnual: Float!
+    pricingModel: String!
+    priceFormatted: String!
+    accentColor: String!
+    glowColor: String!
+    subFeatures: [SubFeature!]!
+    keyHighlights: [String!]!
+    systemCapabilities: [String!]!
+    isActive: Boolean!
+    sortOrder: Int!
+    createdAt: String!
+    updatedAt: String!
+  }
+
   # ─── Inputs ───
 
   input SignupInput {
@@ -213,6 +248,10 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     # Audit & Security
     getAuditLogs(limit: Int): [AuditLog!]!
     getAbuseCases: [AbuseCase!]!
+
+    # Product Packages & Pricing
+    getPackages: [ProductPackage!]!
+    getPackage(packageId: String!): ProductPackage
   }
 
   type Mutation {
@@ -243,6 +282,16 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     # ── Email Dispatch (Resend) ──
     sendEmail(input: SendEmailInput!): EmailResponse!
     sendOtpEmail(email: String!): EmailResponse!
+
+    # ── Product Packages & Pricing Admin ──
+    updatePackagePricing(packageId: String!, input: UpdatePackagePricingInput!): ProductPackage!
+    resetPackagesToDefault: [ProductPackage!]!
+  }
+
+  input UpdatePackagePricingInput {
+    priceMonthly: Float
+    priceAnnual: Float
+    priceFormatted: String
   }
 
   type EmailResponse {

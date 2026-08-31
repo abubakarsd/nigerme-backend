@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_controller_js_1 = require("../controllers/auth.controller.js");
@@ -9,6 +12,7 @@ const organization_controller_js_1 = require("../controllers/organization.contro
 const user_controller_js_1 = require("../controllers/user.controller.js");
 const audit_controller_js_1 = require("../controllers/audit.controller.js");
 const abuse_controller_js_1 = require("../controllers/abuse.controller.js");
+const package_routes_js_1 = __importDefault(require("./package.routes.js"));
 const auth_middleware_js_1 = require("../middlewares/auth.middleware.js");
 const validate_middleware_js_1 = require("../middlewares/validate.middleware.js");
 const rateLimiter_middleware_js_1 = require("../middlewares/rateLimiter.middleware.js");
@@ -89,4 +93,6 @@ abuseRouter.get("/cases", abuse_controller_js_1.AbuseController.getCases);
 abuseRouter.post("/report", (0, validate_middleware_js_1.validate)(abuse_controller_js_1.reportAbuseSchema), abuse_controller_js_1.AbuseController.reportCase);
 abuseRouter.post("/update-status", (0, validate_middleware_js_1.validate)(abuse_controller_js_1.updateCaseSchema), abuse_controller_js_1.AbuseController.updateStatus);
 apiRouter.use("/abuse", abuseRouter);
+// ─── 9. Product Packages & Pricing Routes ───
+apiRouter.use("/packages", package_routes_js_1.default);
 exports.default = apiRouter;

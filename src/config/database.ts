@@ -12,6 +12,12 @@ export async function connectDatabase(): Promise<typeof mongoose> {
     });
 
     console.log(`✅ MongoDB Connected successfully: ${conn.connection.host}/${conn.connection.name}`);
+
+    // Auto-seed and migrate packages table if empty
+    import("../infrastructure/database/seeds/package.seed.js")
+      .then(({ seedPackages }) => seedPackages())
+      .catch((err) => console.error("⚠️ Failed to auto-seed packages:", err));
+
     return conn;
   } catch (error) {
     console.error("❌ MongoDB Connection Error:", error);

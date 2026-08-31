@@ -11,6 +11,7 @@ const index_js_6 = require("../services/resend/index.js");
 const organization_service_js_1 = require("../application/services/organization.service.js");
 const audit_service_js_1 = require("../application/services/audit.service.js");
 const abuse_service_js_1 = require("../application/services/abuse.service.js");
+const package_service_js_1 = require("../application/services/package.service.js");
 const index_js_7 = require("../models/index.js");
 const token_manager_js_1 = require("../infrastructure/security/token.manager.js");
 const otp_service_js_1 = require("../application/services/otp.service.js");
@@ -68,6 +69,13 @@ exports.resolvers = {
         getAbuseCases: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             return abuse_service_js_1.AbuseService.listCases(authUser.organizationId);
+        },
+        // ─── Product Packages Queries ───
+        getPackages: async () => {
+            return package_service_js_1.PackageService.getAllPackages();
+        },
+        getPackage: async (_, { packageId }) => {
+            return package_service_js_1.PackageService.getPackageById(packageId);
         },
     },
     Mutation: {
@@ -195,6 +203,15 @@ exports.resolvers = {
                 success: result.success,
                 message: result.success ? `Verification code dispatched to ${email}` : (result.error || "Failed to send OTP email"),
             };
+        },
+        // ─── Product Package Mutations ───
+        updatePackagePricing: async (_, { packageId, input }, context) => {
+            (0, context_js_1.requireAuth)(context);
+            return package_service_js_1.PackageService.updatePackagePricing(packageId, input);
+        },
+        resetPackagesToDefault: async (_, __, context) => {
+            (0, context_js_1.requireAuth)(context);
+            return package_service_js_1.PackageService.resetPackagesToDefault();
         },
     },
 };

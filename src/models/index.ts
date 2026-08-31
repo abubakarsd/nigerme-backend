@@ -5,3 +5,5 @@ export { OtpModel, IOtp } from "../infrastructure/database/models/otp.model.js";
 export { TransactionModel, ITransaction } from "../infrastructure/database/models/transaction.model.js";
 export { AuditLogModel, IAuditLog } from "../infrastructure/database/models/audit-log.model.js";
 export { AbuseCaseModel, IAbuseCase } from "../infrastructure/database/models/abuse.model.js";
+export { PackageModel, IPackage } from "../infrastructure/database/models/package.model.js";
+

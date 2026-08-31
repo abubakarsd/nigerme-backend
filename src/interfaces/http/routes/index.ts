@@ -22,6 +22,7 @@ import {
 } from "../controllers/user.controller.js";
 import { AuditController } from "../controllers/audit.controller.js";
 import { AbuseController, reportAbuseSchema, updateCaseSchema } from "../controllers/abuse.controller.js";
+import packageRouter from "./package.routes.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { authLimiter, otpLimiter } from "../middlewares/rateLimiter.middleware.js";
@@ -121,5 +122,8 @@ abuseRouter.get("/cases", AbuseController.getCases);
 abuseRouter.post("/report", validate(reportAbuseSchema), AbuseController.reportCase);
 abuseRouter.post("/update-status", validate(updateCaseSchema), AbuseController.updateStatus);
 apiRouter.use("/abuse", abuseRouter);
+
+// ─── 9. Product Packages & Pricing Routes ───
+apiRouter.use("/packages", packageRouter);
 
 export default apiRouter;

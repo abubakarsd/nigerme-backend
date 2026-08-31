@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
+exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
 var user_model_js_1 = require("../infrastructure/database/models/user.model.js");
 Object.defineProperty(exports, "UserModel", { enumerable: true, get: function () { return user_model_js_1.UserModel; } });
 var organization_model_js_1 = require("../infrastructure/database/models/organization.model.js");
@@ -15,3 +15,5 @@ var audit_log_model_js_1 = require("../infrastructure/database/models/audit-log.
 Object.defineProperty(exports, "AuditLogModel", { enumerable: true, get: function () { return audit_log_model_js_1.AuditLogModel; } });
 var abuse_model_js_1 = require("../infrastructure/database/models/abuse.model.js");
 Object.defineProperty(exports, "AbuseCaseModel", { enumerable: true, get: function () { return abuse_model_js_1.AbuseCaseModel; } });
+var package_model_js_1 = require("../infrastructure/database/models/package.model.js");
+Object.defineProperty(exports, "PackageModel", { enumerable: true, get: function () { return package_model_js_1.PackageModel; } });
