@@ -40,19 +40,37 @@ app.use(
   cors({
     origin: allowedOrigins,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-paystack-signature", "x-api-key"],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-paystack-signature", "x-api-key", "Accept", "Origin"],
+    optionsSuccessStatus: 204,
   })
 );
 
-// ─── 2. Block Sensitive Path Probing ───
+// ─── 2. Enforce Allowed HTTP Methods (Deny Unknown Access) ───
+app.use((req, res, next) => {
+  const allowedMethods = ["GET", "POST", "HEAD", "OPTIONS"];
+  if (!allowedMethods.includes(req.method.toUpperCase())) {
+    res.setHeader("Allow", "GET, POST, OPTIONS");
+    res.status(405).json({
+      success: false,
+      error: {
+        message: `HTTP Method ${req.method} is not allowed on this API.`,
+        allowedMethods: ["GET", "POST", "OPTIONS"],
+      },
+    });
+    return;
+  }
+  next();
+});
+
+// ─── 3. Block Sensitive Path Probing ───
 // Immediately return 403 for bots scanning for .env files, .git repos,
 // config leaks etc. These are real automated attacks that hit every
 // public server within minutes of deployment.
 app.use((req, res, next) => {
   const blocked = /(\.(env|git|htaccess|htpasswd|config|yml|yaml|json|lock)|\/config\/|\/secrets?\/|\/\.well-known\/sensitive)/i;
   if (blocked.test(req.path)) {
-    res.status(403).json({ error: "Forbidden" });
+    res.status(403).json({ error: "Access Denied: Forbidden Path." });
     return;
   }
   next();
@@ -148,7 +166,18 @@ async function bootstrap() {
       }) as any
     );
 
-    // ─── 9. Global Error Handler ───
+    // ─── 9. Deny Unknown API Access (Catch-All 404) ───
+    app.use((req, res) => {
+      res.status(404).json({
+        success: false,
+        error: {
+          message: `Access Denied: Unknown resource ${req.method} ${req.path}`,
+          docs: "Access /graphql for all queries and mutations.",
+        },
+      });
+    });
+
+    // ─── 10. Global Error Handler ───
     app.use(errorHandler);
 
     // Start HTTP Server

@@ -70,16 +70,20 @@ export class OtpService {
     const otpRecord = await OtpModel.findOne({
       identifier: formattedEmail,
       purpose,
-      expiresAt: { $gt: new Date() },
     });
 
     if (!otpRecord) {
-      throw new Error("Invalid or expired verification code.");
+      throw new Error("No active verification code found for this email address. Please request a new code.");
+    }
+
+    if (otpRecord.expiresAt <= new Date()) {
+      await OtpModel.deleteOne({ _id: otpRecord._id });
+      throw new Error(`Your verification code has expired (${this.OTP_VALIDITY_MINUTES} minutes validity). Please click 'Resend code now'.`);
     }
 
     if (otpRecord.attempts >= this.MAX_VERIFY_ATTEMPTS) {
       await OtpModel.deleteOne({ _id: otpRecord._id });
-      throw new Error("Too many failed attempts. Please request a new verification code.");
+      throw new Error("Too many failed attempts. For security, please request a new verification code.");
     }
 
     if (otpRecord.otpHash !== candidateHash) {
@@ -152,11 +156,15 @@ export class OtpService {
     const otpRecord = await OtpModel.findOne({
       identifier: formattedPhone,
       purpose,
-      expiresAt: { $gt: new Date() },
     });
 
     if (!otpRecord) {
-      throw new Error("Invalid or expired verification code.");
+      throw new Error("No active verification code found for this phone number. Please request a new code.");
+    }
+
+    if (otpRecord.expiresAt <= new Date()) {
+      await OtpModel.deleteOne({ _id: otpRecord._id });
+      throw new Error(`Your verification code has expired (${this.OTP_VALIDITY_MINUTES} minutes validity). Please request a new code.`);
     }
 
     if (otpRecord.attempts >= this.MAX_VERIFY_ATTEMPTS) {

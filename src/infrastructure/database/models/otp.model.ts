@@ -4,7 +4,7 @@ export interface IOtp extends Document {
   identifier: string; // phone number or email address
   otpHash: string;
   attempts: number;
-  purpose: "signup" | "login_2fa" | "password_reset" | "phone_verification";
+  purpose: "signup" | "login_2fa" | "password_reset" | "phone_verification" | "email_verification";
   expiresAt: Date;
   createdAt: Date;
 }
@@ -26,8 +26,8 @@ const OtpSchema = new Schema<IOtp>(
     },
     purpose: {
       type: String,
-      enum: ["signup", "login_2fa", "password_reset", "phone_verification"],
-      default: "login_2fa",
+      enum: ["signup", "login_2fa", "password_reset", "phone_verification", "email_verification"],
+      default: "email_verification",
     },
     expiresAt: {
       type: Date,
