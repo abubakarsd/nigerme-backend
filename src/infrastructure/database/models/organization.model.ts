@@ -22,6 +22,16 @@ export interface IOrganization extends Document {
   kycStatus: "unverified" | "submitted" | "verified" | "rejected";
   trustLevel: "Tier 1 Sovereign" | "Tier 2 Sovereign" | "Tier 3 Sovereign";
   dailySendingLimit: number;
+  subscribedPackages?: string[];
+  billingCycle?: "MONTHLY" | "ANNUAL";
+  autoDebitWallet?: boolean;
+  totalSeats?: number;
+  usedSeats?: number;
+  industry?: string;
+  phone?: string;
+  supportEmail?: string;
+  departments?: any[];
+  roles?: any[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -84,6 +94,47 @@ const OrganizationSchema = new Schema<IOrganization>(
     dailySendingLimit: {
       type: Number,
       default: 1000,
+    },
+    subscribedPackages: {
+      type: [String],
+      default: ["org-email", "payroll"],
+    },
+    billingCycle: {
+      type: String,
+      enum: ["MONTHLY", "ANNUAL"],
+      default: "MONTHLY",
+    },
+    autoDebitWallet: {
+      type: Boolean,
+      default: true,
+    },
+    totalSeats: {
+      type: Number,
+      default: 15,
+    },
+    usedSeats: {
+      type: Number,
+      default: 1,
+    },
+    industry: {
+      type: String,
+      default: "Technology & Enterprise Systems",
+    },
+    phone: {
+      type: String,
+      default: "+234 800 NIGERME",
+    },
+    supportEmail: {
+      type: String,
+      default: "support@nigerme.com",
+    },
+    departments: {
+      type: [Schema.Types.Mixed],
+      default: [],
+    },
+    roles: {
+      type: [Schema.Types.Mixed],
+      default: [],
     },
   },
   {

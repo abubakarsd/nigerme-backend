@@ -27,13 +27,35 @@ export const resolvers = {
     myOrganization: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return null;
-      return OrganizationModel.findById(authUser.organizationId);
+      let org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) return null;
+
+      if (!org.dedicatedVirtualAccount || !org.dedicatedVirtualAccount.accountNumber) {
+        org.dedicatedVirtualAccount = {
+          accountNumber: "0294819284",
+          accountName: `Nigerme / ${org.name}`,
+          bankName: "Wema Bank Plc (Sovereign NIBSS)",
+          assignedAt: new Date(),
+        };
+        await org.save();
+      }
+
+      const orgObj = org.toObject();
+      return {
+        ...orgObj,
+        id: org._id.toString(),
+        walletBalance: org.walletBalance / 100, // Return in Naira
+      };
     },
 
     getOrganizationMembers: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return [];
-      return UserModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: -1 });
+      const users = await UserModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: -1 });
+      return users.map((u) => ({
+        ...u.toObject(),
+        id: u._id.toString(),
+      }));
     },
 
     getKycStatus: async (_: any, __: any, context: GraphQLContext) => {
@@ -54,9 +76,14 @@ export const resolvers = {
 
     getTransactions: async (_: any, { limit = 50 }: { limit?: number }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
-      return TransactionModel.find({ organizationId: authUser.organizationId })
+      const txns = await TransactionModel.find({ organizationId: authUser.organizationId })
         .sort({ createdAt: -1 })
         .limit(limit);
+      return txns.map((t) => ({
+        ...t.toObject(),
+        id: t._id.toString(),
+        amount: t.amount / 100, // in Naira
+      }));
     },
 
     getWalletBalance: async (_: any, __: any, context: GraphQLContext) => {
@@ -158,17 +185,70 @@ export const resolvers = {
       };
     },
 
-    // ─── Organization & Domain ───
+    // ─── Organization & Domain & Users ───
+    updateOrganization: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const updated = await OrganizationModel.findByIdAndUpdate(
+        authUser.organizationId,
+        { $set: input },
+        { new: true }
+      );
+      if (!updated) throw new Error("Failed to update organization");
+      return {
+        ...updated.toObject(),
+        id: updated._id.toString(),
+        walletBalance: updated.walletBalance / 100,
+      };
+    },
+
     verifyDomainDns: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
-      return OrganizationService.verifyDomainDns(authUser.organizationId);
+      const updated = await OrganizationService.verifyDomainDns(authUser.organizationId);
+      if (!updated) throw new Error("Failed to verify DNS");
+      return {
+        ...updated.toObject(),
+        id: updated._id.toString(),
+        walletBalance: updated.walletBalance / 100,
+      };
     },
 
     inviteMember: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
-      return OrganizationService.inviteMember(authUser.organizationId, input);
+      const res = await OrganizationService.inviteMember(authUser.organizationId, input);
+      return {
+        user: {
+          ...res.user.toObject(),
+          id: res.user._id.toString(),
+        },
+        temporaryPassword: res.temporaryPassword,
+      };
+    },
+
+    updateUserStatus: async (
+      _: any,
+      { userId, status }: { userId: string; status: string },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      const user = await UserModel.findOneAndUpdate(
+        { _id: userId, organizationId: authUser.organizationId },
+        { $set: { status: status.toLowerCase() } },
+        { new: true }
+      );
+      if (!user) throw new Error("User not found in this organization");
+      return {
+        ...user.toObject(),
+        id: user._id.toString(),
+      };
+    },
+
+    deleteUser: async (_: any, { userId }: { userId: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      const res = await UserModel.findOneAndDelete({ _id: userId, organizationId: authUser.organizationId });
+      return !!res;
     },
 
     // ─── Storage Mutations (AWS S3) ───
@@ -187,7 +267,7 @@ export const resolvers = {
       });
     },
 
-    // ─── Payment Mutations (Paystack) ───
+    // ─── Payment Mutations (Paystack & Direct) ───
     initializeWalletFunding: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       return PaystackService.initializeWalletFunding({
@@ -197,6 +277,53 @@ export const resolvers = {
         amountInNaira: input.amountInNaira,
         callbackUrl: input.callbackUrl,
       });
+    },
+
+    fundWalletDirect: async (
+      _: any,
+      {
+        amountInNaira,
+        channel = "bank_transfer",
+        description = "Direct Wallet Funding",
+      }: { amountInNaira: number; channel?: string; description?: string },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const amountInKobo = Math.round(amountInNaira * 100);
+
+      const org = await OrganizationModel.findByIdAndUpdate(
+        authUser.organizationId,
+        { $inc: { walletBalance: amountInKobo } },
+        { new: true }
+      );
+      if (!org) throw new Error("Organization not found");
+
+      const reference = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const txn = await TransactionModel.create({
+        organizationId: authUser.organizationId,
+        userId: authUser.userId,
+        reference,
+        type: "wallet_funding",
+        amount: amountInKobo,
+        status: "success",
+        channel: channel || "bank_transfer",
+        currency: "NGN",
+        paidAt: new Date(),
+        metadata: { description },
+      });
+
+      return {
+        id: txn._id.toString(),
+        reference: txn.reference,
+        type: txn.type,
+        amount: amountInNaira,
+        status: txn.status,
+        channel: txn.channel,
+        currency: txn.currency,
+        paidAt: txn.paidAt?.toISOString(),
+        createdAt: txn.createdAt.toISOString(),
+      };
     },
 
     // ─── Email Dispatch Mutations (Resend) ───

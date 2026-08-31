@@ -30,6 +30,13 @@ export const typeDefs = gql`
     lastCheckedAt: String
   }
 
+  type DedicatedVirtualAccount {
+    accountNumber: String!
+    accountName: String!
+    bankName: String!
+    assignedAt: String
+  }
+
   type Organization {
     id: ID!
     name: String!
@@ -41,6 +48,15 @@ export const typeDefs = gql`
     trustLevel: String!
     dailySendingLimit: Int!
     dnsVerification: DnsStatus
+    dedicatedVirtualAccount: DedicatedVirtualAccount
+    subscribedPackages: [String!]
+    billingCycle: String
+    autoDebitWallet: Boolean
+    totalSeats: Int
+    usedSeats: Int
+    industry: String
+    phone: String
+    supportEmail: String
     createdAt: String!
   }
 
@@ -218,6 +234,19 @@ export const typeDefs = gql`
     password: String
   }
 
+  input UpdateOrganizationInput {
+    name: String
+    plan: String
+    dailySendingLimit: Int
+    subscribedPackages: [String!]
+    billingCycle: String
+    autoDebitWallet: Boolean
+    totalSeats: Int
+    industry: String
+    phone: String
+    supportEmail: String
+  }
+
   # ─── Queries & Mutations ───
 
   type Query {
@@ -261,9 +290,12 @@ export const typeDefs = gql`
     verifyEmailOtp(email: String!, code: String!, purpose: String): Boolean!
     refreshToken(refreshToken: String!): AuthPayload!
 
-    # ── Organization & Domain ──
+    # ── Organization & Domain & Users ──
+    updateOrganization(input: UpdateOrganizationInput!): Organization!
     verifyDomainDns: Organization!
     inviteMember(input: InviteMemberInput!): InvitedMemberPayload!
+    updateUserStatus(userId: ID!, status: String!): User!
+    deleteUser(userId: ID!): Boolean!
 
     # ── Storage (AWS S3) ──
     getPresignedUploadUrl(input: RequestUploadUrlInput!): PresignedUploadPayload!
@@ -271,8 +303,9 @@ export const typeDefs = gql`
     # ── KYC (Provn) ──
     submitKyc(input: SubmitKycInput!): KycRecord!
 
-    # ── Payments (Paystack) ──
+    # ── Payments (Paystack & Direct Funding) ──
     initializeWalletFunding(input: FundWalletInput!): PaymentInitPayload!
+    fundWalletDirect(amountInNaira: Float!, channel: String, description: String): Transaction!
 
     # ── Email Dispatch (Resend) ──
     sendEmail(input: SendEmailInput!): EmailResponse!
