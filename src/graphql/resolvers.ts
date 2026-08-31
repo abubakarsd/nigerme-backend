@@ -10,6 +10,7 @@ import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { UserModel, OrganizationModel, TransactionModel, KycRecordModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
+import { OtpService } from "../application/services/otp.service.js";
 
 export const resolvers = {
   Query: {
@@ -126,6 +127,14 @@ export const resolvers = {
 
     requestPhoneOtp: async (_: any, { phone, purpose }: { phone: string; purpose?: string }) => {
       return TermiiOtpService.sendPhoneOtp(phone, (purpose as any) || "phone_verification");
+    },
+
+    requestEmailOtp: async (_: any, { email, name, purpose }: { email: string; name?: string; purpose?: string }) => {
+      return OtpService.sendEmailOtp(email, name || "Workspace Administrator", (purpose as any) || "email_verification");
+    },
+
+    verifyEmailOtp: async (_: any, { email, code, purpose }: { email: string; code: string; purpose?: string }) => {
+      return OtpService.verifyEmailOtp(email, code, (purpose as any) || "email_verification");
     },
 
     refreshToken: async (_: any, { refreshToken }: { refreshToken: string }) => {

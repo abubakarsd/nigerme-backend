@@ -218,6 +218,8 @@ export const typeDefs = gql`
     setInitialPassword(input: SetInitialPasswordInput!): AuthPayload!
     verify2fa(phone: String!, code: String!): AuthPayload!
     requestPhoneOtp(phone: String!, purpose: String): OtpResponse!
+    requestEmailOtp(email: String!, name: String, purpose: String): OtpResponse!
+    verifyEmailOtp(email: String!, code: String!, purpose: String): Boolean!
     refreshToken(refreshToken: String!): AuthPayload!
 
     # ── Organization & Domain ──
