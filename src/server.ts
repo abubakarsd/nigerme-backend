@@ -31,17 +31,37 @@ app.use(
   })
 );
 
-const allowedOrigins =
-  env.CORS_ORIGIN === "*"
-    ? true
-    : env.CORS_ORIGIN.split(",").map((o) => o.trim());
+const corsOriginValidator = (
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void
+) => {
+  if (!origin) return callback(null, true);
+  if (
+    env.CORS_ORIGIN === "*" ||
+    origin.includes("localhost") ||
+    origin.includes("127.0.0.1") ||
+    origin.endsWith(".vercel.app") ||
+    origin.includes("onrender.com") ||
+    (env.CORS_ORIGIN && env.CORS_ORIGIN.split(",").map((o) => o.trim()).includes(origin))
+  ) {
+    return callback(null, true);
+  }
+  return callback(null, true);
+};
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: corsOriginValidator,
     credentials: true,
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-paystack-signature", "x-api-key", "Accept", "Origin"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-paystack-signature",
+      "x-api-key",
+      "Accept",
+      "Origin",
+    ],
     optionsSuccessStatus: 204,
   })
 );

@@ -30,14 +30,31 @@ app.use((0, helmet_1.default)({
     crossOriginResourcePolicy: { policy: "cross-origin" },
     contentSecurityPolicy: env_js_1.env.NODE_ENV === "production" ? undefined : false, // Allows Apollo Sandbox in dev
 }));
-const allowedOrigins = env_js_1.env.CORS_ORIGIN === "*"
-    ? true
-    : env_js_1.env.CORS_ORIGIN.split(",").map((o) => o.trim());
+const corsOriginValidator = (origin, callback) => {
+    if (!origin)
+        return callback(null, true);
+    if (env_js_1.env.CORS_ORIGIN === "*" ||
+        origin.includes("localhost") ||
+        origin.includes("127.0.0.1") ||
+        origin.endsWith(".vercel.app") ||
+        origin.includes("onrender.com") ||
+        (env_js_1.env.CORS_ORIGIN && env_js_1.env.CORS_ORIGIN.split(",").map((o) => o.trim()).includes(origin))) {
+        return callback(null, true);
+    }
+    return callback(null, true);
+};
 app.use((0, cors_1.default)({
-    origin: allowedOrigins,
+    origin: corsOriginValidator,
     credentials: true,
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-paystack-signature", "x-api-key", "Accept", "Origin"],
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "x-paystack-signature",
+        "x-api-key",
+        "Accept",
+        "Origin",
+    ],
     optionsSuccessStatus: 204,
 }));
 // ─── 2. Enforce Allowed HTTP Methods (Deny Unknown Access) ───
