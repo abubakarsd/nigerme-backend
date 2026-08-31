@@ -78,7 +78,7 @@ export class AuthService {
       userType: "saas_admin",
       status: "active",
       isEmailVerified: true,
-      twoFactorEnabled: false,
+      twoFactorEnabled: true,
       mustChangePassword: false,
       canAccessEmail: true,
     });
@@ -161,54 +161,20 @@ export class AuthService {
       throw new Error("Your account has been suspended. Please contact support.");
     }
 
-    // If 2FA is enabled and user has a verified phone, send Termii OTP
-    if (user.twoFactorEnabled && user.phone) {
-      await OtpService.sendPhoneOtp(user.phone, "login_2fa");
-      return {
-        requiresTwoFactor: true,
-        phone: user.phone,
-        message: "A 6-digit 2FA verification code has been sent to your phone.",
-      };
+    // Security: Always dispatch 2FA OTP verification code to Phone and Email
+    if (user.phone) {
+      await OtpService.sendPhoneOtp(user.phone, "login_2fa").catch((err) =>
+        console.warn("⚠️ Phone 2FA dispatch warning:", err)
+      );
     }
-
-    user.lastLoginAt = new Date();
-    await user.save();
-
-    const payload: Omit<TokenPayload, "iat" | "exp"> = {
-      userId: user._id.toString(),
-      email: user.email,
-      role: user.role,
-      userType: user.userType,
-      organizationId: user.organizationId?.toString(),
-    };
-
-    const accessToken = TokenManager.generateAccessToken(payload);
-    const refreshToken = TokenManager.generateRefreshToken(payload);
+    await OtpService.sendEmailOtp(user.email, user.name, "login_2fa").catch((err) =>
+      console.warn("⚠️ Email 2FA dispatch warning:", err)
+    );
 
     return {
-      requiresTwoFactor: false,
-      tokens: {
-        accessToken,
-        refreshToken,
-        user: {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          userType: user.userType,
-          phone: user.phone ?? null,
-          organizationId: user.organizationId?.toString() ?? null,
-          isEmailVerified: user.isEmailVerified ?? false,
-          isPhoneVerified: user.isPhoneVerified ?? false,
-          twoFactorEnabled: user.twoFactorEnabled ?? false,
-          mustChangePassword: user.mustChangePassword ?? false,
-          canAccessEmail: user.canAccessEmail ?? false,
-          avatarUrl: user.avatarUrl ?? null,
-          status: user.status ?? "active",
-          lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
-          createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
-        },
-      },
+      requiresTwoFactor: true,
+      phone: user.phone || user.email,
+      message: "A 6-digit 2FA verification code has been dispatched to your phone and email.",
     };
   }
 
@@ -251,55 +217,20 @@ export class AuthService {
       throw new Error("Incorrect mailbox password.");
     }
 
-    // If 2FA is active
-    if (user.twoFactorEnabled && user.phone) {
-      await OtpService.sendPhoneOtp(user.phone, "login_2fa");
-      return {
-        requiresTwoFactor: true,
-        phone: user.phone,
-        message: "A 6-digit 2FA verification code has been dispatched to your phone.",
-      };
+    // Security: Always dispatch 2FA OTP verification code to Phone and Email
+    if (user.phone) {
+      await OtpService.sendPhoneOtp(user.phone, "login_2fa").catch((err) =>
+        console.warn("⚠️ Phone 2FA dispatch warning:", err)
+      );
     }
-
-    user.lastLoginAt = new Date();
-    await user.save();
-
-    const payload: Omit<TokenPayload, "iat" | "exp"> = {
-      userId: user._id.toString(),
-      email: user.email,
-      role: user.role,
-      userType: user.userType,
-      organizationId: user.organizationId.toString(),
-    };
-
-    const accessToken = TokenManager.generateAccessToken(payload);
-    const refreshToken = TokenManager.generateRefreshToken(payload);
+    await OtpService.sendEmailOtp(user.email, user.name, "login_2fa").catch((err) =>
+      console.warn("⚠️ Email 2FA dispatch warning:", err)
+    );
 
     return {
-      requiresTwoFactor: false,
-      mustChangePassword: user.mustChangePassword,
-      tokens: {
-        accessToken,
-        refreshToken,
-        user: {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          userType: user.userType,
-          phone: user.phone ?? null,
-          organizationId: user.organizationId.toString(),
-          isEmailVerified: user.isEmailVerified ?? false,
-          isPhoneVerified: user.isPhoneVerified ?? false,
-          twoFactorEnabled: user.twoFactorEnabled ?? false,
-          mustChangePassword: user.mustChangePassword ?? false,
-          canAccessEmail: user.canAccessEmail ?? false,
-          avatarUrl: user.avatarUrl ?? null,
-          status: user.status ?? "active",
-          lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
-          createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
-        },
-      },
+      requiresTwoFactor: true,
+      phone: user.phone || user.email,
+      message: "A 6-digit 2FA verification code has been dispatched to your phone and email.",
     };
   }
 
@@ -343,7 +274,7 @@ export class AuthService {
         organizationId: user.organizationId?.toString() ?? null,
         isEmailVerified: user.isEmailVerified ?? false,
         isPhoneVerified: user.isPhoneVerified ?? false,
-        twoFactorEnabled: user.twoFactorEnabled ?? false,
+        twoFactorEnabled: true,
         mustChangePassword: false,
         canAccessEmail: user.canAccessEmail ?? false,
         avatarUrl: user.avatarUrl ?? null,
@@ -355,14 +286,39 @@ export class AuthService {
   }
 
   /**
-   * 5. Finalizes login after 2FA OTP verification
+   * 5. Finalizes login after 2FA OTP verification (supports phone or email)
    */
-  static async verify2faAndLogin(phone: string, code: string): Promise<AuthTokens> {
-    await OtpService.verifyPhoneOtp(phone, code, "login_2fa");
+  static async verify2faAndLogin(identifier: string, code: string): Promise<AuthTokens> {
+    const cleanId = (identifier || "").trim();
+    const isEmail = cleanId.includes("@");
+    let verified = false;
 
-    const user = await UserModel.findOne({ phone });
+    if (isEmail) {
+      verified = await OtpService.verifyEmailOtp(cleanId, code, "login_2fa");
+    } else {
+      try {
+        verified = await OtpService.verifyPhoneOtp(cleanId, code, "login_2fa");
+      } catch (phoneErr) {
+        // Fallback: Check if identifier matches a user's phone or email
+        const userByPhone = await UserModel.findOne({ phone: cleanId });
+        if (userByPhone) {
+          verified = await OtpService.verifyEmailOtp(userByPhone.email, code, "login_2fa");
+        } else {
+          throw phoneErr;
+        }
+      }
+    }
+
+    if (!verified) {
+      throw new Error("Invalid verification code. Please try again.");
+    }
+
+    const user = isEmail
+      ? await UserModel.findOne({ email: cleanId.toLowerCase() })
+      : (await UserModel.findOne({ phone: cleanId })) || (await UserModel.findOne({ email: cleanId.toLowerCase() }));
+
     if (!user) {
-      throw new Error("User associated with this phone number not found.");
+      throw new Error("User associated with this account not found.");
     }
 
     user.lastLoginAt = new Date();
@@ -389,7 +345,7 @@ export class AuthService {
         organizationId: user.organizationId?.toString() ?? null,
         isEmailVerified: user.isEmailVerified ?? false,
         isPhoneVerified: user.isPhoneVerified ?? false,
-        twoFactorEnabled: user.twoFactorEnabled ?? false,
+        twoFactorEnabled: true,
         mustChangePassword: user.mustChangePassword ?? false,
         canAccessEmail: user.canAccessEmail ?? false,
         avatarUrl: user.avatarUrl ?? null,
