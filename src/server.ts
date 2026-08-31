@@ -20,6 +20,9 @@ import apiRouter from "./interfaces/http/routes/index.js";
 const app = express();
 const httpServer = http.createServer(app);
 
+// ─── Trust Proxy for Render / Cloudflare Reverse Proxies ───
+app.set("trust proxy", 1);
+
 // ─── 1. Security & Hardening Middlewares ───
 app.use(
   helmet({
