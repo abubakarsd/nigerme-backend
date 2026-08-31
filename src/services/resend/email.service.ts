@@ -231,4 +231,59 @@ export class ResendEmailService {
 
     return this.sendEmail({ to, subject, html });
   }
+
+  /**
+   * Sends a Plan / Package Cancellation confirmation email to the workspace administrator
+   */
+  static async sendCancellationEmail(
+    to: string,
+    name: string,
+    organizationName: string,
+    cancelledPackageName: string
+  ): Promise<{ success: boolean; id?: string }> {
+    const subject = `Subscription Update: ${cancelledPackageName} cancelled for ${organizationName}`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; letter-spacing: -0.5px; }
+          .logo span { color: #84cc16; }
+          .badge { display: inline-block; background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
+          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <div class="badge">Subscription Cancelled</div>
+          <h2 class="title">Package Cancellation Notice</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">This is to confirm that the <strong>${cancelledPackageName}</strong> package has been removed and cancelled from your organization <strong>${organizationName}</strong>.</p>
+          <div class="box">
+            <div style="font-size: 13px; color: #94a3b8;">Cancelled Item: <strong style="color: #ffffff;">${cancelledPackageName}</strong></div>
+            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Status: <strong style="color: #f87171;">Cancelled & Auto-debit removed</strong></div>
+          </div>
+          <p class="desc">If this cancellation was unintended, you can re-activate the package at any time in your <a href="https://app.nigerme.com/admin/subscription" style="color: #84cc16;">Subscription & Packages console</a>.</p>
+          <div class="footer">
+            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud Infrastructure.
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to,
+      subject,
+      html,
+      text: `Subscription Update: ${cancelledPackageName} has been cancelled for ${organizationName}.`,
+    });
+  }
 }

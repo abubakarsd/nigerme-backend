@@ -292,6 +292,7 @@ export const typeDefs = gql`
 
     # ── Organization & Domain & Users ──
     updateOrganization(input: UpdateOrganizationInput!): Organization!
+    cancelPackageSubscription(packageId: String!): Organization!
     verifyDomainDns: Organization!
     inviteMember(input: InviteMemberInput!): InvitedMemberPayload!
     updateUserStatus(userId: ID!, status: String!): User!
