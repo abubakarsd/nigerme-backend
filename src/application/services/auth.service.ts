@@ -33,11 +33,17 @@ export interface AuthTokens {
     name: string;
     role: string;
     userType: "saas_admin" | "email_user";
-    phone?: string;
-    organizationId?: string;
+    phone?: string | null;
+    organizationId?: string | null;
+    isEmailVerified: boolean;
+    isPhoneVerified: boolean;
     twoFactorEnabled: boolean;
-    mustChangePassword?: boolean;
-    canAccessEmail?: boolean;
+    mustChangePassword?: boolean | null;
+    canAccessEmail: boolean;
+    avatarUrl?: string | null;
+    status: string;
+    lastLoginAt?: string | null;
+    createdAt: string;
   };
 }
 
@@ -119,11 +125,17 @@ export class AuthService {
         name: user.name,
         role: user.role,
         userType: user.userType,
-        phone: user.phone,
+        phone: user.phone ?? null,
         organizationId: organization._id.toString(),
-        twoFactorEnabled: user.twoFactorEnabled,
-        mustChangePassword: user.mustChangePassword,
-        canAccessEmail: user.canAccessEmail,
+        isEmailVerified: user.isEmailVerified ?? true,
+        isPhoneVerified: user.isPhoneVerified ?? false,
+        twoFactorEnabled: user.twoFactorEnabled ?? false,
+        mustChangePassword: user.mustChangePassword ?? false,
+        canAccessEmail: user.canAccessEmail ?? true,
+        avatarUrl: user.avatarUrl ?? null,
+        status: user.status ?? "active",
+        lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+        createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
       },
     };
   }
@@ -184,11 +196,17 @@ export class AuthService {
           name: user.name,
           role: user.role,
           userType: user.userType,
-          phone: user.phone,
-          organizationId: user.organizationId?.toString(),
-          twoFactorEnabled: user.twoFactorEnabled,
-          mustChangePassword: user.mustChangePassword,
-          canAccessEmail: user.canAccessEmail,
+          phone: user.phone ?? null,
+          organizationId: user.organizationId?.toString() ?? null,
+          isEmailVerified: user.isEmailVerified ?? false,
+          isPhoneVerified: user.isPhoneVerified ?? false,
+          twoFactorEnabled: user.twoFactorEnabled ?? false,
+          mustChangePassword: user.mustChangePassword ?? false,
+          canAccessEmail: user.canAccessEmail ?? false,
+          avatarUrl: user.avatarUrl ?? null,
+          status: user.status ?? "active",
+          lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+          createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
         },
       },
     };
@@ -269,11 +287,17 @@ export class AuthService {
           name: user.name,
           role: user.role,
           userType: user.userType,
-          phone: user.phone,
+          phone: user.phone ?? null,
           organizationId: user.organizationId.toString(),
-          twoFactorEnabled: user.twoFactorEnabled,
-          mustChangePassword: user.mustChangePassword,
-          canAccessEmail: user.canAccessEmail,
+          isEmailVerified: user.isEmailVerified ?? false,
+          isPhoneVerified: user.isPhoneVerified ?? false,
+          twoFactorEnabled: user.twoFactorEnabled ?? false,
+          mustChangePassword: user.mustChangePassword ?? false,
+          canAccessEmail: user.canAccessEmail ?? false,
+          avatarUrl: user.avatarUrl ?? null,
+          status: user.status ?? "active",
+          lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+          createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
         },
       },
     };
@@ -315,11 +339,17 @@ export class AuthService {
         name: user.name,
         role: user.role,
         userType: user.userType,
-        phone: user.phone,
-        organizationId: user.organizationId?.toString(),
-        twoFactorEnabled: user.twoFactorEnabled,
+        phone: user.phone ?? null,
+        organizationId: user.organizationId?.toString() ?? null,
+        isEmailVerified: user.isEmailVerified ?? false,
+        isPhoneVerified: user.isPhoneVerified ?? false,
+        twoFactorEnabled: user.twoFactorEnabled ?? false,
         mustChangePassword: false,
-        canAccessEmail: user.canAccessEmail,
+        canAccessEmail: user.canAccessEmail ?? false,
+        avatarUrl: user.avatarUrl ?? null,
+        status: user.status ?? "active",
+        lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+        createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
       },
     };
   }
@@ -355,11 +385,17 @@ export class AuthService {
         name: user.name,
         role: user.role,
         userType: user.userType,
-        phone: user.phone,
-        organizationId: user.organizationId?.toString(),
-        twoFactorEnabled: user.twoFactorEnabled,
-        mustChangePassword: user.mustChangePassword,
-        canAccessEmail: user.canAccessEmail,
+        phone: user.phone ?? null,
+        organizationId: user.organizationId?.toString() ?? null,
+        isEmailVerified: user.isEmailVerified ?? false,
+        isPhoneVerified: user.isPhoneVerified ?? false,
+        twoFactorEnabled: user.twoFactorEnabled ?? false,
+        mustChangePassword: user.mustChangePassword ?? false,
+        canAccessEmail: user.canAccessEmail ?? false,
+        avatarUrl: user.avatarUrl ?? null,
+        status: user.status ?? "active",
+        lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+        createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
       },
     };
   }
