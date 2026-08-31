@@ -16,6 +16,7 @@ import { globalLimiter } from "./interfaces/http/middlewares/rateLimiter.middlew
 import { errorHandler } from "./interfaces/http/middlewares/error.middleware.js";
 import { PaymentController } from "./interfaces/http/controllers/payment.controller.js";
 import apiRouter from "./interfaces/http/routes/index.js";
+import { SubscriptionCronService } from "./services/billing/subscription-cron.service.js";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -240,6 +241,8 @@ async function bootstrap() {
       console.log(`🔮 GraphQL API & Studio Sandbox: http://localhost:${env.PORT}/graphql`);
       console.log(`💳 Paystack Webhook Listener: http://localhost:${env.PORT}/webhooks/paystack`);
       console.log(`🔒 Environment: ${env.NODE_ENV}`);
+      // Launch recurring subscription lifecycle & auto-debit worker
+      SubscriptionCronService.startScheduler();
     });
 
     // Graceful Shutdown

@@ -12,6 +12,7 @@ import { PackageService } from "../application/services/package.service.js";
 import { UserModel, OrganizationModel, TransactionModel, KycRecordModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService } from "../application/services/otp.service.js";
+import { INITIAL_PACKAGES } from "../infrastructure/database/seeds/package.seed.js";
 
 export const resolvers = {
   Query: {
@@ -279,6 +280,72 @@ export const resolvers = {
           org.name,
           pkgName
         ).catch((err) => console.error("⚠️ Failed to send cancellation email:", err));
+      }
+
+      return {
+        ...org.toObject(),
+        id: org._id.toString(),
+        walletBalance: org.walletBalance / 100,
+      };
+    },
+
+    activateSubscriptionFromWallet: async (
+      _: any,
+      {
+        packageIds,
+        billingCycle,
+        totalSeats,
+      }: { packageIds: string[]; billingCycle: string; totalSeats: number },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      const user = await UserModel.findById(authUser.userId);
+
+      // Calculate total cost
+      let totalCostInNaira = 0;
+      for (const pkgId of packageIds) {
+        const pkg = INITIAL_PACKAGES.find((p) => p.packageId === pkgId);
+        if (pkg) {
+          totalCostInNaira += billingCycle === "ANNUAL" ? pkg.priceAnnual : pkg.priceMonthly;
+        }
+      }
+      if (totalCostInNaira === 0) totalCostInNaira = 15000;
+
+      const costInKobo = totalCostInNaira * 100;
+      if ((org.walletBalance || 0) < costInKobo) {
+        throw new Error(
+          `Insufficient wallet balance. Total required is ₦${totalCostInNaira.toLocaleString()}, but available wallet balance is ₦${((org.walletBalance || 0) / 100).toLocaleString()}. Please fund your wallet to activate.`
+        );
+      }
+
+      // Deduct from wallet
+      org.walletBalance = (org.walletBalance || 0) - costInKobo;
+      org.subscribedPackages = packageIds;
+      org.billingCycle = billingCycle as any;
+      org.totalSeats = totalSeats;
+      org.subscriptionStatus = "ACTIVE";
+      org.subscriptionStartsAt = new Date();
+      const periodDays = billingCycle === "ANNUAL" ? 365 : 30;
+      const nextDue = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000);
+      org.subscriptionExpiresAt = nextDue;
+      org.gracePeriodEndsAt = undefined;
+      org.isSuspended = false;
+      org.lastBillingReminderType = undefined;
+      await org.save();
+
+      // Dispatch receipt email via Resend
+      if (user && user.email) {
+        ResendEmailService.sendWalletDebitedReceipt(
+          user.email,
+          user.name || "Administrator",
+          org.name,
+          totalCostInNaira,
+          nextDue.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        ).catch((err) => console.error("⚠️ Failed to send wallet debited receipt email:", err));
       }
 
       return {

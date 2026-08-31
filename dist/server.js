@@ -21,6 +21,7 @@ const rateLimiter_middleware_js_1 = require("./interfaces/http/middlewares/rateL
 const error_middleware_js_1 = require("./interfaces/http/middlewares/error.middleware.js");
 const payment_controller_js_1 = require("./interfaces/http/controllers/payment.controller.js");
 const index_js_1 = __importDefault(require("./interfaces/http/routes/index.js"));
+const subscription_cron_service_js_1 = require("./services/billing/subscription-cron.service.js");
 const app = (0, express_1.default)();
 const httpServer = http_1.default.createServer(app);
 // ─── Trust Proxy for Render / Cloudflare Reverse Proxies ───
@@ -200,6 +201,8 @@ async function bootstrap() {
             console.log(`🔮 GraphQL API & Studio Sandbox: http://localhost:${env_js_1.env.PORT}/graphql`);
             console.log(`💳 Paystack Webhook Listener: http://localhost:${env_js_1.env.PORT}/webhooks/paystack`);
             console.log(`🔒 Environment: ${env_js_1.env.NODE_ENV}`);
+            // Launch recurring subscription lifecycle & auto-debit worker
+            subscription_cron_service_js_1.SubscriptionCronService.startScheduler();
         });
         // Graceful Shutdown
         const gracefulShutdown = async (signal) => {

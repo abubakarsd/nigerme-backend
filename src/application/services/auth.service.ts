@@ -83,6 +83,9 @@ export class AuthService {
       canAccessEmail: true,
     });
 
+    const trialStartsAt = new Date();
+    const trialEndsAt = new Date(trialStartsAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+
     const organization = await OrganizationModel.create({
       name: dto.organizationName || `${dto.name}'s Organization`,
       domain: domainName,
@@ -92,6 +95,13 @@ export class AuthService {
       kycStatus: "unverified",
       trustLevel: "Tier 1 Sovereign",
       dailySendingLimit: 1000,
+      subscribedPackages: ["org-email", "payroll"],
+      subscriptionStatus: "TRIAL",
+      trialStartsAt,
+      trialEndsAt,
+      subscriptionStartsAt: trialStartsAt,
+      subscriptionExpiresAt: trialEndsAt,
+      isSuspended: false,
     });
 
     user.organizationId = organization._id as any;

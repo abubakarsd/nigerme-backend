@@ -59,6 +59,15 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     autoDebitWallet: Boolean
     totalSeats: Int
     usedSeats: Int
+    subscriptionStatus: String
+    trialStartsAt: String
+    trialEndsAt: String
+    subscriptionStartsAt: String
+    subscriptionExpiresAt: String
+    gracePeriodEndsAt: String
+    isSuspended: Boolean
+    lastBillingReminderSentAt: String
+    lastBillingReminderType: String
     industry: String
     phone: String
     supportEmail: String
@@ -297,6 +306,9 @@ exports.typeDefs = (0, graphql_tag_1.default) `
 
     # ── Organization & Domain & Users ──
     updateOrganization(input: UpdateOrganizationInput!): Organization!
+    subscribePackage(packageId: String!): Organization!
+    cancelPackageSubscription(packageId: String!): Organization!
+    activateSubscriptionFromWallet(packageIds: [String!]!, billingCycle: String!, totalSeats: Int!): Organization!
     verifyDomainDns: Organization!
     inviteMember(input: InviteMemberInput!): InvitedMemberPayload!
     updateUserStatus(userId: ID!, status: String!): User!

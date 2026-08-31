@@ -15,6 +15,7 @@ const package_service_js_1 = require("../application/services/package.service.js
 const index_js_7 = require("../models/index.js");
 const token_manager_js_1 = require("../infrastructure/security/token.manager.js");
 const otp_service_js_1 = require("../application/services/otp.service.js");
+const package_seed_js_1 = require("../infrastructure/database/seeds/package.seed.js");
 exports.resolvers = {
     Query: {
         healthCheck: () => "Nigerme Sovereign GraphQL Backend is operational.",
@@ -180,6 +181,114 @@ exports.resolvers = {
                 ...updated.toObject(),
                 id: updated._id.toString(),
                 walletBalance: updated.walletBalance / 100,
+            };
+        },
+        subscribePackage: async (_, { packageId }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            if (!org)
+                throw new Error("Organization not found");
+            const user = await index_js_7.UserModel.findById(authUser.userId);
+            const current = org.subscribedPackages || ["org-email"];
+            if (!current.includes(packageId)) {
+                current.push(packageId);
+                org.subscribedPackages = current;
+                await org.save();
+            }
+            // Dispatch subscription activation email via Resend
+            if (user && user.email) {
+                const pkgNames = {
+                    "org-email": "Sovereign Business Mailbox",
+                    "payroll": "Sovereign Payroll & PAYE",
+                    "pos": "Commerce POS & Retail Hub",
+                    "logistics": "Fleet & Logistics Tracker",
+                    "hotel": "Hotel PMS & FrontDesk",
+                };
+                const pkgName = pkgNames[packageId] || packageId;
+                index_js_6.ResendEmailService.sendSubscriptionActivatedEmail(user.email, user.name || "Administrator", org.name, pkgName).catch((err) => console.error("⚠️ Failed to send subscription email:", err));
+            }
+            return {
+                ...org.toObject(),
+                id: org._id.toString(),
+                walletBalance: org.walletBalance / 100,
+            };
+        },
+        cancelPackageSubscription: async (_, { packageId }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            if (!org)
+                throw new Error("Organization not found");
+            const user = await index_js_7.UserModel.findById(authUser.userId);
+            const current = org.subscribedPackages || ["org-email"];
+            const next = current.filter((id) => id !== packageId);
+            org.subscribedPackages = next;
+            await org.save();
+            // Dispatch cancellation confirmation email via Resend
+            if (user && user.email) {
+                const pkgNames = {
+                    "org-email": "Sovereign Business Mailbox",
+                    "payroll": "Sovereign Payroll & PAYE",
+                    "pos": "Commerce POS & Retail Hub",
+                    "logistics": "Fleet & Logistics Tracker",
+                    "hotel": "Hotel PMS & FrontDesk",
+                };
+                const pkgName = pkgNames[packageId] || packageId;
+                index_js_6.ResendEmailService.sendCancellationEmail(user.email, user.name || "Administrator", org.name, pkgName).catch((err) => console.error("⚠️ Failed to send cancellation email:", err));
+            }
+            return {
+                ...org.toObject(),
+                id: org._id.toString(),
+                walletBalance: org.walletBalance / 100,
+            };
+        },
+        activateSubscriptionFromWallet: async (_, { packageIds, billingCycle, totalSeats, }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            if (!org)
+                throw new Error("Organization not found");
+            const user = await index_js_7.UserModel.findById(authUser.userId);
+            // Calculate total cost
+            let totalCostInNaira = 0;
+            for (const pkgId of packageIds) {
+                const pkg = package_seed_js_1.INITIAL_PACKAGES.find((p) => p.packageId === pkgId);
+                if (pkg) {
+                    totalCostInNaira += billingCycle === "ANNUAL" ? pkg.priceAnnual : pkg.priceMonthly;
+                }
+            }
+            if (totalCostInNaira === 0)
+                totalCostInNaira = 15000;
+            const costInKobo = totalCostInNaira * 100;
+            if ((org.walletBalance || 0) < costInKobo) {
+                throw new Error(`Insufficient wallet balance. Total required is ₦${totalCostInNaira.toLocaleString()}, but available wallet balance is ₦${((org.walletBalance || 0) / 100).toLocaleString()}. Please fund your wallet to activate.`);
+            }
+            // Deduct from wallet
+            org.walletBalance = (org.walletBalance || 0) - costInKobo;
+            org.subscribedPackages = packageIds;
+            org.billingCycle = billingCycle;
+            org.totalSeats = totalSeats;
+            org.subscriptionStatus = "ACTIVE";
+            org.subscriptionStartsAt = new Date();
+            const periodDays = billingCycle === "ANNUAL" ? 365 : 30;
+            const nextDue = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000);
+            org.subscriptionExpiresAt = nextDue;
+            org.gracePeriodEndsAt = undefined;
+            org.isSuspended = false;
+            org.lastBillingReminderType = undefined;
+            await org.save();
+            // Dispatch receipt email via Resend
+            if (user && user.email) {
+                index_js_6.ResendEmailService.sendWalletDebitedReceipt(user.email, user.name || "Administrator", org.name, totalCostInNaira, nextDue.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })).catch((err) => console.error("⚠️ Failed to send wallet debited receipt email:", err));
+            }
+            return {
+                ...org.toObject(),
+                id: org._id.toString(),
+                walletBalance: org.walletBalance / 100,
             };
         },
         verifyDomainDns: async (_, __, context) => {

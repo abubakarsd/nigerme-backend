@@ -114,6 +114,33 @@ const OrganizationSchema = new mongoose_1.Schema({
         type: Number,
         default: 1,
     },
+    subscriptionStatus: {
+        type: String,
+        enum: ["TRIAL", "ACTIVE", "PAST_DUE", "GRACE_PERIOD", "SUSPENDED", "CANCELLED"],
+        default: "TRIAL",
+        index: true,
+    },
+    trialStartsAt: {
+        type: Date,
+        default: Date.now,
+    },
+    trialEndsAt: {
+        type: Date,
+        default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 Days Free Trial
+    },
+    subscriptionStartsAt: Date,
+    subscriptionExpiresAt: {
+        type: Date,
+        default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+    gracePeriodEndsAt: Date,
+    isSuspended: {
+        type: Boolean,
+        default: false,
+        index: true,
+    },
+    lastBillingReminderSentAt: Date,
+    lastBillingReminderType: String,
     industry: {
         type: String,
         default: "Technology & Enterprise Systems",

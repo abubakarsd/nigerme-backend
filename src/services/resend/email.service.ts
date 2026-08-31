@@ -341,4 +341,203 @@ export class ResendEmailService {
       text: `Subscription Activated: ${packageName} is now active for ${organizationName}.`,
     });
   }
+
+  /**
+   * Sends subscription due reminder (e.g. 4 days before, 1 day before)
+   */
+  static async sendSubscriptionDueReminder(
+    to: string,
+    name: string,
+    organizationName: string,
+    daysRemaining: number,
+    amount: number,
+    cycle: string
+  ): Promise<{ success: boolean; id?: string }> {
+    const urgency = daysRemaining === 1 ? "Urgent: Renewal tomorrow" : `Renewal in ${daysRemaining} days`;
+    const subject = `${urgency} — Nigerme subscription for ${organizationName}`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          .logo span { color: #84cc16; }
+          .badge { display: inline-block; background: rgba(234, 179, 8, 0.15); color: #facc15; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
+          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
+          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; margin-top: 14px; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <div class="badge">Upcoming Renewal</div>
+          <h2 class="title">Subscription Renewal Notice</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">Your organization <strong>${organizationName}</strong> subscription will renew in <strong>${daysRemaining} day${daysRemaining === 1 ? "" : "s"}</strong>.</p>
+          <div class="box">
+            <div style="font-size: 13px; color: #94a3b8;">Renewal Amount: <strong style="color: #ffffff;">₦${amount.toLocaleString()}</strong></div>
+            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Billing Frequency: <strong style="color: #ffffff;">${cycle}</strong></div>
+            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Payment Method: <strong style="color: #84cc16;">Wallet Auto-Debit</strong></div>
+          </div>
+          <p class="desc">Please ensure your organization dedicated wallet has sufficient balance to prevent any service interruptions.</p>
+          <a href="https://app.nigerme.com/admin/billing" class="btn">Check & Fund Wallet</a>
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.sendEmail({ to, subject, html });
+  }
+
+  /**
+   * Sends payment failure & 5-day grace period notice
+   */
+  static async sendPaymentFailedGracePeriodNotice(
+    to: string,
+    name: string,
+    organizationName: string,
+    amount: number,
+    graceDaysLeft: number
+  ): Promise<{ success: boolean; id?: string }> {
+    const subject = `Action Required: Subscription Payment Failed (5-Day Grace Period Active)`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #ef4444/40; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          .logo span { color: #84cc16; }
+          .badge { display: inline-block; background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
+          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
+          .btn { display: inline-block; background-color: #ef4444; color: #ffffff; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; margin-top: 14px; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <div class="badge">Payment Overdue • 5-Day Grace Period</div>
+          <h2 class="title">Automatic Wallet Debit Failed</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">We were unable to renew the subscription for <strong>${organizationName}</strong> due to insufficient wallet balance (<strong>₦${amount.toLocaleString()}</strong> needed).</p>
+          <div class="box">
+            <div style="font-size: 13px; color: #f87171;">Grace Period Remaining: <strong>${graceDaysLeft} Days</strong></div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 6px;">After the 5-day grace period expires, all outbound and inbound email dispatch and operational service modules will be suspended.</div>
+          </div>
+          <p class="desc">Please fund your dedicated wallet immediately to restore active subscription status.</p>
+          <a href="https://app.nigerme.com/admin/billing" class="btn">Fund Wallet Now</a>
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.sendEmail({ to, subject, html });
+  }
+
+  /**
+   * Sends complete service suspension notice
+   */
+  static async sendServiceSuspendedNotice(
+    to: string,
+    name: string,
+    organizationName: string
+  ): Promise<{ success: boolean; id?: string }> {
+    const subject = `Service Suspended: Grace period expired for ${organizationName}`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1.5px solid #ef4444; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          .logo span { color: #84cc16; }
+          .badge { display: inline-block; background: #ef4444; color: #ffffff; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
+          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-size: 14px; margin-top: 16px; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <div class="badge">Workspace Suspended</div>
+          <h2 class="title">Services Temporarily Suspended</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">The 5-day grace period for <strong>${organizationName}</strong> has expired without renewal. In accordance with policy:</p>
+          <ul style="color: #cbd5e1; font-size: 13px; line-height: 1.8;">
+            <li>All outbound email transmission is disabled</li>
+            <li>Inbound email delivery is paused</li>
+            <li>Modular service packages (Payroll, POS, Logistics, Hotel) are locked</li>
+          </ul>
+          <p class="desc">To immediately reactivate your workspace, fund your wallet and click reactivate.</p>
+          <a href="https://app.nigerme.com/admin/billing" class="btn">Reactivate Workspace</a>
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.sendEmail({ to, subject, html });
+  }
+
+  /**
+   * Sends renewal wallet debit receipt
+   */
+  static async sendWalletDebitedReceipt(
+    to: string,
+    name: string,
+    organizationName: string,
+    amount: number,
+    nextDueDate: string
+  ): Promise<{ success: boolean; id?: string }> {
+    const subject = `Receipt: ₦${amount.toLocaleString()} subscription auto-renewed for ${organizationName}`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          .logo span { color: #84cc16; }
+          .badge { display: inline-block; background: rgba(132, 204, 22, 0.15); color: #a3e635; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
+          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <div class="badge">Payment Successful</div>
+          <h2 class="title">Subscription Renewal Receipt</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">Your subscription for <strong>${organizationName}</strong> has been successfully renewed via wallet auto-debit.</p>
+          <div class="box">
+            <div style="font-size: 13px; color: #94a3b8;">Amount Paid: <strong style="color: #ffffff;">₦${amount.toLocaleString()}</strong></div>
+            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Next Due Date: <strong style="color: #84cc16;">${nextDueDate}</strong></div>
+            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Status: <strong style="color: #84cc16;">Active &amp; Paid</strong></div>
+          </div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.sendEmail({ to, subject, html });
+  }
 }
