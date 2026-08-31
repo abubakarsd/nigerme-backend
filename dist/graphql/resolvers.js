@@ -29,13 +29,34 @@ exports.resolvers = {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
                 return null;
-            return index_js_7.OrganizationModel.findById(authUser.organizationId);
+            let org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            if (!org)
+                return null;
+            if (!org.dedicatedVirtualAccount || !org.dedicatedVirtualAccount.accountNumber) {
+                org.dedicatedVirtualAccount = {
+                    accountNumber: "0294819284",
+                    accountName: `Nigerme / ${org.name}`,
+                    bankName: "Wema Bank Plc (Sovereign NIBSS)",
+                    assignedAt: new Date(),
+                };
+                await org.save();
+            }
+            const orgObj = org.toObject();
+            return {
+                ...orgObj,
+                id: org._id.toString(),
+                walletBalance: org.walletBalance / 100, // Return in Naira
+            };
         },
         getOrganizationMembers: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
                 return [];
-            return index_js_7.UserModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: -1 });
+            const users = await index_js_7.UserModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: -1 });
+            return users.map((u) => ({
+                ...u.toObject(),
+                id: u._id.toString(),
+            }));
         },
         getKycStatus: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
@@ -53,9 +74,14 @@ exports.resolvers = {
         },
         getTransactions: async (_, { limit = 50 }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
-            return index_js_7.TransactionModel.find({ organizationId: authUser.organizationId })
+            const txns = await index_js_7.TransactionModel.find({ organizationId: authUser.organizationId })
                 .sort({ createdAt: -1 })
                 .limit(limit);
+            return txns.map((t) => ({
+                ...t.toObject(),
+                id: t._id.toString(),
+                amount: t.amount / 100, // in Naira
+            }));
         },
         getWalletBalance: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
@@ -142,18 +168,60 @@ exports.resolvers = {
                 user,
             };
         },
-        // ─── Organization & Domain ───
+        // ─── Organization & Domain & Users ───
+        updateOrganization: async (_, { input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            const updated = await index_js_7.OrganizationModel.findByIdAndUpdate(authUser.organizationId, { $set: input }, { new: true });
+            if (!updated)
+                throw new Error("Failed to update organization");
+            return {
+                ...updated.toObject(),
+                id: updated._id.toString(),
+                walletBalance: updated.walletBalance / 100,
+            };
+        },
         verifyDomainDns: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
                 throw new Error("No organization found");
-            return organization_service_js_1.OrganizationService.verifyDomainDns(authUser.organizationId);
+            const updated = await organization_service_js_1.OrganizationService.verifyDomainDns(authUser.organizationId);
+            if (!updated)
+                throw new Error("Failed to verify DNS");
+            return {
+                ...updated.toObject(),
+                id: updated._id.toString(),
+                walletBalance: updated.walletBalance / 100,
+            };
         },
         inviteMember: async (_, { input }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
                 throw new Error("No organization found");
-            return organization_service_js_1.OrganizationService.inviteMember(authUser.organizationId, input);
+            const res = await organization_service_js_1.OrganizationService.inviteMember(authUser.organizationId, input);
+            return {
+                user: {
+                    ...res.user.toObject(),
+                    id: res.user._id.toString(),
+                },
+                temporaryPassword: res.temporaryPassword,
+            };
+        },
+        updateUserStatus: async (_, { userId, status }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            const user = await index_js_7.UserModel.findOneAndUpdate({ _id: userId, organizationId: authUser.organizationId }, { $set: { status: status.toLowerCase() } }, { new: true });
+            if (!user)
+                throw new Error("User not found in this organization");
+            return {
+                ...user.toObject(),
+                id: user._id.toString(),
+            };
+        },
+        deleteUser: async (_, { userId }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            const res = await index_js_7.UserModel.findOneAndDelete({ _id: userId, organizationId: authUser.organizationId });
+            return !!res;
         },
         // ─── Storage Mutations (AWS S3) ───
         getPresignedUploadUrl: async (_, { input }, context) => {
@@ -169,7 +237,7 @@ exports.resolvers = {
                 organizationId: authUser.organizationId,
             });
         },
-        // ─── Payment Mutations (Paystack) ───
+        // ─── Payment Mutations (Paystack & Direct) ───
         initializeWalletFunding: async (_, { input }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             return index_js_5.PaystackService.initializeWalletFunding({
@@ -179,6 +247,39 @@ exports.resolvers = {
                 amountInNaira: input.amountInNaira,
                 callbackUrl: input.callbackUrl,
             });
+        },
+        fundWalletDirect: async (_, { amountInNaira, channel = "bank_transfer", description = "Direct Wallet Funding", }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            const amountInKobo = Math.round(amountInNaira * 100);
+            const org = await index_js_7.OrganizationModel.findByIdAndUpdate(authUser.organizationId, { $inc: { walletBalance: amountInKobo } }, { new: true });
+            if (!org)
+                throw new Error("Organization not found");
+            const reference = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            const txn = await index_js_7.TransactionModel.create({
+                organizationId: authUser.organizationId,
+                userId: authUser.userId,
+                reference,
+                type: "wallet_funding",
+                amount: amountInKobo,
+                status: "success",
+                channel: channel || "bank_transfer",
+                currency: "NGN",
+                paidAt: new Date(),
+                metadata: { description },
+            });
+            return {
+                id: txn._id.toString(),
+                reference: txn.reference,
+                type: txn.type,
+                amount: amountInNaira,
+                status: txn.status,
+                channel: txn.channel,
+                currency: txn.currency,
+                paidAt: txn.paidAt?.toISOString(),
+                createdAt: txn.createdAt.toISOString(),
+            };
         },
         // ─── Email Dispatch Mutations (Resend) ───
         sendEmail: async (_, { input }, context) => {

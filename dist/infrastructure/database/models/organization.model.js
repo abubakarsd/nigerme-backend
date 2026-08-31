@@ -93,6 +93,47 @@ const OrganizationSchema = new mongoose_1.Schema({
         type: Number,
         default: 1000,
     },
+    subscribedPackages: {
+        type: [String],
+        default: ["org-email", "payroll"],
+    },
+    billingCycle: {
+        type: String,
+        enum: ["MONTHLY", "ANNUAL"],
+        default: "MONTHLY",
+    },
+    autoDebitWallet: {
+        type: Boolean,
+        default: true,
+    },
+    totalSeats: {
+        type: Number,
+        default: 15,
+    },
+    usedSeats: {
+        type: Number,
+        default: 1,
+    },
+    industry: {
+        type: String,
+        default: "Technology & Enterprise Systems",
+    },
+    phone: {
+        type: String,
+        default: "+234 800 NIGERME",
+    },
+    supportEmail: {
+        type: String,
+        default: "support@nigerme.com",
+    },
+    departments: {
+        type: [mongoose_1.Schema.Types.Mixed],
+        default: [],
+    },
+    roles: {
+        type: [mongoose_1.Schema.Types.Mixed],
+        default: [],
+    },
 }, {
     timestamps: true,
 });
