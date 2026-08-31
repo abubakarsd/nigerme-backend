@@ -1,2 +1,2 @@
-export * from "../../application/services/otp.service.js";
-export { OtpService as TermiiOtpService } from "../../application/services/otp.service.js";
+export * from "./sms.service.js";
+export { SMSService as TermiiOtpService, SMSService as default } from "./sms.service.js";

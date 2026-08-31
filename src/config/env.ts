@@ -61,3 +61,5 @@ const parseEnv = () => {
 };
 
 export const env = parseEnv();
+export const ENV = env;
+export default env;

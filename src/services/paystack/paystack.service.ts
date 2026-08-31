@@ -1,2 +1,2 @@
-export * from "../../application/services/payment.service.js";
-export { PaymentService as PaystackService } from "../../application/services/payment.service.js";
+export * from "./payment.service.js";
+export { PaymentService as PaystackService, PaymentService as default } from "./payment.service.js";
