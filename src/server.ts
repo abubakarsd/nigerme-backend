@@ -42,7 +42,20 @@ app.use(
   })
 );
 
-// ─── 2. Rate Limiting ───
+// ─── 2. Block Sensitive Path Probing ───
+// Immediately return 403 for bots scanning for .env files, .git repos,
+// config leaks etc. These are real automated attacks that hit every
+// public server within minutes of deployment.
+app.use((req, res, next) => {
+  const blocked = /(\.(env|git|htaccess|htpasswd|config|yml|yaml|json|lock)|\/config\/|\/secrets?\/|\/\.well-known\/sensitive)/i;
+  if (blocked.test(req.path)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  next();
+});
+
+// ─── 3. Rate Limiting ───
 app.use("/graphql", globalLimiter);
 
 // ─── 3. Body Parsing & Raw Body Capture (For Paystack Webhooks) ───
