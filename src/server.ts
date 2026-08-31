@@ -150,6 +150,40 @@ async function bootstrap() {
       resolvers,
       plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
       introspection: true, // Enables Schema explorer / playground
+      formatError: (formattedError) => {
+        const message = formattedError.message || "An unexpected error occurred.";
+        let code = formattedError.extensions?.code || "INTERNAL_SERVER_ERROR";
+
+        if (
+          message.includes("Invalid email or password") ||
+          message.includes("Unauthorized") ||
+          message.includes("Incorrect verification code")
+        ) {
+          code = "UNAUTHENTICATED";
+        } else if (
+          message.includes("expired") ||
+          message.includes("validity") ||
+          message.includes("Too many failed attempts")
+        ) {
+          code = "OTP_EXPIRED";
+        } else if (
+          message.includes("already exists") ||
+          message.includes("not found") ||
+          message.includes("required")
+        ) {
+          code = "BAD_USER_INPUT";
+        }
+
+        return {
+          message,
+          locations: formattedError.locations,
+          path: formattedError.path,
+          extensions: {
+            ...formattedError.extensions,
+            code,
+          },
+        };
+      },
     });
 
     await apolloServer.start();
