@@ -1,0 +1,378 @@
+import { UserModel } from "../../infrastructure/database/models/user.model.js";
+import { OrganizationModel } from "../../infrastructure/database/models/organization.model.js";
+import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
+import { OtpService } from "./otp.service.js";
+
+export interface AdminSignupDto {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  organizationName?: string;
+  domain?: string;
+}
+
+export interface LoginDto {
+  email: string;
+  password: string;
+}
+
+export interface SetInitialPasswordDto {
+  email: string;
+  temporaryPassword: string;
+  newPassword: string;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    userType: "saas_admin" | "email_user";
+    phone?: string;
+    organizationId?: string;
+    twoFactorEnabled: boolean;
+    mustChangePassword?: boolean;
+    canAccessEmail?: boolean;
+  };
+}
+
+export class AuthService {
+  /**
+   * 1. SaaS Admin Portal: Registers a new SaaS tenant administrator and creates their company organization
+   */
+  static async signup(dto: AdminSignupDto): Promise<AuthTokens> {
+    const existingUser = await UserModel.findOne({ email: dto.email.toLowerCase() });
+    if (existingUser) {
+      throw new Error("An account with this email address already exists.");
+    }
+
+    const domainName = (dto.domain || dto.organizationName || "mycorp")
+      .toLowerCase()
+      .replace(/[^a-z0-9.-]/g, "")
+      .replace(/^https?:\/\//, "");
+
+    const existingOrg = await OrganizationModel.findOne({ domain: domainName });
+    if (existingOrg) {
+      throw new Error("This domain is already registered. Please contact your administrator.");
+    }
+
+    const passwordHash = await TokenManager.hashPassword(dto.password);
+
+    const user = await UserModel.create({
+      name: dto.name,
+      email: dto.email.toLowerCase(),
+      passwordHash,
+      phone: dto.phone,
+      role: "admin",
+      userType: "saas_admin",
+      status: "active",
+      isEmailVerified: true,
+      twoFactorEnabled: false,
+      mustChangePassword: false,
+      canAccessEmail: true,
+    });
+
+    const organization = await OrganizationModel.create({
+      name: dto.organizationName || `${dto.name}'s Organization`,
+      domain: domainName,
+      ownerId: user._id,
+      plan: "tier1",
+      walletBalance: 0,
+      kycStatus: "unverified",
+      trustLevel: "Tier 1 Sovereign",
+      dailySendingLimit: 1000,
+    });
+
+    user.organizationId = organization._id as any;
+    await user.save();
+
+    const payload: Omit<TokenPayload, "iat" | "exp"> = {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      userType: user.userType,
+      organizationId: organization._id.toString(),
+    };
+
+    const accessToken = TokenManager.generateAccessToken(payload);
+    const refreshToken = TokenManager.generateRefreshToken(payload);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        userType: user.userType,
+        phone: user.phone,
+        organizationId: organization._id.toString(),
+        twoFactorEnabled: user.twoFactorEnabled,
+        mustChangePassword: user.mustChangePassword,
+        canAccessEmail: user.canAccessEmail,
+      },
+    };
+  }
+
+  /**
+   * 2. SaaS Admin Portal Login: Authenticates Organization Owners, Superadmins, and Workspace Managers
+   */
+  static async login(dto: LoginDto): Promise<
+    | { requiresTwoFactor: false; tokens: AuthTokens }
+    | { requiresTwoFactor: true; phone: string; message: string }
+  > {
+    const user = await UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
+    if (!user) {
+      throw new Error("Invalid email or password.");
+    }
+
+    const isMatch = await TokenManager.comparePassword(dto.password, user.passwordHash);
+    if (!isMatch) {
+      throw new Error("Invalid email or password.");
+    }
+
+    if (user.status === "suspended") {
+      throw new Error("Your account has been suspended. Please contact support.");
+    }
+
+    // If 2FA is enabled and user has a verified phone, send Termii OTP
+    if (user.twoFactorEnabled && user.phone) {
+      await OtpService.sendPhoneOtp(user.phone, "login_2fa");
+      return {
+        requiresTwoFactor: true,
+        phone: user.phone,
+        message: "A 6-digit 2FA verification code has been sent to your phone.",
+      };
+    }
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const payload: Omit<TokenPayload, "iat" | "exp"> = {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      userType: user.userType,
+      organizationId: user.organizationId?.toString(),
+    };
+
+    const accessToken = TokenManager.generateAccessToken(payload);
+    const refreshToken = TokenManager.generateRefreshToken(payload);
+
+    return {
+      requiresTwoFactor: false,
+      tokens: {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user._id.toString(),
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          userType: user.userType,
+          phone: user.phone,
+          organizationId: user.organizationId?.toString(),
+          twoFactorEnabled: user.twoFactorEnabled,
+          mustChangePassword: user.mustChangePassword,
+          canAccessEmail: user.canAccessEmail,
+        },
+      },
+    };
+  }
+
+  /**
+   * 3. Webmail User Login: For added organization email users only
+   * (Users CANNOT publicly sign up; they can only log in once added by their admin)
+   */
+  static async mailLogin(dto: LoginDto): Promise<
+    | { requiresTwoFactor: false; mustChangePassword?: boolean; tokens: AuthTokens }
+    | { requiresTwoFactor: true; phone: string; message: string }
+  > {
+    const user = await UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
+    if (!user) {
+      throw new Error(
+        "Mailbox account not found. Please contact your organization administrator to add your email address."
+      );
+    }
+
+    // Must belong to an organization
+    if (!user.organizationId) {
+      throw new Error("This account is not associated with an active organization mailbox.");
+    }
+
+    const org = await OrganizationModel.findById(user.organizationId);
+    if (!org) {
+      throw new Error("Organization domain is unavailable or inactive.");
+    }
+
+    // Check account status
+    if (user.status === "suspended") {
+      throw new Error("Your mailbox has been suspended by the organization administrator.");
+    }
+
+    if (!user.canAccessEmail) {
+      throw new Error("Email access is not enabled for your account. Please contact your administrator.");
+    }
+
+    const isMatch = await TokenManager.comparePassword(dto.password, user.passwordHash);
+    if (!isMatch) {
+      throw new Error("Incorrect mailbox password.");
+    }
+
+    // If 2FA is active
+    if (user.twoFactorEnabled && user.phone) {
+      await OtpService.sendPhoneOtp(user.phone, "login_2fa");
+      return {
+        requiresTwoFactor: true,
+        phone: user.phone,
+        message: "A 6-digit 2FA verification code has been dispatched to your phone.",
+      };
+    }
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const payload: Omit<TokenPayload, "iat" | "exp"> = {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      userType: user.userType,
+      organizationId: user.organizationId.toString(),
+    };
+
+    const accessToken = TokenManager.generateAccessToken(payload);
+    const refreshToken = TokenManager.generateRefreshToken(payload);
+
+    return {
+      requiresTwoFactor: false,
+      mustChangePassword: user.mustChangePassword,
+      tokens: {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user._id.toString(),
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          userType: user.userType,
+          phone: user.phone,
+          organizationId: user.organizationId.toString(),
+          twoFactorEnabled: user.twoFactorEnabled,
+          mustChangePassword: user.mustChangePassword,
+          canAccessEmail: user.canAccessEmail,
+        },
+      },
+    };
+  }
+
+  /**
+   * 4. Initial Password Setup: Allows newly added email users to set a permanent password
+   */
+  static async setInitialPassword(dto: SetInitialPasswordDto): Promise<AuthTokens> {
+    const user = await UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
+    if (!user) {
+      throw new Error("User account not found.");
+    }
+
+    const isMatch = await TokenManager.comparePassword(dto.temporaryPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new Error("Invalid temporary password.");
+    }
+
+    user.passwordHash = await TokenManager.hashPassword(dto.newPassword);
+    user.mustChangePassword = false;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const payload: Omit<TokenPayload, "iat" | "exp"> = {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      userType: user.userType,
+      organizationId: user.organizationId?.toString(),
+    };
+
+    return {
+      accessToken: TokenManager.generateAccessToken(payload),
+      refreshToken: TokenManager.generateRefreshToken(payload),
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        userType: user.userType,
+        phone: user.phone,
+        organizationId: user.organizationId?.toString(),
+        twoFactorEnabled: user.twoFactorEnabled,
+        mustChangePassword: false,
+        canAccessEmail: user.canAccessEmail,
+      },
+    };
+  }
+
+  /**
+   * 5. Finalizes login after 2FA OTP verification
+   */
+  static async verify2faAndLogin(phone: string, code: string): Promise<AuthTokens> {
+    await OtpService.verifyPhoneOtp(phone, code, "login_2fa");
+
+    const user = await UserModel.findOne({ phone });
+    if (!user) {
+      throw new Error("User associated with this phone number not found.");
+    }
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const payload: Omit<TokenPayload, "iat" | "exp"> = {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      userType: user.userType,
+      organizationId: user.organizationId?.toString(),
+    };
+
+    return {
+      accessToken: TokenManager.generateAccessToken(payload),
+      refreshToken: TokenManager.generateRefreshToken(payload),
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        userType: user.userType,
+        phone: user.phone,
+        organizationId: user.organizationId?.toString(),
+        twoFactorEnabled: user.twoFactorEnabled,
+        mustChangePassword: user.mustChangePassword,
+        canAccessEmail: user.canAccessEmail,
+      },
+    };
+  }
+
+  /**
+   * 6. Rotates refreshed JWT
+   */
+  static async refreshSession(refreshToken: string): Promise<{ accessToken: string }> {
+    const payload = TokenManager.verifyRefreshToken(refreshToken);
+    const user = await UserModel.findById(payload.userId);
+    if (!user || user.status !== "active") {
+      throw new Error("User session invalid or revoked.");
+    }
+
+    const newAccessToken = TokenManager.generateAccessToken({
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      userType: user.userType,
+      organizationId: user.organizationId?.toString(),
+    });
+
+    return { accessToken: newAccessToken };
+  }
+}
