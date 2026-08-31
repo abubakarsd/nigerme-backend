@@ -202,6 +202,50 @@ export const resolvers = {
       };
     },
 
+    subscribePackage: async (
+      _: any,
+      { packageId }: { packageId: string },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      const user = await UserModel.findById(authUser.userId);
+
+      const current = org.subscribedPackages || ["org-email"];
+      if (!current.includes(packageId)) {
+        current.push(packageId);
+        org.subscribedPackages = current;
+        await org.save();
+      }
+
+      // Dispatch subscription activation email via Resend
+      if (user && user.email) {
+        const pkgNames: Record<string, string> = {
+          "org-email": "Sovereign Business Mailbox",
+          "payroll": "Sovereign Payroll & PAYE",
+          "pos": "Commerce POS & Retail Hub",
+          "logistics": "Fleet & Logistics Tracker",
+          "hotel": "Hotel PMS & FrontDesk",
+        };
+        const pkgName = pkgNames[packageId] || packageId;
+        ResendEmailService.sendSubscriptionActivatedEmail(
+          user.email,
+          user.name || "Administrator",
+          org.name,
+          pkgName
+        ).catch((err) => console.error("⚠️ Failed to send subscription email:", err));
+      }
+
+      return {
+        ...org.toObject(),
+        id: org._id.toString(),
+        walletBalance: org.walletBalance / 100,
+      };
+    },
+
     cancelPackageSubscription: async (
       _: any,
       { packageId }: { packageId: string },

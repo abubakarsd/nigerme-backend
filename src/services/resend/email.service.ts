@@ -286,4 +286,59 @@ export class ResendEmailService {
       text: `Subscription Update: ${cancelledPackageName} has been cancelled for ${organizationName}.`,
     });
   }
+
+  /**
+   * Sends a Plan / Package Subscription confirmation email to the workspace administrator
+   */
+  static async sendSubscriptionActivatedEmail(
+    to: string,
+    name: string,
+    organizationName: string,
+    packageName: string
+  ): Promise<{ success: boolean; id?: string }> {
+    const subject = `Subscription Activated: ${packageName} is now live for ${organizationName}`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; letter-spacing: -0.5px; }
+          .logo span { color: #84cc16; }
+          .badge { display: inline-block; background: rgba(132, 204, 22, 0.15); color: #a3e635; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
+          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <div class="badge">Subscription Activated</div>
+          <h2 class="title">Package Activated Successfully</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">Congratulations! The <strong>${packageName}</strong> package has been successfully activated for your organization <strong>${organizationName}</strong>.</p>
+          <div class="box">
+            <div style="font-size: 13px; color: #94a3b8;">Subscribed Module: <strong style="color: #ffffff;">${packageName}</strong></div>
+            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Status: <strong style="color: #84cc16;">Active & Provisioned</strong></div>
+          </div>
+          <p class="desc">All members in your workspace now have immediate access to this module.</p>
+          <div class="footer">
+            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud Infrastructure.
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to,
+      subject,
+      html,
+      text: `Subscription Activated: ${packageName} is now active for ${organizationName}.`,
+    });
+  }
 }
