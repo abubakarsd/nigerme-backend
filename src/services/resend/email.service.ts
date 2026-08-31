@@ -121,31 +121,61 @@ export class ResendEmailService {
    * Sends a Welcome email to newly registered organization owners
    */
   static async sendWelcomeEmail(to: string, name: string, organizationName: string, domain: string): Promise<{ success: boolean; id?: string }> {
-    const subject = `Welcome to Nigerme — Workspace Provisioned for ${organizationName}`;
+    const subject = `Welcome to Nigerme — Action Required: Verify your domain ${domain}`;
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8faf7; color: #18181b; margin: 0; padding: 24px; }
-          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 20px; padding: 36px; }
-          .logo { font-size: 22px; font-weight: 800; color: #09090b; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; margin-top: 16px; }
-          .desc { font-size: 14px; color: #52525b; line-height: 1.6; }
-          .footer { font-size: 12px; color: #a1a1aa; border-top: 1px solid #f4f4f5; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .badge { display: inline-block; background: rgba(132, 204, 22, 0.15); color: #a3e635; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
+          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-size: 14px; margin: 20px 0; text-align: center; }
+          .step-card { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 16px 20px; margin-bottom: 12px; }
+          .step-num { font-size: 11px; font-weight: 800; color: #84cc16; text-transform: uppercase; margin-bottom: 4px; }
+          .step-title { font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 4px; }
+          .step-desc { font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="logo">niger<span>me</span></div>
-          <h2 style="margin: 0 0 16px; font-size: 22px; color: #09090b;">Welcome, ${name}!</h2>
-          <p class="desc">Your sovereign company workspace for <strong>${organizationName}</strong> (<code>${domain}</code>) is ready.</p>
-          <p class="desc">You can now access your encrypted mailboxes, task boards, organizational calendars, and domain security verification tools.</p>
-          <p><a href="https://nigerme.com/admin" class="btn">Open Workspace Admin</a></p>
+          <div class="badge">Sovereign Workspace Ready</div>
+          <h2 style="margin: 0 0 12px; font-size: 22px; color: #ffffff;">Welcome to Nigerme, ${name}!</h2>
+          <p class="desc">Your enterprise organization <strong>${organizationName}</strong> has been successfully provisioned on the sovereign cloud with domain <code>${domain}</code>.</p>
+          
+          <div style="margin: 24px 0 16px;">
+            <div class="step-card">
+              <div class="step-num">Step 1 — Essential</div>
+              <div class="step-title">Verify your DNS Records</div>
+              <p class="step-desc">Add your SPF (TXT), DKIM (CNAME), DMARC (TXT), and MX records in your domain registrar (Namecheap, GoDaddy, Cloudflare) to activate enterprise inbound and outbound email routing.</p>
+            </div>
+
+            <div class="step-card">
+              <div class="step-num">Step 2</div>
+              <div class="step-title">Provision Team Mailboxes & Roles</div>
+              <p class="step-desc">Create custom email accounts (e.g. <code>info@${domain}</code>) for your staff and configure granular department permissions.</p>
+            </div>
+
+            <div class="step-card">
+              <div class="step-num">Step 3</div>
+              <div class="step-title">Access Integrated Apps</div>
+              <p class="step-desc">Manage Payroll, POS billing, Sovereign Storage, Calendar, and Logistics directly inside your workspace.</p>
+            </div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="https://swiftmail-dashboard.vercel.app/admin/domains" class="btn">Configure & Verify DNS Domain &rarr;</a>
+          </div>
+
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.<br>
+            Protected by End-to-End Cryptography & Real-Time Threat Intelligence.
           </div>
         </div>
       </body>
