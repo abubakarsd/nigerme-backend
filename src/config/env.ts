@@ -10,7 +10,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default("*"),
 
   // MongoDB
-  MONGODB_URI: z.string().default("mongodb://127.0.0.1:27017/nigerme_enterprise"),
+  MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
   MONGODB_MAX_POOL_SIZE: z.coerce.number().default(10),
 
   // Security & JWT
