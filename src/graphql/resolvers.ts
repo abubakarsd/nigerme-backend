@@ -4,6 +4,7 @@ import { TermiiOtpService } from "../services/termii/index.js";
 import { ProvnKycService } from "../services/provn/index.js";
 import { AwsS3Service } from "../services/aws/index.js";
 import { PaystackService } from "../services/paystack/index.js";
+import { ResendEmailService } from "../services/resend/index.js";
 import { OrganizationService } from "../application/services/organization.service.js";
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
@@ -177,6 +178,32 @@ export const resolvers = {
         amountInNaira: input.amountInNaira,
         callbackUrl: input.callbackUrl,
       });
+    },
+
+    // ─── Email Dispatch Mutations (Resend) ───
+    sendEmail: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      requireAuth(context);
+      const result = await ResendEmailService.sendEmail({
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+      });
+      return {
+        success: result.success,
+        message: result.success ? `Email sent successfully (ID: ${result.id})` : (result.error || "Failed to send email"),
+      };
+    },
+
+    sendOtpEmail: async (_: any, { email }: { email: string }) => {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const user = await UserModel.findOne({ email: email.toLowerCase() });
+      const name = user ? user.name : "User";
+      const result = await ResendEmailService.sendOtpEmail(email, name, code, 10);
+      return {
+        success: result.success,
+        message: result.success ? `Verification code dispatched to ${email}` : (result.error || "Failed to send OTP email"),
+      };
     },
   },
 };

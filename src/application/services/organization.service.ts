@@ -1,6 +1,7 @@
 import { OrganizationModel, IOrganization } from "../../infrastructure/database/models/organization.model.js";
 import { UserModel, IUser } from "../../infrastructure/database/models/user.model.js";
 import { TokenManager } from "../../infrastructure/security/token.manager.js";
+import { ResendEmailService } from "../../services/resend/index.js";
 
 export interface UpdateOrganizationDto {
   name?: string;
@@ -78,6 +79,19 @@ export class OrganizationService {
       canAccessEmail: true,
       mailboxQuotaMb: 5120,
       mailboxUsedMb: 0,
+    });
+
+    // Asynchronously dispatch member invitation email with temporary password
+    OrganizationModel.findById(orgId).then((org) => {
+      if (org) {
+        ResendEmailService.sendMemberInvitationEmail(
+          user.email,
+          user.name,
+          org.name,
+          org.domain,
+          tempPassword
+        ).catch((err) => console.error("⚠️ Failed to send member invitation email:", err));
+      }
     });
 
     return {

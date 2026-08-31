@@ -2,6 +2,7 @@ import { UserModel } from "../../infrastructure/database/models/user.model.js";
 import { OrganizationModel } from "../../infrastructure/database/models/organization.model.js";
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
 import { OtpService } from "./otp.service.js";
+import { ResendEmailService } from "../../services/resend/index.js";
 
 export interface AdminSignupDto {
   name: string;
@@ -100,6 +101,14 @@ export class AuthService {
 
     const accessToken = TokenManager.generateAccessToken(payload);
     const refreshToken = TokenManager.generateRefreshToken(payload);
+
+    // Asynchronously dispatch welcome onboarding email via Resend
+    ResendEmailService.sendWelcomeEmail(
+      user.email,
+      user.name,
+      organization.name,
+      organization.domain
+    ).catch((err) => console.error("⚠️ Failed to send welcome email:", err));
 
     return {
       accessToken,

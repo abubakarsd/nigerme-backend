@@ -232,5 +232,21 @@ export const typeDefs = gql`
 
     # ── Payments (Paystack) ──
     initializeWalletFunding(input: FundWalletInput!): PaymentInitPayload!
+
+    # ── Email Dispatch (Resend) ──
+    sendEmail(input: SendEmailInput!): EmailResponse!
+    sendOtpEmail(email: String!): EmailResponse!
+  }
+
+  type EmailResponse {
+    success: Boolean!
+    message: String!
+  }
+
+  input SendEmailInput {
+    to: String!
+    subject: String!
+    html: String!
+    text: String
   }
 `;
