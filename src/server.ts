@@ -88,6 +88,11 @@ if (env.NODE_ENV !== "test") {
 // (Paystack server sends standard HTTP POST webhooks with HMAC headers)
 app.post("/webhooks/paystack", PaymentController.handleWebhook);
 
+// ─── Favicon Handler ───
+app.get("/favicon.ico", (_req, res) => {
+  res.status(204).end();
+});
+
 // ─── 7. Root Route — API Info ───
 app.get("/", (_req, res) => {
   res.status(200).json({
