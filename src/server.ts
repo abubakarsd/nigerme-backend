@@ -28,9 +28,14 @@ app.use(
   })
 );
 
+const allowedOrigins =
+  env.CORS_ORIGIN === "*"
+    ? true
+    : env.CORS_ORIGIN.split(",").map((o) => o.trim());
+
 app.use(
   cors({
-    origin: env.CORS_ORIGIN.split(",").map((o) => o.trim()),
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "x-paystack-signature", "x-api-key"],
