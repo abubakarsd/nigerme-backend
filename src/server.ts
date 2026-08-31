@@ -72,7 +72,23 @@ if (env.NODE_ENV !== "test") {
 // (Paystack server sends standard HTTP POST webhooks with HMAC headers)
 app.post("/webhooks/paystack", PaymentController.handleWebhook);
 
-// ─── 7. Health Check REST Endpoint ───
+// ─── 7. Root Route — API Info ───
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    service: "Nigerme Enterprise GraphQL API",
+    version: "1.0.0",
+    status: "operational",
+    endpoints: {
+      graphql: "/graphql",
+      health: "/health",
+      webhook: "/webhooks/paystack",
+    },
+    docs: "Use /graphql for all API queries and mutations.",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── 8. Health Check REST Endpoint ───
 app.get("/health", (_req, res) => {
   res.status(200).json({
     status: "healthy",
