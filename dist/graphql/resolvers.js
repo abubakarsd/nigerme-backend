@@ -16,8 +16,6 @@ const index_js_7 = require("../models/index.js");
 const token_manager_js_1 = require("../infrastructure/security/token.manager.js");
 const otp_service_js_1 = require("../application/services/otp.service.js");
 const package_seed_js_1 = require("../infrastructure/database/seeds/package.seed.js");
-const permission_seed_js_1 = require("../infrastructure/database/seeds/permission.seed.js");
-const role_seed_js_1 = require("../infrastructure/database/seeds/role.seed.js");
 async function formatUserWithPermissions(userDoc) {
     if (!userDoc)
         return null;
@@ -222,7 +220,14 @@ exports.resolvers = {
             const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
             if (!org)
                 return [];
-            return (org.departments || []).map((d) => ({
+            const uniqueDeptMap = new Map();
+            for (const d of org.departments || []) {
+                const key = (d.name || "").toLowerCase().trim();
+                if (key && !uniqueDeptMap.has(key)) {
+                    uniqueDeptMap.set(key, d);
+                }
+            }
+            return Array.from(uniqueDeptMap.values()).map((d) => ({
                 ...d,
                 id: d.id || d._id?.toString() || String(Math.random()),
                 memberIds: d.memberIds || [],
@@ -230,11 +235,7 @@ exports.resolvers = {
             }));
         },
         getPermissions: async () => {
-            let perms = await index_js_7.PermissionModel.find().sort({ category: 1, key: 1 });
-            if (perms.length === 0) {
-                await (0, permission_seed_js_1.seedPermissions)();
-                perms = await index_js_7.PermissionModel.find().sort({ category: 1, key: 1 });
-            }
+            const perms = await index_js_7.PermissionModel.find().sort({ category: 1, key: 1 });
             return perms.map((p) => ({
                 id: p._id.toString(),
                 key: p.key,
@@ -248,11 +249,15 @@ exports.resolvers = {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
                 return [];
-            let roles = await index_js_7.RoleModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: 1 });
-            if (roles.length === 0) {
-                roles = (await (0, role_seed_js_1.seedOrganizationDefaultRoles)(authUser.organizationId));
+            const roles = await index_js_7.RoleModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: 1 });
+            const uniqueRoleMap = new Map();
+            for (const r of roles) {
+                const key = r.name.toLowerCase().trim();
+                if (!uniqueRoleMap.has(key)) {
+                    uniqueRoleMap.set(key, r);
+                }
             }
-            return roles.map((r) => ({
+            return Array.from(uniqueRoleMap.values()).map((r) => ({
                 id: r._id.toString(),
                 name: r.name,
                 description: r.description,

@@ -226,7 +226,16 @@ export const resolvers = {
       if (!authUser.organizationId) return [];
       const org = await OrganizationModel.findById(authUser.organizationId);
       if (!org) return [];
-      return (org.departments || []).map((d: any) => ({
+
+      const uniqueDeptMap = new Map<string, any>();
+      for (const d of org.departments || []) {
+        const key = (d.name || "").toLowerCase().trim();
+        if (key && !uniqueDeptMap.has(key)) {
+          uniqueDeptMap.set(key, d);
+        }
+      }
+
+      return Array.from(uniqueDeptMap.values()).map((d: any) => ({
         ...d,
         id: d.id || d._id?.toString() || String(Math.random()),
         memberIds: d.memberIds || [],
@@ -235,11 +244,7 @@ export const resolvers = {
     },
 
     getPermissions: async () => {
-      let perms = await PermissionModel.find().sort({ category: 1, key: 1 });
-      if (perms.length === 0) {
-        await seedPermissions();
-        perms = await PermissionModel.find().sort({ category: 1, key: 1 });
-      }
+      const perms = await PermissionModel.find().sort({ category: 1, key: 1 });
       return perms.map((p) => ({
         id: p._id.toString(),
         key: p.key,
@@ -253,11 +258,17 @@ export const resolvers = {
     getOrganizationRoles: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return [];
-      let roles = await RoleModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: 1 });
-      if (roles.length === 0) {
-        roles = (await seedOrganizationDefaultRoles(authUser.organizationId)) as any[];
+      const roles = await RoleModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: 1 });
+
+      const uniqueRoleMap = new Map<string, any>();
+      for (const r of roles) {
+        const key = r.name.toLowerCase().trim();
+        if (!uniqueRoleMap.has(key)) {
+          uniqueRoleMap.set(key, r);
+        }
       }
-      return roles.map((r) => ({
+
+      return Array.from(uniqueRoleMap.values()).map((r) => ({
         id: r._id.toString(),
         name: r.name,
         description: r.description,
