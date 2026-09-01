@@ -40,12 +40,27 @@ class AuthService {
         });
         const trialStartsAt = new Date();
         const trialEndsAt = new Date(trialStartsAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+        // Asynchronously or synchronously provision domain in Resend using RESEND_ORG_API
+        let resendDomainInfo = null;
+        try {
+            const domResult = await index_js_1.ResendDomainService.findOrCreateDomain(domainName);
+            if (domResult.success && domResult.data) {
+                resendDomainInfo = domResult.data;
+            }
+        }
+        catch (err) {
+            console.warn("⚠️ Resend domain provisioning warning during signup:", err.message);
+        }
         const organization = await organization_model_js_1.OrganizationModel.create({
             name: dto.organizationName || `${dto.name}'s Organization`,
             domain: domainName,
             ownerId: user._id,
             plan: "tier1",
             walletBalance: 0,
+            resendDomainId: resendDomainInfo?.id,
+            resendStatus: resendDomainInfo?.status || "not_started",
+            resendRegion: resendDomainInfo?.region || "us-east-1",
+            resendRecords: resendDomainInfo?.records || [],
             kycStatus: "unverified",
             trustLevel: "Tier 1 Sovereign",
             dailySendingLimit: 1000,

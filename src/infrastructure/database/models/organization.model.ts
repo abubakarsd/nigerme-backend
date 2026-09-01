@@ -1,5 +1,15 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+export interface IResendDnsRecord {
+  record: string; // "SPF" | "DKIM" | "Tracking" | "MX" | "TXT" | "CNAME"
+  name: string;
+  type: string; // "MX" | "TXT" | "CNAME"
+  value: string;
+  ttl?: string;
+  status?: string; // "not_started" | "pending" | "verified" | "failed"
+  priority?: number;
+}
+
 export interface IOrganization extends Document {
   name: string;
   domain: string;
@@ -19,6 +29,10 @@ export interface IOrganization extends Document {
     mxStatus: "pending" | "verified" | "failed";
     lastCheckedAt?: Date;
   };
+  resendDomainId?: string;
+  resendStatus?: string;
+  resendRegion?: string;
+  resendRecords?: IResendDnsRecord[];
   kycStatus: "unverified" | "submitted" | "verified" | "rejected";
   trustLevel: "Tier 1 Sovereign" | "Tier 2 Sovereign" | "Tier 3 Sovereign";
   dailySendingLimit: number;
@@ -89,6 +103,29 @@ const OrganizationSchema = new Schema<IOrganization>(
       mxStatus: { type: String, enum: ["pending", "verified", "failed"], default: "pending" },
       lastCheckedAt: Date,
     },
+    resendDomainId: {
+      type: String,
+      index: true,
+    },
+    resendStatus: {
+      type: String,
+      default: "not_started",
+    },
+    resendRegion: {
+      type: String,
+      default: "us-east-1",
+    },
+    resendRecords: [
+      {
+        record: String,
+        name: String,
+        type: { type: String },
+        value: String,
+        ttl: String,
+        status: String,
+        priority: Number,
+      },
+    ],
     kycStatus: {
       type: String,
       enum: ["unverified", "submitted", "verified", "rejected"],

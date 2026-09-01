@@ -78,6 +78,29 @@ const OrganizationSchema = new mongoose_1.Schema({
         mxStatus: { type: String, enum: ["pending", "verified", "failed"], default: "pending" },
         lastCheckedAt: Date,
     },
+    resendDomainId: {
+        type: String,
+        index: true,
+    },
+    resendStatus: {
+        type: String,
+        default: "not_started",
+    },
+    resendRegion: {
+        type: String,
+        default: "us-east-1",
+    },
+    resendRecords: [
+        {
+            record: String,
+            name: String,
+            type: { type: String },
+            value: String,
+            ttl: String,
+            status: String,
+            priority: Number,
+        },
+    ],
     kycStatus: {
         type: String,
         enum: ["unverified", "submitted", "verified", "rejected"],

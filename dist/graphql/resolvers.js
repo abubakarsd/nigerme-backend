@@ -32,7 +32,7 @@ exports.resolvers = {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
                 return null;
-            let org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            let org = await organization_service_js_1.OrganizationService.getById(authUser.organizationId);
             if (!org)
                 return null;
             if (!org.dedicatedVirtualAccount || !org.dedicatedVirtualAccount.accountNumber) {

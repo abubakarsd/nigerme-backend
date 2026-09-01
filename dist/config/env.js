@@ -47,9 +47,10 @@ const envSchema = zod_1.z.object({
     PAYSTACK_PUBLIC_KEY: zod_1.z.string().optional().default(""),
     PAYSTACK_WEBHOOK_SECRET: zod_1.z.string().optional().default(""),
     PAYSTACK_BASE_URL: zod_1.z.string().url().default("https://api.paystack.co"),
-    // Resend Email Service
+    // Resend Email & Domain Service
     RESEND_API: zod_1.z.string().optional().default(""),
     RESEND_API_KEY: zod_1.z.string().optional().default(""),
+    RESEND_ORG_API: zod_1.z.string().optional().default(""),
     EMAIL_SENDER: zod_1.z.string().default("Nigerme Workspace <no-reply@vynxtechnology.com>"),
 });
 const parseEnv = () => {

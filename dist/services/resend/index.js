@@ -16,5 +16,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = void 0;
 __exportStar(require("./email.service.js"), exports);
+__exportStar(require("./domain.service.js"), exports);
 var email_service_js_1 = require("./email.service.js");
 Object.defineProperty(exports, "default", { enumerable: true, get: function () { return email_service_js_1.ResendEmailService; } });

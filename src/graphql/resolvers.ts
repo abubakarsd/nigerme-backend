@@ -30,7 +30,7 @@ export const resolvers = {
     myOrganization: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return null;
-      let org = await OrganizationModel.findById(authUser.organizationId);
+      let org = await OrganizationService.getById(authUser.organizationId);
       if (!org) return null;
 
       if (!org.dedicatedVirtualAccount || !org.dedicatedVirtualAccount.accountNumber) {

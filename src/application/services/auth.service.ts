@@ -3,7 +3,7 @@ import { OrganizationModel } from "../../infrastructure/database/models/organiza
 import { SubscriptionModel } from "../../infrastructure/database/models/subscription.model.js";
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
 import { OtpService } from "./otp.service.js";
-import { ResendEmailService } from "../../services/resend/index.js";
+import { ResendEmailService, ResendDomainService } from "../../services/resend/index.js";
 
 export interface AdminSignupDto {
   name: string;
@@ -87,12 +87,27 @@ export class AuthService {
     const trialStartsAt = new Date();
     const trialEndsAt = new Date(trialStartsAt.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+    // Asynchronously or synchronously provision domain in Resend using RESEND_ORG_API
+    let resendDomainInfo: any = null;
+    try {
+      const domResult = await ResendDomainService.findOrCreateDomain(domainName);
+      if (domResult.success && domResult.data) {
+        resendDomainInfo = domResult.data;
+      }
+    } catch (err: any) {
+      console.warn("⚠️ Resend domain provisioning warning during signup:", err.message);
+    }
+
     const organization = await OrganizationModel.create({
       name: dto.organizationName || `${dto.name}'s Organization`,
       domain: domainName,
       ownerId: user._id,
       plan: "tier1",
       walletBalance: 0,
+      resendDomainId: resendDomainInfo?.id,
+      resendStatus: resendDomainInfo?.status || "not_started",
+      resendRegion: resendDomainInfo?.region || "us-east-1",
+      resendRecords: resendDomainInfo?.records || [],
       kycStatus: "unverified",
       trustLevel: "Tier 1 Sovereign",
       dailySendingLimit: 1000,

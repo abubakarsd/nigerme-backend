@@ -491,5 +491,104 @@ class ResendEmailService {
     `;
         return this.sendEmail({ to, subject, html });
     }
+    /**
+     * Sends an immediate security alert when domain DNS records disconnect or fail verification
+     */
+    static async sendDnsDisconnectionAlertEmail(to, name, organizationName, domainName, disconnectedRecords = ["SPF", "DKIM", "MX"]) {
+        const subject = `⚠️ ACTION REQUIRED: DNS records disconnected for ${domainName}`;
+        const recordsHtml = disconnectedRecords
+            .map((r) => `<li style="margin-bottom: 6px;"><strong style="color: #f87171;">${r}</strong> - Pending / Disconnected at registrar</li>`)
+            .join("");
+        const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #dc2626; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          .logo span { color: #84cc16; }
+          .badge { display: inline-block; background: rgba(220, 38, 38, 0.2); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 14px; }
+          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
+          .btn { display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 12px; margin-top: 16px; text-align: center; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <div class="badge">DNS Security Alert</div>
+          <h2 class="title">DNS Disconnection Detected for ${domainName}</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">Our automated health check detected that one or more required DNS records for your domain <strong>${domainName}</strong> under <strong>${organizationName}</strong> are currently disconnected or unreachable from global DNS nameservers.</p>
+          
+          <div class="box">
+            <div style="font-size: 13px; font-weight: 700; color: #f87171; margin-bottom: 10px;">Affected DNS Records:</div>
+            <ul style="color: #cbd5e1; font-size: 13px; margin: 0; padding-left: 20px;">
+              ${recordsHtml}
+            </ul>
+          </div>
+
+          <p class="desc"><strong>Impact:</strong> Outbound emails sent from this domain may be marked as spam or rejected by recipient mail servers until DNS records are restored at your domain registrar.</p>
+
+          <a href="https://app.nigerme.com/admin/domains" class="btn">Fix DNS Configuration in Admin Console</a>
+          
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+        </div>
+      </body>
+      </html>
+    `;
+        return this.sendEmail({ to, subject, html });
+    }
+    /**
+     * Sends confirmation email when domain DNS verification succeeds
+     */
+    static async sendDnsConnectedConfirmationEmail(to, name, organizationName, domainName) {
+        const subject = `🎉 Domain DNS Verified & Active: ${domainName}`;
+        const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #16a34a; border-radius: 24px; padding: 36px; color: #f8fafc; }
+          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          .logo span { color: #84cc16; }
+          .badge { display: inline-block; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 14px; }
+          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
+          .btn { display: inline-block; background: #84cc16; color: #09090b; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 12px; margin-top: 16px; text-align: center; }
+          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <div class="badge">DNS Verified &amp; Protected</div>
+          <h2 class="title">Domain ${domainName} is Fully Active!</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">Great news! All DNS records for <strong>${domainName}</strong> under <strong>${organizationName}</strong> have been verified by global nameservers.</p>
+          
+          <div class="box">
+            <div style="font-size: 13px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✓ SPF Outbound Routing: Verified</div>
+            <div style="font-size: 13px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✓ DKIM 2048-bit Cryptographic Signing: Verified</div>
+            <div style="font-size: 13px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✓ MX Mail Exchange: Active</div>
+            <div style="font-size: 13px; color: #4ade80; font-weight: 700;">✓ Anti-Spoofing &amp; DMARC Protection: Enforced</div>
+          </div>
+
+          <a href="https://app.nigerme.com/admin/domains" class="btn">View Domain in Admin Console</a>
+          
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+        </div>
+      </body>
+      </html>
+    `;
+        return this.sendEmail({ to, subject, html });
+    }
 }
 exports.ResendEmailService = ResendEmailService;

@@ -30,6 +30,16 @@ export const typeDefs = gql`
     lastCheckedAt: String
   }
 
+  type ResendDnsRecord {
+    record: String!
+    name: String!
+    type: String!
+    value: String!
+    ttl: String
+    status: String
+    priority: Int
+  }
+
   type DedicatedVirtualAccount {
     accountNumber: String!
     accountName: String!
@@ -88,6 +98,10 @@ export const typeDefs = gql`
     trustLevel: String!
     dailySendingLimit: Int!
     dnsVerification: DnsStatus
+    resendDomainId: String
+    resendStatus: String
+    resendRegion: String
+    resendRecords: [ResendDnsRecord!]
     dedicatedVirtualAccount: DedicatedVirtualAccount
     subscribedPackages: [String!]
     billingCycle: String

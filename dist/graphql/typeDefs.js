@@ -35,6 +35,16 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     lastCheckedAt: String
   }
 
+  type ResendDnsRecord {
+    record: String!
+    name: String!
+    type: String!
+    value: String!
+    ttl: String
+    status: String
+    priority: Int
+  }
+
   type DedicatedVirtualAccount {
     accountNumber: String!
     accountName: String!
@@ -93,6 +103,10 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     trustLevel: String!
     dailySendingLimit: Int!
     dnsVerification: DnsStatus
+    resendDomainId: String
+    resendStatus: String
+    resendRegion: String
+    resendRecords: [ResendDnsRecord!]
     dedicatedVirtualAccount: DedicatedVirtualAccount
     subscribedPackages: [String!]
     billingCycle: String
