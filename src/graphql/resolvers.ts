@@ -320,6 +320,59 @@ export const resolvers = {
         endDate
       );
     },
+
+    checkDomainOnline: async (_: any, { domain }: { domain: string }) => {
+      const clean = domain
+        .toLowerCase()
+        .trim()
+        .replace(/^https?:\/\//, "")
+        .replace(/\/.*$/, "");
+
+      if (!clean || clean.length < 3 || !clean.includes(".")) {
+        return {
+          domain: clean,
+          isOnline: false,
+          hasMx: false,
+          hasNs: false,
+          message: "Please enter a valid domain name format (e.g. yourcompany.com).",
+        };
+      }
+
+      try {
+        const dns = await import("dns/promises");
+        const [nsResult, aResult, mxResult, soaResult] = await Promise.allSettled([
+          dns.resolveNs(clean),
+          dns.resolve4(clean),
+          dns.resolveMx(clean),
+          dns.resolveSoa(clean),
+        ]);
+
+        const hasNs = nsResult.status === "fulfilled" && nsResult.value.length > 0;
+        const hasA = aResult.status === "fulfilled" && aResult.value.length > 0;
+        const hasMx = mxResult.status === "fulfilled" && mxResult.value.length > 0;
+        const hasSoa = soaResult.status === "fulfilled";
+
+        const isOnline = hasNs || hasA || hasMx || hasSoa;
+
+        return {
+          domain: clean,
+          isOnline,
+          hasMx,
+          hasNs,
+          message: isOnline
+            ? `Domain ${clean} is verified active and resolvable online.`
+            : `Domain ${clean} is not reachable online. Please verify spelling or ensure nameservers are configured with your registrar.`,
+        };
+      } catch (err: any) {
+        return {
+          domain: clean,
+          isOnline: false,
+          hasMx: false,
+          hasNs: false,
+          message: `Unable to resolve ${clean} online: ${err?.message || "DNS lookup failed."}`,
+        };
+      }
+    },
   },
 
   Mutation: {

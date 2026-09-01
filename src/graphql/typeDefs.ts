@@ -66,6 +66,14 @@ export const typeDefs = gql`
     open_rate: Float!
   }
 
+  type DomainCheckResult {
+    domain: String!
+    isOnline: Boolean!
+    hasMx: Boolean!
+    hasNs: Boolean!
+    message: String!
+  }
+
   type EmailMetricsResponse {
     object: String!
     start_date: String!
@@ -420,6 +428,9 @@ export const typeDefs = gql`
 
     # Resend Email Metrics & Analytics
     getEmailMetrics(startDate: String, endDate: String): EmailMetricsResponse!
+
+    # Public Domain Online Verification
+    checkDomainOnline(domain: String!): DomainCheckResult!
   }
 
   type Mutation {
