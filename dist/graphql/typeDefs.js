@@ -15,6 +15,10 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     name: String!
     phone: String
     role: String!
+    roleId: ID
+    roleName: String
+    department: String
+    departmentId: ID
     userType: String!
     organizationId: ID
     isEmailVerified: Boolean!
@@ -22,6 +26,12 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     twoFactorEnabled: Boolean!
     mustChangePassword: Boolean
     canAccessEmail: Boolean!
+    canAccessPayroll: Boolean
+    canAccessPos: Boolean
+    canAccessLogistics: Boolean
+    canAccessHotel: Boolean
+    canAccessAdminConsole: Boolean
+    accessiblePackages: [String!]
     avatarUrl: String
     status: String!
     lastLoginAt: String
@@ -114,6 +124,8 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     name: String!
     description: String
     lead: String
+    roleId: ID
+    roleName: String
     memberIds: [String!]!
     packageAccess: [String!]!
     createdAt: String
@@ -352,6 +364,9 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     email: String!
     personalEmail: String
     role: String
+    roleId: ID
+    department: String
+    departmentId: ID
     phone: String
     password: String
   }
@@ -496,6 +511,8 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     name: String!
     description: String
     lead: String
+    roleId: ID
+    roleName: String
     memberIds: [String!]
     packageAccess: [String!]
   }

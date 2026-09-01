@@ -4,6 +4,7 @@ import { SubscriptionModel } from "../../infrastructure/database/models/subscrip
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
 import { OtpService, maskEmail } from "./otp.service.js";
 import { ResendEmailService, ResendDomainService } from "../../services/resend/index.js";
+import { seedOrganizationDefaultRoles } from "../../infrastructure/database/seeds/role.seed.js";
 
 export interface AdminSignupDto {
   name: string;
@@ -142,6 +143,11 @@ export class AuthService {
       autoDebit: true,
     });
 
+    // Seed default roles for this new organization in DB
+    await seedOrganizationDefaultRoles(organization._id).catch((err) =>
+      console.warn("⚠️ Failed to seed default roles during signup:", err)
+    );
+
     const payload: Omit<TokenPayload, "iat" | "exp"> = {
       userId: user._id.toString(),
       email: user.email,
@@ -223,8 +229,8 @@ export class AuthService {
    * (Users CANNOT publicly sign up; they can only log in once added by their admin)
    */
   static async mailLogin(dto: LoginDto): Promise<
-    | { requiresTwoFactor: false; mustChangePassword?: boolean; tokens: AuthTokens }
-    | { requiresTwoFactor: true; phone: string; message: string }
+    | { requiresTwoFactor: false; mustChangePassword?: boolean; personalEmail?: string; tokens: AuthTokens | null }
+    | { requiresTwoFactor: true; mustChangePassword?: boolean; phone: string; personalEmail?: string; message: string }
   > {
     const user = await UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
     if (!user) {

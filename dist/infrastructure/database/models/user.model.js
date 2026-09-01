@@ -67,9 +67,21 @@ const UserSchema = new mongoose_1.Schema({
     },
     role: {
         type: String,
-        enum: ["superadmin", "admin", "user", "support"],
         default: "user",
         index: true,
+    },
+    roleId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "Role",
+        index: true,
+    },
+    department: {
+        type: String,
+        trim: true,
+    },
+    departmentId: {
+        type: String,
+        trim: true,
     },
     userType: {
         type: String,

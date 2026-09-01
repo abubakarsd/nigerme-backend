@@ -10,6 +10,10 @@ export const typeDefs = gql`
     name: String!
     phone: String
     role: String!
+    roleId: ID
+    roleName: String
+    department: String
+    departmentId: ID
     userType: String!
     organizationId: ID
     isEmailVerified: Boolean!
@@ -17,6 +21,12 @@ export const typeDefs = gql`
     twoFactorEnabled: Boolean!
     mustChangePassword: Boolean
     canAccessEmail: Boolean!
+    canAccessPayroll: Boolean
+    canAccessPos: Boolean
+    canAccessLogistics: Boolean
+    canAccessHotel: Boolean
+    canAccessAdminConsole: Boolean
+    accessiblePackages: [String!]
     avatarUrl: String
     status: String!
     lastLoginAt: String
@@ -109,6 +119,8 @@ export const typeDefs = gql`
     name: String!
     description: String
     lead: String
+    roleId: ID
+    roleName: String
     memberIds: [String!]!
     packageAccess: [String!]!
     createdAt: String
@@ -347,6 +359,9 @@ export const typeDefs = gql`
     email: String!
     personalEmail: String
     role: String
+    roleId: ID
+    department: String
+    departmentId: ID
     phone: String
     password: String
   }
@@ -491,6 +506,8 @@ export const typeDefs = gql`
     name: String!
     description: String
     lead: String
+    roleId: ID
+    roleName: String
     memberIds: [String!]
     packageAccess: [String!]
   }

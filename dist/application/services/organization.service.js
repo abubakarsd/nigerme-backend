@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrganizationService = void 0;
 const organization_model_js_1 = require("../../infrastructure/database/models/organization.model.js");
 const user_model_js_1 = require("../../infrastructure/database/models/user.model.js");
+const role_model_js_1 = require("../../infrastructure/database/models/role.model.js");
 const token_manager_js_1 = require("../../infrastructure/security/token.manager.js");
 const index_js_1 = require("../../services/resend/index.js");
 class OrganizationService {
@@ -144,6 +145,9 @@ class OrganizationService {
             passwordHash,
             phone: dto.phone,
             role: dto.role || "user",
+            roleId: dto.roleId ? dto.roleId : undefined,
+            department: dto.department?.trim(),
+            departmentId: dto.departmentId?.trim(),
             userType: "email_user",
             organizationId: orgId,
             status: "active",
@@ -154,9 +158,25 @@ class OrganizationService {
             mailboxQuotaMb: 5120,
             mailboxUsedMb: 0,
         });
-        // Asynchronously dispatch member invitation email with temporary password to personal email
-        organization_model_js_1.OrganizationModel.findById(orgId).then((org) => {
+        // Update role member count if roleId provided
+        if (dto.roleId) {
+            role_model_js_1.RoleModel.findByIdAndUpdate(dto.roleId, { $inc: { memberCount: 1 } }).catch((err) => console.warn("⚠️ Failed to increment role member count:", err));
+        }
+        // Update organization departments and dispatch invitation email
+        organization_model_js_1.OrganizationModel.findById(orgId).then(async (org) => {
             if (org) {
+                // If department is assigned, link user to department memberIds
+                if (dto.departmentId || dto.department) {
+                    const depts = org.departments || [];
+                    const matchedDept = depts.find((d) => (dto.departmentId && d.id === dto.departmentId) ||
+                        (dto.department && d.name?.toLowerCase() === dto.department.toLowerCase()));
+                    if (matchedDept) {
+                        matchedDept.memberIds = Array.from(new Set([...(matchedDept.memberIds || []), user._id.toString()]));
+                        org.departments = depts;
+                        org.markModified("departments");
+                        await org.save().catch((err) => console.warn("⚠️ Failed to update department members:", err));
+                    }
+                }
                 const destinationEmail = user.personalEmail || user.email;
                 index_js_1.ResendEmailService.sendMemberInvitationEmail(destinationEmail, user.name, org.name, user.email, tempPassword).catch((err) => console.error("⚠️ Failed to send member invitation email:", err));
             }

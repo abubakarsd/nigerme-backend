@@ -7,6 +7,7 @@ const subscription_model_js_1 = require("../../infrastructure/database/models/su
 const token_manager_js_1 = require("../../infrastructure/security/token.manager.js");
 const otp_service_js_1 = require("./otp.service.js");
 const index_js_1 = require("../../services/resend/index.js");
+const role_seed_js_1 = require("../../infrastructure/database/seeds/role.seed.js");
 class AuthService {
     /**
      * 1. SaaS Admin Portal: Registers a new SaaS tenant administrator and creates their company organization
@@ -92,6 +93,8 @@ class AuthService {
             currentPeriodEndsAt: trialEndsAt,
             autoDebit: true,
         });
+        // Seed default roles for this new organization in DB
+        await (0, role_seed_js_1.seedOrganizationDefaultRoles)(organization._id).catch((err) => console.warn("⚠️ Failed to seed default roles during signup:", err));
         const payload = {
             userId: user._id.toString(),
             email: user.email,

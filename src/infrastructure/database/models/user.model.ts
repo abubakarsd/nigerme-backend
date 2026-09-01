@@ -6,7 +6,10 @@ export interface IUser extends Document {
   passwordHash: string;
   name: string;
   phone?: string;
-  role: "superadmin" | "admin" | "user" | "support";
+  role: "superadmin" | "admin" | "user" | "support" | string;
+  roleId?: mongoose.Types.ObjectId;
+  department?: string;
+  departmentId?: string;
   userType: "saas_admin" | "email_user";
   organizationId?: mongoose.Types.ObjectId;
   isEmailVerified: boolean;
@@ -57,9 +60,21 @@ const UserSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ["superadmin", "admin", "user", "support"],
       default: "user",
       index: true,
+    },
+    roleId: {
+      type: Schema.Types.ObjectId,
+      ref: "Role",
+      index: true,
+    },
+    department: {
+      type: String,
+      trim: true,
+    },
+    departmentId: {
+      type: String,
+      trim: true,
     },
     userType: {
       type: String,
