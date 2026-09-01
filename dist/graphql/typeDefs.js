@@ -135,7 +135,6 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     roleId: ID
     roleName: String
     memberIds: [String!]!
-    packageAccess: [String!]!
     createdAt: String
   }
 
@@ -612,7 +611,6 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     roleId: ID
     roleName: String
     memberIds: [String!]
-    packageAccess: [String!]
   }
 
   type EmailResponse {

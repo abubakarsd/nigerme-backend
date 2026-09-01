@@ -53,7 +53,7 @@ async function formatUserWithPermissions(userDoc) {
             canAccessHotel = !!role.permissions?.canAccessHotel;
             canAccessAdminConsole = !!role.permissions?.canAccessAdminConsole;
         }
-        // 3. Lookup department in organization
+        // 3. Lookup department in organization for role name override
         if (user.organizationId && (user.departmentId || user.department)) {
             const org = await index_js_7.OrganizationModel.findById(user.organizationId);
             if (org && org.departments) {
@@ -62,16 +62,6 @@ async function formatUserWithPermissions(userDoc) {
                 if (dept) {
                     if (dept.roleName && !role)
                         roleName = dept.roleName;
-                    if (dept.packageAccess && Array.isArray(dept.packageAccess)) {
-                        if (dept.packageAccess.includes("org-pos"))
-                            canAccessPos = true;
-                        if (dept.packageAccess.includes("org-payroll"))
-                            canAccessPayroll = true;
-                        if (dept.packageAccess.includes("org-logistics"))
-                            canAccessLogistics = true;
-                        if (dept.packageAccess.includes("org-hotel"))
-                            canAccessHotel = true;
-                    }
                 }
             }
         }
@@ -139,7 +129,6 @@ exports.resolvers = {
                     roleId: d.roleId || null,
                     roleName: d.roleName || null,
                     memberIds: d.memberIds || [],
-                    packageAccess: d.packageAccess || [],
                 })),
                 roles: (org.roles || []).map((r) => ({
                     ...r,
@@ -231,7 +220,6 @@ exports.resolvers = {
                 ...d,
                 id: d.id || d._id?.toString() || String(Math.random()),
                 memberIds: d.memberIds || [],
-                packageAccess: d.packageAccess || [],
             }));
         },
         getPermissions: async () => {
@@ -880,7 +868,6 @@ exports.resolvers = {
                 roleId: input.roleId || null,
                 roleName: roleName || null,
                 memberIds: input.memberIds || [],
-                packageAccess: input.packageAccess || ["org-email"],
                 createdAt: new Date().toISOString(),
             };
             org.departments = [...(org.departments || []), newDept];

@@ -130,7 +130,6 @@ export const typeDefs = gql`
     roleId: ID
     roleName: String
     memberIds: [String!]!
-    packageAccess: [String!]!
     createdAt: String
   }
 
@@ -607,7 +606,6 @@ export const typeDefs = gql`
     roleId: ID
     roleName: String
     memberIds: [String!]
-    packageAccess: [String!]
   }
 
   type EmailResponse {

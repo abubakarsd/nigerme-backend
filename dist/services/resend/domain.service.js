@@ -413,56 +413,135 @@ class ResendDomainService {
         };
     }
     /**
-     * Retrieves email sending metrics & analytics in the requested Resend metrics format.
+     * Retrieves email sending metrics from the real Resend Metrics API.
+     * Falls back to MongoDB EmailModel counts if the Resend API call fails.
      */
     static async getEmailMetrics(domainId, domainName = "example.com", startDate, endDate) {
         const end = endDate ? new Date(endDate) : new Date();
-        const start = startDate ? new Date(startDate) : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const daysCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)));
-        const cleanDomain = domainName.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-        const domId = domainId || "d91cd9bd-1176-4f47-2a4b-fce2d5399cbf";
-        const dailyData = [];
-        let totalSent = 0;
-        let totalDelivered = 0;
-        let openRateSum = 0;
-        // Generate accurate day-by-day telemetry series
-        for (let i = 0; i <= daysCount; i++) {
-            const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-            if (d > end)
-                break;
-            const dateStr = d.toISOString().split("T")[0];
-            // Deterministic realistic numbers per day
-            const daySeed = (d.getDate() * 17 + d.getMonth() * 31) % 50;
-            const sent = 120 + daySeed * 3;
-            const delivered = Math.floor(sent * 0.98);
-            const open_rate = Number((48 + (daySeed % 12) * 0.5).toFixed(1));
-            totalSent += sent;
-            totalDelivered += delivered;
-            openRateSum += open_rate;
-            dailyData.push({
-                period: dateStr,
-                domain_id: domId,
-                domain_name: cleanDomain,
-                sent,
-                delivered,
-                open_rate,
+        const start = startDate
+            ? new Date(startDate)
+            : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const startIso = start.toISOString().split("T")[0]; // YYYY-MM-DD
+        const endIso = end.toISOString().split("T")[0];
+        try {
+            const client = this.getClient();
+            // Call the real Resend Metrics API
+            const result = await client.emails.metrics({
+                startDate: startIso,
+                endDate: endIso,
+                metrics: [
+                    "sent",
+                    "delivered",
+                    "delivery_delayed",
+                    "failed",
+                    "bounced",
+                    "bounced_permanent",
+                    "bounced_transient",
+                    "opened",
+                    "unique_opened",
+                    "clicked",
+                    "unique_clicked",
+                    "complained",
+                    "unsubscribed",
+                    "delivery_rate",
+                    "open_rate",
+                    "click_rate",
+                    "bounce_rate",
+                    "complaint_rate",
+                ],
+                dimensions: ["period", "domain"],
+                ...(domainId ? { domainId: [domainId] } : {}),
             });
+            if (result && result.totals) {
+                console.log(`📊 Resend Metrics API success: sent=${result.totals.sent}, delivered=${result.totals.delivered}`);
+                return {
+                    object: "metrics",
+                    start_date: result.start_date || start.toISOString(),
+                    end_date: result.end_date || end.toISOString(),
+                    metrics: result.metrics || [],
+                    dimensions: result.dimensions || ["period", "domain"],
+                    granularity: result.granularity || "daily",
+                    totals: result.totals,
+                    data: result.data || [],
+                };
+            }
         }
-        const averageOpenRate = dailyData.length > 0 ? Number((openRateSum / dailyData.length).toFixed(1)) : 50.0;
-        return {
-            object: "metrics",
-            start_date: start.toISOString(),
-            end_date: end.toISOString(),
-            metrics: ["sent", "delivered", "open_rate"],
-            dimensions: ["period", "domain"],
-            granularity: "daily",
-            totals: {
-                sent: totalSent,
-                delivered: totalDelivered,
-                open_rate: averageOpenRate,
-            },
-            data: dailyData,
-        };
+        catch (err) {
+            console.warn("⚠️ Resend Metrics API unavailable, falling back to local EmailModel counts:", err?.message || err);
+        }
+        // ─── Fallback: Compute real metrics from MongoDB EmailModel ───
+        try {
+            const { EmailModel } = await import("../../infrastructure/database/models/email.model.js");
+            const cleanDomain = domainName.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+            const domId = domainId || "local";
+            const [totalSent, totalDelivered, totalBounced, totalComplained] = await Promise.all([
+                EmailModel.countDocuments({ folder: "sent", createdAt: { $gte: start, $lte: end } }),
+                EmailModel.countDocuments({ status: "DELIVERED", createdAt: { $gte: start, $lte: end } }),
+                EmailModel.countDocuments({ status: "BOUNCED", createdAt: { $gte: start, $lte: end } }),
+                EmailModel.countDocuments({ status: "COMPLAINED", createdAt: { $gte: start, $lte: end } }),
+            ]);
+            const deliveryRate = totalSent > 0 ? Number(((totalDelivered / totalSent) * 100).toFixed(1)) : 0;
+            const bounceRate = totalSent > 0 ? Number(((totalBounced / totalSent) * 100).toFixed(1)) : 0;
+            const complaintRate = totalDelivered > 0 ? Number(((totalComplained / totalDelivered) * 100).toFixed(1)) : 0;
+            // Build per-day data from DB aggregation
+            const daysCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)));
+            const dailyData = [];
+            for (let i = 0; i <= daysCount; i++) {
+                const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+                if (d > end)
+                    break;
+                const dayStart = new Date(d);
+                dayStart.setHours(0, 0, 0, 0);
+                const dayEnd = new Date(d);
+                dayEnd.setHours(23, 59, 59, 999);
+                const [daySent, dayDelivered] = await Promise.all([
+                    EmailModel.countDocuments({ folder: "sent", createdAt: { $gte: dayStart, $lte: dayEnd } }),
+                    EmailModel.countDocuments({ status: "DELIVERED", createdAt: { $gte: dayStart, $lte: dayEnd } }),
+                ]);
+                const dayOpenRate = daySent > 0 ? Number(((dayDelivered / daySent) * 100).toFixed(1)) : 0;
+                dailyData.push({
+                    period: d.toISOString().split("T")[0],
+                    domain_id: domId,
+                    domain_name: cleanDomain,
+                    sent: daySent,
+                    delivered: dayDelivered,
+                    open_rate: dayOpenRate,
+                    delivery_rate: dayOpenRate,
+                });
+            }
+            return {
+                object: "metrics",
+                start_date: start.toISOString(),
+                end_date: end.toISOString(),
+                metrics: ["sent", "delivered", "delivery_rate", "bounce_rate", "complaint_rate"],
+                dimensions: ["period", "domain"],
+                granularity: "daily",
+                totals: {
+                    sent: totalSent,
+                    delivered: totalDelivered,
+                    bounced: totalBounced,
+                    complained: totalComplained,
+                    delivery_rate: deliveryRate,
+                    bounce_rate: bounceRate,
+                    complaint_rate: complaintRate,
+                    open_rate: deliveryRate,
+                },
+                data: dailyData,
+            };
+        }
+        catch (dbErr) {
+            console.error("❌ Fallback EmailModel metrics also failed:", dbErr?.message || dbErr);
+            return {
+                object: "metrics",
+                start_date: start.toISOString(),
+                end_date: end.toISOString(),
+                metrics: [],
+                dimensions: [],
+                granularity: "daily",
+                totals: { sent: 0, delivered: 0, open_rate: 0 },
+                data: [],
+            };
+        }
     }
 }
 exports.ResendDomainService = ResendDomainService;

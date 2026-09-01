@@ -54,7 +54,7 @@ async function formatUserWithPermissions(userDoc: any) {
       canAccessAdminConsole = !!role.permissions?.canAccessAdminConsole;
     }
 
-    // 3. Lookup department in organization
+    // 3. Lookup department in organization for role name override
     if (user.organizationId && (user.departmentId || user.department)) {
       const org = await OrganizationModel.findById(user.organizationId);
       if (org && org.departments) {
@@ -65,12 +65,6 @@ async function formatUserWithPermissions(userDoc: any) {
         );
         if (dept) {
           if (dept.roleName && !role) roleName = dept.roleName;
-          if (dept.packageAccess && Array.isArray(dept.packageAccess)) {
-            if (dept.packageAccess.includes("org-pos")) canAccessPos = true;
-            if (dept.packageAccess.includes("org-payroll")) canAccessPayroll = true;
-            if (dept.packageAccess.includes("org-logistics")) canAccessLogistics = true;
-            if (dept.packageAccess.includes("org-hotel")) canAccessHotel = true;
-          }
         }
       }
     }
@@ -138,7 +132,6 @@ export const resolvers = {
           roleId: d.roleId || null,
           roleName: d.roleName || null,
           memberIds: d.memberIds || [],
-          packageAccess: d.packageAccess || [],
         })),
         roles: (org.roles || []).map((r: any) => ({
           ...r,
@@ -239,7 +232,6 @@ export const resolvers = {
         ...d,
         id: d.id || d._id?.toString() || String(Math.random()),
         memberIds: d.memberIds || [],
-        packageAccess: d.packageAccess || [],
       }));
     },
 
@@ -998,7 +990,6 @@ export const resolvers = {
         roleId: input.roleId || null,
         roleName: roleName || null,
         memberIds: input.memberIds || [],
-        packageAccess: input.packageAccess || ["org-email"],
         createdAt: new Date().toISOString(),
       };
 
