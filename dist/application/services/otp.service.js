@@ -4,10 +4,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OtpService = void 0;
+exports.maskEmail = maskEmail;
 const crypto_1 = __importDefault(require("crypto"));
 const otp_model_js_1 = require("../../infrastructure/database/models/otp.model.js");
 const termii_client_js_1 = require("../../infrastructure/external/termii.client.js");
 const index_js_1 = require("../../services/resend/index.js");
+function maskEmail(email) {
+    if (!email || !email.includes("@"))
+        return email || "";
+    const [user, domain] = email.split("@");
+    if (!user || !domain)
+        return email;
+    if (user.length <= 2)
+        return `${user[0]}*@${domain}`;
+    return `${user[0]}${"*".repeat(Math.min(4, user.length - 2))}${user[user.length - 1]}@${domain}`;
+}
 class OtpService {
     static OTP_VALIDITY_MINUTES = 10;
     static MAX_VERIFY_ATTEMPTS = 5;
@@ -88,6 +99,43 @@ class OtpService {
         return {
             message: `A 6-digit verification code has been sent to ${formattedEmail}${phone ? ` and ${phone}` : ""}.`,
             expiresInMinutes: this.OTP_VALIDITY_MINUTES,
+        };
+    }
+    /**
+     * Generates and dispatches a 6-digit OTP code to the user's personal email for Webmail 2FA
+     */
+    static async sendPersonalEmail2faOtp(personalEmail, name = "Team Member", orgEmail = "user@organization") {
+        const formattedPersonal = personalEmail.toLowerCase().trim();
+        const formattedOrg = orgEmail.toLowerCase().trim();
+        const rawOtp = crypto_1.default.randomInt(100000, 999999).toString();
+        const otpHash = crypto_1.default.createHash("sha256").update(rawOtp).digest("hex");
+        const expiresAt = new Date(Date.now() + this.OTP_VALIDITY_MINUTES * 60 * 1000);
+        // Save for both personal email and orgEmail identifier so verification by either identifier succeeds
+        await otp_model_js_1.OtpModel.deleteMany({
+            identifier: { $in: [formattedPersonal, formattedOrg] },
+            purpose: "login_2fa",
+        });
+        await otp_model_js_1.OtpModel.create({
+            identifier: formattedPersonal,
+            otpHash,
+            purpose: "login_2fa",
+            expiresAt,
+            attempts: 0,
+        });
+        await otp_model_js_1.OtpModel.create({
+            identifier: formattedOrg,
+            otpHash,
+            purpose: "login_2fa",
+            expiresAt,
+            attempts: 0,
+        });
+        // Send Webmail branded OTP email via Resend to personal email
+        await index_js_1.ResendEmailService.sendWebmailOtpEmail(formattedPersonal, name, formattedOrg, rawOtp, this.OTP_VALIDITY_MINUTES).catch((err) => console.warn("⚠️ Webmail OTP dispatch warning:", err));
+        const masked = maskEmail(formattedPersonal);
+        return {
+            message: `A 6-digit security code has been sent to your personal email (${masked}).`,
+            expiresInMinutes: this.OTP_VALIDITY_MINUTES,
+            personalEmailMasked: masked,
         };
     }
     /**

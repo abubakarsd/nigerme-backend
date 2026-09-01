@@ -251,6 +251,7 @@ exports.resolvers = {
                     requiresTwoFactor: true,
                     mustChangePassword: false,
                     phone: result.phone,
+                    personalEmail: result.personalEmail,
                     message: result.message,
                     tokens: null,
                 };
@@ -258,7 +259,8 @@ exports.resolvers = {
             return {
                 requiresTwoFactor: false,
                 mustChangePassword: result.mustChangePassword,
-                tokens: result.tokens,
+                personalEmail: result.personalEmail,
+                tokens: result.tokens || null,
             };
         },
         setInitialPassword: async (_, { input }) => {

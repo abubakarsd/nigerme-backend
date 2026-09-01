@@ -11,6 +11,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
   type User {
     id: ID!
     email: String!
+    personalEmail: String
     name: String!
     phone: String
     role: String!
@@ -166,6 +167,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     requiresTwoFactor: Boolean!
     mustChangePassword: Boolean
     phone: String
+    personalEmail: String
     message: String
     tokens: AuthPayload
   }
@@ -348,6 +350,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
   input InviteMemberInput {
     name: String!
     email: String!
+    personalEmail: String
     role: String
     phone: String
     password: String

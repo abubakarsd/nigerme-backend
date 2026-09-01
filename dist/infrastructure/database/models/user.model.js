@@ -44,6 +44,12 @@ const UserSchema = new mongoose_1.Schema({
         trim: true,
         index: true,
     },
+    personalEmail: {
+        type: String,
+        lowercase: true,
+        trim: true,
+        index: true,
+    },
     passwordHash: {
         type: String,
         required: true,

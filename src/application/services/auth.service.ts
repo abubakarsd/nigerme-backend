@@ -2,7 +2,7 @@ import { UserModel } from "../../infrastructure/database/models/user.model.js";
 import { OrganizationModel } from "../../infrastructure/database/models/organization.model.js";
 import { SubscriptionModel } from "../../infrastructure/database/models/subscription.model.js";
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
-import { OtpService } from "./otp.service.js";
+import { OtpService, maskEmail } from "./otp.service.js";
 import { ResendEmailService, ResendDomainService } from "../../services/resend/index.js";
 
 export interface AdminSignupDto {
@@ -257,15 +257,36 @@ export class AuthService {
       throw new Error("Incorrect mailbox password.");
     }
 
-    // Security: Always dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
-    await OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) =>
-      console.warn("⚠️ 2FA dispatch warning:", err)
-    );
+    // 1. FIRST-TIME LOGIN: User was newly provisioned with a temporary password -> Force password change
+    if (user.mustChangePassword) {
+      return {
+        requiresTwoFactor: false,
+        mustChangePassword: true,
+        tokens: null as any,
+        personalEmail: user.personalEmail ? maskEmail(user.personalEmail) : undefined,
+      };
+    }
+
+    // 2. RETURNING/EXISTING USER: Dispatch 2FA OTP code directly to their personal email
+    const targetPersonalEmail = user.personalEmail || user.email;
+    const otpRes = await OtpService.sendPersonalEmail2faOtp(
+      targetPersonalEmail,
+      user.name,
+      user.email
+    ).catch((err) => {
+      console.warn("⚠️ Personal email 2FA dispatch warning:", err);
+      return {
+        message: `A 6-digit verification code has been dispatched to your personal email (${maskEmail(targetPersonalEmail)}).`,
+        personalEmailMasked: maskEmail(targetPersonalEmail),
+      };
+    });
 
     return {
       requiresTwoFactor: true,
-      phone: user.email,
-      message: `A 6-digit 2FA verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
+      mustChangePassword: false,
+      phone: targetPersonalEmail,
+      personalEmail: otpRes.personalEmailMasked || maskEmail(targetPersonalEmail),
+      message: otpRes.message || `A 6-digit verification code has been dispatched to your personal email (${maskEmail(targetPersonalEmail)}).`,
     };
   }
 

@@ -270,6 +270,7 @@ export const resolvers = {
           requiresTwoFactor: true,
           mustChangePassword: false,
           phone: result.phone,
+          personalEmail: (result as any).personalEmail,
           message: result.message,
           tokens: null,
         };
@@ -277,7 +278,8 @@ export const resolvers = {
       return {
         requiresTwoFactor: false,
         mustChangePassword: result.mustChangePassword,
-        tokens: result.tokens,
+        personalEmail: (result as any).personalEmail,
+        tokens: (result as any).tokens || null,
       };
     },
 

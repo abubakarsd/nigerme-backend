@@ -6,6 +6,7 @@ export const typeDefs = gql`
   type User {
     id: ID!
     email: String!
+    personalEmail: String
     name: String!
     phone: String
     role: String!
@@ -161,6 +162,7 @@ export const typeDefs = gql`
     requiresTwoFactor: Boolean!
     mustChangePassword: Boolean
     phone: String
+    personalEmail: String
     message: String
     tokens: AuthPayload
   }
@@ -343,6 +345,7 @@ export const typeDefs = gql`
   input InviteMemberInput {
     name: String!
     email: String!
+    personalEmail: String
     role: String
     phone: String
     password: String

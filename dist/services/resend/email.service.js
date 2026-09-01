@@ -170,9 +170,10 @@ class ResendEmailService {
     }
     /**
      * Sends an invitation to a new team member
+     * Dispatches member invitation email to the user's personal email with temporary login credentials.
      */
-    static async sendMemberInvitationEmail(to, name, organizationName, domain, tempPassword) {
-        const subject = `You've been invited to join ${organizationName} on Nigerme`;
+    static async sendMemberInvitationEmail(personalEmail, name, organizationName, assignedOrgEmail, tempPassword) {
+        const subject = `Your Sovereign Business Mailbox for ${organizationName} on Nigerme`;
         const html = `
       <!DOCTYPE html>
       <html>
@@ -183,9 +184,10 @@ class ResendEmailService {
           .container { max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 20px; padding: 36px; }
           .logo { font-size: 22px; font-weight: 800; color: #09090b; margin-bottom: 24px; }
           .logo span { color: #84cc16; }
-          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; margin-top: 16px; }
-          .cred-box { background: #fafbfa; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px; margin: 16px 0; font-size: 13px; }
+          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 800; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; margin-top: 16px; }
+          .cred-box { background: #fafbfa; border: 1px solid #e4e4e7; border-radius: 12px; padding: 18px; margin: 16px 0; font-size: 13px; line-height: 1.6; }
           .desc { font-size: 14px; color: #52525b; line-height: 1.6; }
+          .notice-box { background: #fefce8; border: 1px solid #fef08a; border-radius: 10px; padding: 12px 16px; font-size: 12px; color: #854d0e; margin-top: 14px; }
           .footer { font-size: 12px; color: #a1a1aa; border-top: 1px solid #f4f4f5; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
@@ -193,15 +195,23 @@ class ResendEmailService {
         <div class="container">
           <div class="logo">niger<span>me</span></div>
           <h2 style="margin: 0 0 16px; font-size: 20px; color: #09090b;">Hello ${name},</h2>
-          <p class="desc">You have been provisioned a sovereign business account under <strong>${organizationName}</strong> (<code>${domain}</code>).</p>
-          ${tempPassword
-            ? `<div class="cred-box">
-                  <div><strong>Email:</strong> ${to}</div>
-                  <div style="margin-top: 6px;"><strong>Temporary Password:</strong> <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${tempPassword}</code></div>
-                </div>
-                <p class="desc">Please sign in and set your personal password immediately.</p>`
+          <p class="desc">Your workspace administrator has provisioned your sovereign business mailbox for <strong>${organizationName}</strong>.</p>
+          
+          <div class="cred-box">
+            <div><strong>Assigned Business Email:</strong> <span style="font-family: monospace; font-weight: bold; color: #09090b;">${assignedOrgEmail}</span></div>
+            ${tempPassword
+            ? `<div style="margin-top: 8px;"><strong>Temporary Password:</strong> <code style="background: #f1f5f9; padding: 3px 8px; border-radius: 6px; font-weight: bold; color: #0f172a;">${tempPassword}</code></div>`
             : ""}
-          <p><a href="https://nigerme.com/mail/login" class="btn">Sign in to Mailbox</a></p>
+          </div>
+
+          <div class="notice-box">
+            <strong>🔒 First-Time Login Notice:</strong> When you log in for the first time, you will be required to create a new, secure password. Subsequent logins will send a 2FA OTP code directly to this personal email address (<code>${personalEmail}</code>).
+          </div>
+
+          <p style="text-align: center; margin-top: 24px;">
+            <a href="https://nigerme.com/mail/login" class="btn">Sign In to Sovereign Webmail</a>
+          </p>
+
           <div class="footer">
             &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
@@ -209,7 +219,46 @@ class ResendEmailService {
       </body>
       </html>
     `;
-        return this.sendEmail({ to, subject, html });
+        return this.sendEmail({ to: personalEmail, subject, html });
+    }
+    /**
+     * Sends a 2FA OTP code to the user's personal email for Webmail login.
+     */
+    static async sendWebmailOtpEmail(personalEmail, name, orgEmail, otpCode, expiresInMinutes = 10) {
+        const subject = `Your Nigerme Webmail Security Code: ${otpCode}`;
+        const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8faf7; color: #18181b; margin: 0; padding: 24px; }
+          .container { max-width: 480px; margin: 0 auto; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 20px; padding: 36px; text-align: center; }
+          .logo { font-size: 22px; font-weight: 800; color: #09090b; margin-bottom: 24px; text-align: left; }
+          .logo span { color: #84cc16; }
+          .otp-badge { font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #09090b; background: #f4f4f5; padding: 14px 24px; border-radius: 12px; display: inline-block; margin: 20px 0; font-family: monospace; }
+          .desc { font-size: 14px; color: #52525b; line-height: 1.6; text-align: left; }
+          .footer { font-size: 12px; color: #a1a1aa; border-top: 1px solid #f4f4f5; padding-top: 20px; margin-top: 28px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">niger<span>me</span></div>
+          <h2 style="margin: 0 0 12px; font-size: 20px; color: #09090b; text-align: left;">Webmail Login Verification</h2>
+          <p class="desc">A sign-in attempt was initiated for your business mailbox <strong>${orgEmail}</strong>. Enter the 6-digit verification code below to authorize your session:</p>
+          
+          <div class="otp-badge">${otpCode}</div>
+          
+          <p class="desc" style="font-size: 12px; color: #71717a;">This security code will expire in ${expiresInMinutes} minutes. If you did not attempt this sign in, please contact your workspace administrator immediately.</p>
+          
+          <div class="footer">
+            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+        return this.sendEmail({ to: personalEmail, subject, html });
     }
     /**
      * Sends a receipt when a package is added / subscribed

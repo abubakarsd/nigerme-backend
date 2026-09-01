@@ -140,6 +140,7 @@ class OrganizationService {
         const user = await user_model_js_1.UserModel.create({
             name: dto.name,
             email: dto.email.toLowerCase(),
+            personalEmail: dto.personalEmail ? dto.personalEmail.toLowerCase().trim() : undefined,
             passwordHash,
             phone: dto.phone,
             role: dto.role || "user",
@@ -153,10 +154,11 @@ class OrganizationService {
             mailboxQuotaMb: 5120,
             mailboxUsedMb: 0,
         });
-        // Asynchronously dispatch member invitation email with temporary password
+        // Asynchronously dispatch member invitation email with temporary password to personal email
         organization_model_js_1.OrganizationModel.findById(orgId).then((org) => {
             if (org) {
-                index_js_1.ResendEmailService.sendMemberInvitationEmail(user.email, user.name, org.name, org.domain, tempPassword).catch((err) => console.error("⚠️ Failed to send member invitation email:", err));
+                const destinationEmail = user.personalEmail || user.email;
+                index_js_1.ResendEmailService.sendMemberInvitationEmail(destinationEmail, user.name, org.name, user.email, tempPassword).catch((err) => console.error("⚠️ Failed to send member invitation email:", err));
             }
         });
         return {

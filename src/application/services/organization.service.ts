@@ -12,6 +12,7 @@ export interface UpdateOrganizationDto {
 export interface InviteMemberDto {
   name: string;
   email: string;
+  personalEmail?: string;
   role?: "admin" | "user" | "support";
   phone?: string;
   password?: string;
@@ -179,6 +180,7 @@ export class OrganizationService {
     const user = await UserModel.create({
       name: dto.name,
       email: dto.email.toLowerCase(),
+      personalEmail: dto.personalEmail ? dto.personalEmail.toLowerCase().trim() : undefined,
       passwordHash,
       phone: dto.phone,
       role: dto.role || "user",
@@ -193,14 +195,15 @@ export class OrganizationService {
       mailboxUsedMb: 0,
     });
 
-    // Asynchronously dispatch member invitation email with temporary password
+    // Asynchronously dispatch member invitation email with temporary password to personal email
     OrganizationModel.findById(orgId).then((org) => {
       if (org) {
+        const destinationEmail = user.personalEmail || user.email;
         ResendEmailService.sendMemberInvitationEmail(
-          user.email,
+          destinationEmail,
           user.name,
           org.name,
-          org.domain,
+          user.email,
           tempPassword
         ).catch((err) => console.error("⚠️ Failed to send member invitation email:", err));
       }
