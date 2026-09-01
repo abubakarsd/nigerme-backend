@@ -212,6 +212,18 @@ class ResendEmailService {
         return this.sendEmail({ to, subject, html });
     }
     /**
+     * Sends a receipt when a package is added / subscribed
+     */
+    static async sendPackageSubscribedReceipt(to, name, organizationName, packageName, _billingCycle = "MONTHLY") {
+        return this.sendSubscriptionActivatedEmail(to, name, organizationName, packageName);
+    }
+    /**
+     * Sends a cancellation confirmation when a package or organization subscription is cancelled
+     */
+    static async sendPackageCancelledConfirmation(to, name, organizationName, cancelledPackageName) {
+        return this.sendCancellationEmail(to, name, organizationName, cancelledPackageName);
+    }
+    /**
      * Sends a Plan / Package Cancellation confirmation email to the workspace administrator
      */
     static async sendCancellationEmail(to, name, organizationName, cancelledPackageName) {

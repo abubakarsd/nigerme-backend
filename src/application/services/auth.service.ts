@@ -1,5 +1,6 @@
 import { UserModel } from "../../infrastructure/database/models/user.model.js";
 import { OrganizationModel } from "../../infrastructure/database/models/organization.model.js";
+import { SubscriptionModel } from "../../infrastructure/database/models/subscription.model.js";
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
 import { OtpService } from "./otp.service.js";
 import { ResendEmailService } from "../../services/resend/index.js";
@@ -95,7 +96,9 @@ export class AuthService {
       kycStatus: "unverified",
       trustLevel: "Tier 1 Sovereign",
       dailySendingLimit: 1000,
-      subscribedPackages: ["org-email", "payroll"],
+      subscribedPackages: ["org-email"],
+      totalSeats: 0,
+      usedSeats: 0,
       subscriptionStatus: "TRIAL",
       trialStartsAt,
       trialEndsAt,
@@ -106,6 +109,23 @@ export class AuthService {
 
     user.organizationId = organization._id as any;
     await user.save();
+
+    // Create initial 7-day free trial subscription record
+    await SubscriptionModel.create({
+      organizationId: organization._id,
+      packageIds: ["org-email"],
+      billingCycle: "MONTHLY",
+      seatCount: 0,
+      totalAmount: 0,
+      currency: "NGN",
+      status: "TRIAL",
+      paymentMethod: "FREE_TRIAL",
+      trialStartsAt,
+      trialEndsAt,
+      currentPeriodStartsAt: trialStartsAt,
+      currentPeriodEndsAt: trialEndsAt,
+      autoDebit: true,
+    });
 
     const payload: Omit<TokenPayload, "iat" | "exp"> = {
       userId: user._id.toString(),

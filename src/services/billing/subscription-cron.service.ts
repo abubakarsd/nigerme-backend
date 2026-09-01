@@ -1,5 +1,7 @@
 import { OrganizationModel } from "../../infrastructure/database/models/organization.model.js";
 import { UserModel } from "../../infrastructure/database/models/user.model.js";
+import { TransactionModel } from "../../infrastructure/database/models/transaction.model.js";
+import { SubscriptionModel } from "../../infrastructure/database/models/subscription.model.js";
 import { ResendEmailService } from "../resend/email.service.js";
 import { INITIAL_PACKAGES } from "../../infrastructure/database/seeds/package.seed.js";
 
@@ -110,6 +112,36 @@ export class SubscriptionCronService {
               org.lastBillingReminderType = undefined;
               await org.save();
 
+              const renewRef = `RENEW-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+              await TransactionModel.create({
+                organizationId: org._id,
+                userId: owner._id,
+                reference: renewRef,
+                type: "subscription_charge",
+                amount: costInKobo,
+                status: "success",
+                channel: "wallet",
+                currency: "NGN",
+                paidAt: now,
+                metadata: { description: `Automated subscription renewal (${cycle})` },
+              });
+
+              await SubscriptionModel.create({
+                organizationId: org._id,
+                packageIds: subscribed,
+                billingCycle: cycle,
+                seatCount: seats,
+                totalAmount: costInKobo,
+                currency: "NGN",
+                status: "ACTIVE",
+                paymentMethod: "WALLET",
+                currentPeriodStartsAt: now,
+                currentPeriodEndsAt: nextDue,
+                autoDebit: true,
+                lastPaymentReference: renewRef,
+              });
+
               await ResendEmailService.sendWalletDebitedReceipt(
                 owner.email,
                 owner.name || "Administrator",
@@ -119,7 +151,20 @@ export class SubscriptionCronService {
               );
               console.log(`✅ Subscription renewed via wallet auto-debit for ${org.name} (₦${totalCostInNaira})`);
             } else {
-              // Insufficient wallet funds -> enter 5-Day Grace Period
+              // Insufficient wallet funds -> record failed transaction and enter 5-Day Grace Period
+              await TransactionModel.create({
+                organizationId: org._id,
+                userId: owner._id,
+                reference: `FAIL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                type: "subscription_charge",
+                amount: costInKobo,
+                status: "failed",
+                channel: "wallet",
+                currency: "NGN",
+                paidAt: now,
+                metadata: { description: "Automated wallet renewal debit failed due to insufficient funds" },
+              });
+
               if (org.subscriptionStatus !== "GRACE_PERIOD" && org.subscriptionStatus !== "SUSPENDED") {
                 const graceDeadline = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
                 org.subscriptionStatus = "GRACE_PERIOD";

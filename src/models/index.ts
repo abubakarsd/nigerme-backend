@@ -6,4 +6,6 @@ export { TransactionModel, ITransaction } from "../infrastructure/database/model
 export { AuditLogModel, IAuditLog } from "../infrastructure/database/models/audit-log.model.js";
 export { AbuseCaseModel, IAbuseCase } from "../infrastructure/database/models/abuse.model.js";
 export { PackageModel, IPackage } from "../infrastructure/database/models/package.model.js";
-
+export { SubscriptionModel, ISubscription } from "../infrastructure/database/models/subscription.model.js";
+export { RoleModel, IRole, IRolePermissions } from "../infrastructure/database/models/role.model.js";
+export { PermissionModel, IPermission } from "../infrastructure/database/models/permission.model.js";

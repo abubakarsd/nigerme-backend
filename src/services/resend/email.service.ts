@@ -233,6 +233,31 @@ export class ResendEmailService {
   }
 
   /**
+   * Sends a receipt when a package is added / subscribed
+   */
+  static async sendPackageSubscribedReceipt(
+    to: string,
+    name: string,
+    organizationName: string,
+    packageName: string,
+    _billingCycle = "MONTHLY"
+  ): Promise<{ success: boolean; id?: string }> {
+    return this.sendSubscriptionActivatedEmail(to, name, organizationName, packageName);
+  }
+
+  /**
+   * Sends a cancellation confirmation when a package or organization subscription is cancelled
+   */
+  static async sendPackageCancelledConfirmation(
+    to: string,
+    name: string,
+    organizationName: string,
+    cancelledPackageName: string
+  ): Promise<{ success: boolean; id?: string }> {
+    return this.sendCancellationEmail(to, name, organizationName, cancelledPackageName);
+  }
+
+  /**
    * Sends a Plan / Package Cancellation confirmation email to the workspace administrator
    */
   static async sendCancellationEmail(

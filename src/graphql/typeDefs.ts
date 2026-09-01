@@ -49,6 +49,15 @@ export const typeDefs = gql`
     canManageDomains: Boolean!
   }
 
+  type SystemPermission {
+    id: ID!
+    key: String!
+    name: String!
+    description: String!
+    category: String!
+    isSystem: Boolean!
+  }
+
   type WorkspaceRole {
     id: ID!
     name: String!
@@ -222,6 +231,29 @@ export const typeDefs = gql`
     updatedAt: String!
   }
 
+  type Subscription {
+    id: ID!
+    organizationId: ID!
+    packageIds: [String!]!
+    billingCycle: String!
+    seatCount: Int!
+    totalAmount: Float!
+    currency: String!
+    status: String!
+    paymentMethod: String
+    trialStartsAt: String
+    trialEndsAt: String
+    currentPeriodStartsAt: String!
+    currentPeriodEndsAt: String!
+    gracePeriodEndsAt: String
+    autoDebit: Boolean!
+    cancelledAt: String
+    cancellationReason: String
+    lastPaymentReference: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
   # ─── Inputs ───
 
   input SignupInput {
@@ -319,7 +351,12 @@ export const typeDefs = gql`
     getPackages: [ProductPackage!]!
     getPackage(packageId: String!): ProductPackage
 
-    # Departments & Roles
+    # Subscriptions & Plan Management
+    getOrganizationSubscriptions(limit: Int): [Subscription!]!
+    getCurrentSubscription: Subscription
+
+    # Departments & Roles & Permissions
+    getPermissions: [SystemPermission!]!
     getOrganizationDepartments: [Department!]!
     getOrganizationRoles: [WorkspaceRole!]!
   }
@@ -345,6 +382,10 @@ export const typeDefs = gql`
     inviteMember(input: InviteMemberInput!): InvitedMemberPayload!
     updateUserStatus(userId: ID!, status: String!): User!
     deleteUser(userId: ID!): Boolean!
+
+    # ── Subscriptions ──
+    updateSubscriptionAutoDebit(autoDebit: Boolean!): Subscription!
+    cancelSubscription(reason: String): Subscription!
 
     # ── Departments ──
     createDepartment(input: DepartmentInput!): Department!

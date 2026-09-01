@@ -95,7 +95,7 @@ const OrganizationSchema = new mongoose_1.Schema({
     },
     subscribedPackages: {
         type: [String],
-        default: ["org-email", "payroll"],
+        default: ["org-email"],
     },
     billingCycle: {
         type: String,
@@ -108,11 +108,11 @@ const OrganizationSchema = new mongoose_1.Schema({
     },
     totalSeats: {
         type: Number,
-        default: 15,
+        default: 0,
     },
     usedSeats: {
         type: Number,
-        default: 1,
+        default: 0,
     },
     subscriptionStatus: {
         type: String,

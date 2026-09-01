@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const user_model_js_1 = require("../../infrastructure/database/models/user.model.js");
 const organization_model_js_1 = require("../../infrastructure/database/models/organization.model.js");
+const subscription_model_js_1 = require("../../infrastructure/database/models/subscription.model.js");
 const token_manager_js_1 = require("../../infrastructure/security/token.manager.js");
 const otp_service_js_1 = require("./otp.service.js");
 const index_js_1 = require("../../services/resend/index.js");
@@ -48,7 +49,9 @@ class AuthService {
             kycStatus: "unverified",
             trustLevel: "Tier 1 Sovereign",
             dailySendingLimit: 1000,
-            subscribedPackages: ["org-email", "payroll"],
+            subscribedPackages: ["org-email"],
+            totalSeats: 0,
+            usedSeats: 0,
             subscriptionStatus: "TRIAL",
             trialStartsAt,
             trialEndsAt,
@@ -58,6 +61,22 @@ class AuthService {
         });
         user.organizationId = organization._id;
         await user.save();
+        // Create initial 7-day free trial subscription record
+        await subscription_model_js_1.SubscriptionModel.create({
+            organizationId: organization._id,
+            packageIds: ["org-email"],
+            billingCycle: "MONTHLY",
+            seatCount: 0,
+            totalAmount: 0,
+            currency: "NGN",
+            status: "TRIAL",
+            paymentMethod: "FREE_TRIAL",
+            trialStartsAt,
+            trialEndsAt,
+            currentPeriodStartsAt: trialStartsAt,
+            currentPeriodEndsAt: trialEndsAt,
+            autoDebit: true,
+        });
         const payload = {
             userId: user._id.toString(),
             email: user.email,

@@ -42,6 +42,46 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     assignedAt: String
   }
 
+  type RolePermissions {
+    canAccessEmail: Boolean!
+    canAccessPayroll: Boolean!
+    canAccessPos: Boolean!
+    canAccessLogistics: Boolean!
+    canAccessHotel: Boolean!
+    canAccessAdminConsole: Boolean!
+    canManageBilling: Boolean!
+    canManageUsers: Boolean!
+    canManageDomains: Boolean!
+  }
+
+  type SystemPermission {
+    id: ID!
+    key: String!
+    name: String!
+    description: String!
+    category: String!
+    isSystem: Boolean!
+  }
+
+  type WorkspaceRole {
+    id: ID!
+    name: String!
+    description: String
+    isSystem: Boolean!
+    memberCount: Int!
+    permissions: RolePermissions!
+  }
+
+  type Department {
+    id: ID!
+    name: String!
+    description: String
+    lead: String
+    memberIds: [String!]!
+    packageAccess: [String!]!
+    createdAt: String
+  }
+
   type Organization {
     id: ID!
     name: String!
@@ -71,6 +111,8 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     industry: String
     phone: String
     supportEmail: String
+    departments: [Department!]!
+    roles: [WorkspaceRole!]!
     createdAt: String!
   }
 
@@ -194,6 +236,29 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     updatedAt: String!
   }
 
+  type Subscription {
+    id: ID!
+    organizationId: ID!
+    packageIds: [String!]!
+    billingCycle: String!
+    seatCount: Int!
+    totalAmount: Float!
+    currency: String!
+    status: String!
+    paymentMethod: String
+    trialStartsAt: String
+    trialEndsAt: String
+    currentPeriodStartsAt: String!
+    currentPeriodEndsAt: String!
+    gracePeriodEndsAt: String
+    autoDebit: Boolean!
+    cancelledAt: String
+    cancellationReason: String
+    lastPaymentReference: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
   # ─── Inputs ───
 
   input SignupInput {
@@ -290,6 +355,15 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     # Product Packages & Pricing
     getPackages: [ProductPackage!]!
     getPackage(packageId: String!): ProductPackage
+
+    # Subscriptions & Plan Management
+    getOrganizationSubscriptions(limit: Int): [Subscription!]!
+    getCurrentSubscription: Subscription
+
+    # Departments & Roles & Permissions
+    getPermissions: [SystemPermission!]!
+    getOrganizationDepartments: [Department!]!
+    getOrganizationRoles: [WorkspaceRole!]!
   }
 
   type Mutation {
@@ -314,6 +388,20 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     updateUserStatus(userId: ID!, status: String!): User!
     deleteUser(userId: ID!): Boolean!
 
+    # ── Subscriptions ──
+    updateSubscriptionAutoDebit(autoDebit: Boolean!): Subscription!
+    cancelSubscription(reason: String): Subscription!
+
+    # ── Departments ──
+    createDepartment(input: DepartmentInput!): Department!
+    updateDepartment(id: ID!, input: DepartmentInput!): Department!
+    deleteDepartment(id: ID!): Boolean!
+
+    # ── Roles ──
+    createRole(input: RoleInput!): WorkspaceRole!
+    updateRole(id: ID!, input: RoleInput!): WorkspaceRole!
+    deleteRole(id: ID!): Boolean!
+
     # ── Storage (AWS S3) ──
     getPresignedUploadUrl(input: RequestUploadUrlInput!): PresignedUploadPayload!
 
@@ -337,6 +425,33 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     priceMonthly: Float
     priceAnnual: Float
     priceFormatted: String
+  }
+
+  input RolePermissionsInput {
+    canAccessEmail: Boolean
+    canAccessPayroll: Boolean
+    canAccessPos: Boolean
+    canAccessLogistics: Boolean
+    canAccessHotel: Boolean
+    canAccessAdminConsole: Boolean
+    canManageBilling: Boolean
+    canManageUsers: Boolean
+    canManageDomains: Boolean
+  }
+
+  input RoleInput {
+    name: String!
+    description: String
+    isSystem: Boolean
+    permissions: RolePermissionsInput!
+  }
+
+  input DepartmentInput {
+    name: String!
+    description: String
+    lead: String
+    memberIds: [String!]
+    packageAccess: [String!]
   }
 
   type EmailResponse {

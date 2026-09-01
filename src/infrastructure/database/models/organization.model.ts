@@ -106,7 +106,7 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     subscribedPackages: {
       type: [String],
-      default: ["org-email", "payroll"],
+      default: ["org-email"],
     },
     billingCycle: {
       type: String,
@@ -119,11 +119,11 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     totalSeats: {
       type: Number,
-      default: 15,
+      default: 0,
     },
     usedSeats: {
       type: Number,
-      default: 1,
+      default: 0,
     },
     subscriptionStatus: {
       type: String,

@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubscriptionCronService = void 0;
 const organization_model_js_1 = require("../../infrastructure/database/models/organization.model.js");
 const user_model_js_1 = require("../../infrastructure/database/models/user.model.js");
+const transaction_model_js_1 = require("../../infrastructure/database/models/transaction.model.js");
+const subscription_model_js_1 = require("../../infrastructure/database/models/subscription.model.js");
 const email_service_js_1 = require("../resend/email.service.js");
 const package_seed_js_1 = require("../../infrastructure/database/seeds/package.seed.js");
 class SubscriptionCronService {
@@ -88,11 +90,50 @@ class SubscriptionCronService {
                             org.isSuspended = false;
                             org.lastBillingReminderType = undefined;
                             await org.save();
+                            const renewRef = `RENEW-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                            await transaction_model_js_1.TransactionModel.create({
+                                organizationId: org._id,
+                                userId: owner._id,
+                                reference: renewRef,
+                                type: "subscription_charge",
+                                amount: costInKobo,
+                                status: "success",
+                                channel: "wallet",
+                                currency: "NGN",
+                                paidAt: now,
+                                metadata: { description: `Automated subscription renewal (${cycle})` },
+                            });
+                            await subscription_model_js_1.SubscriptionModel.create({
+                                organizationId: org._id,
+                                packageIds: subscribed,
+                                billingCycle: cycle,
+                                seatCount: seats,
+                                totalAmount: costInKobo,
+                                currency: "NGN",
+                                status: "ACTIVE",
+                                paymentMethod: "WALLET",
+                                currentPeriodStartsAt: now,
+                                currentPeriodEndsAt: nextDue,
+                                autoDebit: true,
+                                lastPaymentReference: renewRef,
+                            });
                             await email_service_js_1.ResendEmailService.sendWalletDebitedReceipt(owner.email, owner.name || "Administrator", org.name, totalCostInNaira, nextDue.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }));
                             console.log(`✅ Subscription renewed via wallet auto-debit for ${org.name} (₦${totalCostInNaira})`);
                         }
                         else {
-                            // Insufficient wallet funds -> enter 5-Day Grace Period
+                            // Insufficient wallet funds -> record failed transaction and enter 5-Day Grace Period
+                            await transaction_model_js_1.TransactionModel.create({
+                                organizationId: org._id,
+                                userId: owner._id,
+                                reference: `FAIL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                                type: "subscription_charge",
+                                amount: costInKobo,
+                                status: "failed",
+                                channel: "wallet",
+                                currency: "NGN",
+                                paidAt: now,
+                                metadata: { description: "Automated wallet renewal debit failed due to insufficient funds" },
+                            });
                             if (org.subscriptionStatus !== "GRACE_PERIOD" && org.subscriptionStatus !== "SUSPENDED") {
                                 const graceDeadline = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
                                 org.subscriptionStatus = "GRACE_PERIOD";

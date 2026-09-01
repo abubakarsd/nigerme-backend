@@ -9,10 +9,12 @@ import { OrganizationService } from "../application/services/organization.servic
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
-import { UserModel, OrganizationModel, TransactionModel, KycRecordModel } from "../models/index.js";
+import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService } from "../application/services/otp.service.js";
 import { INITIAL_PACKAGES } from "../infrastructure/database/seeds/package.seed.js";
+import { seedPermissions } from "../infrastructure/database/seeds/permission.seed.js";
+import { seedOrganizationDefaultRoles } from "../infrastructure/database/seeds/role.seed.js";
 
 export const resolvers = {
   Query: {
@@ -149,16 +151,35 @@ export const resolvers = {
       }));
     },
 
+    getPermissions: async () => {
+      let perms = await PermissionModel.find().sort({ category: 1, key: 1 });
+      if (perms.length === 0) {
+        await seedPermissions();
+        perms = await PermissionModel.find().sort({ category: 1, key: 1 });
+      }
+      return perms.map((p) => ({
+        id: p._id.toString(),
+        key: p.key,
+        name: p.name,
+        description: p.description,
+        category: p.category,
+        isSystem: p.isSystem,
+      }));
+    },
+
     getOrganizationRoles: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return [];
-      const org = await OrganizationModel.findById(authUser.organizationId);
-      if (!org) return [];
-      return (org.roles || []).map((r: any) => ({
-        ...r,
-        id: r.id || r._id?.toString() || String(Math.random()),
+      let roles = await RoleModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: 1 });
+      if (roles.length === 0) {
+        roles = (await seedOrganizationDefaultRoles(authUser.organizationId)) as any[];
+      }
+      return roles.map((r) => ({
+        id: r._id.toString(),
+        name: r.name,
+        description: r.description,
+        isSystem: r.isSystem,
         memberCount: r.memberCount || 0,
-        isSystem: r.isSystem || false,
         permissions: {
           canAccessEmail: r.permissions?.canAccessEmail ?? true,
           canAccessPayroll: r.permissions?.canAccessPayroll ?? false,
@@ -171,6 +192,32 @@ export const resolvers = {
           canManageDomains: r.permissions?.canManageDomains ?? false,
         },
       }));
+    },
+
+    getOrganizationSubscriptions: async (_: any, { limit = 20 }: { limit?: number }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+      const subs = await SubscriptionModel.find({ organizationId: authUser.organizationId })
+        .sort({ createdAt: -1 })
+        .limit(limit);
+      return subs.map((s) => ({
+        ...s.toObject(),
+        id: s._id.toString(),
+        totalAmount: s.totalAmount / 100, // in Naira
+      }));
+    },
+
+    getCurrentSubscription: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return null;
+      const sub = await SubscriptionModel.findOne({ organizationId: authUser.organizationId })
+        .sort({ createdAt: -1 });
+      if (!sub) return null;
+      return {
+        ...sub.toObject(),
+        id: sub._id.toString(),
+        totalAmount: sub.totalAmount / 100, // in Naira
+      };
     },
   },
 
@@ -274,31 +321,24 @@ export const resolvers = {
       const org = await OrganizationModel.findById(authUser.organizationId);
       if (!org) throw new Error("Organization not found");
 
-      const user = await UserModel.findById(authUser.userId);
-
-      const current = org.subscribedPackages || ["org-email"];
-      if (!current.includes(packageId)) {
-        current.push(packageId);
-        org.subscribedPackages = current;
+      const subscribed = org.subscribedPackages || ["org-email"];
+      if (!subscribed.includes(packageId)) {
+        subscribed.push(packageId);
+        org.subscribedPackages = subscribed;
         await org.save();
-      }
 
-      // Dispatch subscription activation email via Resend
-      if (user && user.email) {
-        const pkgNames: Record<string, string> = {
-          "org-email": "Sovereign Business Mailbox",
-          "payroll": "Sovereign Payroll & PAYE",
-          "pos": "Commerce POS & Retail Hub",
-          "logistics": "Fleet & Logistics Tracker",
-          "hotel": "Hotel PMS & FrontDesk",
-        };
-        const pkgName = pkgNames[packageId] || packageId;
-        ResendEmailService.sendSubscriptionActivatedEmail(
-          user.email,
-          user.name || "Administrator",
-          org.name,
-          pkgName
-        ).catch((err) => console.error("⚠️ Failed to send subscription email:", err));
+        const user = await UserModel.findById(authUser.userId);
+        const pkg = INITIAL_PACKAGES.find((p) => p.packageId === packageId);
+        const pkgName = pkg ? pkg.name : packageId;
+        if (user && user.email) {
+          ResendEmailService.sendPackageSubscribedReceipt(
+            user.email,
+            user.name || "Administrator",
+            org.name,
+            pkgName,
+            org.billingCycle || "MONTHLY"
+          ).catch((err: any) => console.error("⚠️ Failed to send package subscription email:", err));
+        }
       }
 
       return {
@@ -308,39 +348,29 @@ export const resolvers = {
       };
     },
 
-    cancelPackageSubscription: async (
-      _: any,
-      { packageId }: { packageId: string },
-      context: GraphQLContext
-    ) => {
+    cancelPackageSubscription: async (_: any, { packageId }: { packageId: string }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
       const org = await OrganizationModel.findById(authUser.organizationId);
       if (!org) throw new Error("Organization not found");
 
-      const user = await UserModel.findById(authUser.userId);
+      if (packageId === "org-email") {
+        throw new Error("Cannot cancel Sovereign Core Email Suite.");
+      }
 
-      const current = org.subscribedPackages || ["org-email"];
-      const next = current.filter((id) => id !== packageId);
-      org.subscribedPackages = next;
+      org.subscribedPackages = (org.subscribedPackages || ["org-email"]).filter((p) => p !== packageId);
       await org.save();
 
-      // Dispatch cancellation confirmation email via Resend
+      const user = await UserModel.findById(authUser.userId);
+      const pkg = INITIAL_PACKAGES.find((p) => p.packageId === packageId);
+      const pkgName = pkg ? pkg.name : packageId;
       if (user && user.email) {
-        const pkgNames: Record<string, string> = {
-          "org-email": "Sovereign Business Mailbox",
-          "payroll": "Sovereign Payroll & PAYE",
-          "pos": "Commerce POS & Retail Hub",
-          "logistics": "Fleet & Logistics Tracker",
-          "hotel": "Hotel PMS & FrontDesk",
-        };
-        const pkgName = pkgNames[packageId] || packageId;
-        ResendEmailService.sendCancellationEmail(
+        ResendEmailService.sendPackageCancelledConfirmation(
           user.email,
           user.name || "Administrator",
           org.name,
           pkgName
-        ).catch((err) => console.error("⚠️ Failed to send cancellation email:", err));
+        ).catch((err: any) => console.error("⚠️ Failed to send cancellation email:", err));
       }
 
       return {
@@ -365,21 +395,72 @@ export const resolvers = {
       if (!org) throw new Error("Organization not found");
 
       const user = await UserModel.findById(authUser.userId);
+      const now = new Date();
+      const isAnnual = billingCycle === "ANNUAL";
 
       // Calculate total cost
       let totalCostInNaira = 0;
       for (const pkgId of packageIds) {
         const pkg = INITIAL_PACKAGES.find((p) => p.packageId === pkgId);
         if (pkg) {
-          totalCostInNaira += billingCycle === "ANNUAL" ? pkg.priceAnnual : pkg.priceMonthly;
+          if (pkg.pricingModel === "PER_SEAT" || pkgId === "org-email" || pkg.isCore) {
+            totalCostInNaira += (isAnnual ? pkg.priceAnnual : pkg.priceMonthly) * totalSeats;
+          } else {
+            totalCostInNaira += isAnnual ? pkg.priceAnnual : pkg.priceMonthly;
+          }
         }
       }
-      if (totalCostInNaira === 0) totalCostInNaira = 15000;
 
-      const costInKobo = totalCostInNaira * 100;
+      // 1. Check if first-time activation on 7-Day Free Trial (₦0 due today)
+      const isFirstTimeTrial =
+        !org.subscriptionStartsAt ||
+        org.subscriptionStatus === "TRIAL" ||
+        !org.subscriptionStatus;
+
+      if (isFirstTimeTrial) {
+        org.subscribedPackages = packageIds;
+        org.billingCycle = billingCycle as any;
+        org.totalSeats = totalSeats;
+        org.subscriptionStatus = "TRIAL";
+        org.trialStartsAt = now;
+        const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        org.trialEndsAt = trialEndsAt;
+        org.subscriptionStartsAt = now;
+        org.subscriptionExpiresAt = trialEndsAt;
+        org.gracePeriodEndsAt = undefined;
+        org.isSuspended = false;
+        org.lastBillingReminderType = undefined;
+        await org.save();
+
+        // Create subscription history record
+        await SubscriptionModel.create({
+          organizationId: org._id,
+          packageIds,
+          billingCycle,
+          seatCount: totalSeats,
+          totalAmount: 0,
+          currency: "NGN",
+          status: "TRIAL",
+          paymentMethod: "FREE_TRIAL",
+          trialStartsAt: now,
+          trialEndsAt,
+          currentPeriodStartsAt: now,
+          currentPeriodEndsAt: trialEndsAt,
+          autoDebit: org.autoDebitWallet ?? true,
+        });
+
+        return {
+          ...org.toObject(),
+          id: org._id.toString(),
+          walletBalance: org.walletBalance / 100,
+        };
+      }
+
+      // 2. Paid activation / upgrade after trial
+      const costInKobo = Math.round(totalCostInNaira * 100);
       if ((org.walletBalance || 0) < costInKobo) {
         throw new Error(
-          `Insufficient wallet balance. Total required is ₦${totalCostInNaira.toLocaleString()}, but available wallet balance is ₦${((org.walletBalance || 0) / 100).toLocaleString()}. Please fund your wallet to activate.`
+          `Insufficient wallet balance. Total required is ₦${totalCostInNaira.toLocaleString()}, but available wallet balance is ₦${((org.walletBalance || 0) / 100).toLocaleString()}. Please fund your wallet or pay via Card to activate.`
         );
       }
 
@@ -389,14 +470,46 @@ export const resolvers = {
       org.billingCycle = billingCycle as any;
       org.totalSeats = totalSeats;
       org.subscriptionStatus = "ACTIVE";
-      org.subscriptionStartsAt = new Date();
-      const periodDays = billingCycle === "ANNUAL" ? 365 : 30;
-      const nextDue = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000);
+      org.subscriptionStartsAt = now;
+      const periodDays = isAnnual ? 365 : 30;
+      const nextDue = new Date(now.getTime() + periodDays * 24 * 60 * 60 * 1000);
       org.subscriptionExpiresAt = nextDue;
       org.gracePeriodEndsAt = undefined;
       org.isSuspended = false;
       org.lastBillingReminderType = undefined;
       await org.save();
+
+      const subRef = `SUB-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // Record transaction
+      await TransactionModel.create({
+        organizationId: org._id,
+        userId: authUser.userId,
+        reference: subRef,
+        type: "subscription_charge",
+        amount: costInKobo,
+        status: "success",
+        channel: "wallet",
+        currency: "NGN",
+        paidAt: now,
+        metadata: { description: `Subscription Activation (${packageIds.join(", ")})` },
+      });
+
+      // Record subscription history record
+      await SubscriptionModel.create({
+        organizationId: org._id,
+        packageIds,
+        billingCycle,
+        seatCount: totalSeats,
+        totalAmount: costInKobo,
+        currency: "NGN",
+        status: "ACTIVE",
+        paymentMethod: "WALLET",
+        currentPeriodStartsAt: now,
+        currentPeriodEndsAt: nextDue,
+        autoDebit: org.autoDebitWallet ?? true,
+        lastPaymentReference: subRef,
+      });
 
       // Dispatch receipt email via Resend
       if (user && user.email) {
@@ -406,13 +519,98 @@ export const resolvers = {
           org.name,
           totalCostInNaira,
           nextDue.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-        ).catch((err) => console.error("⚠️ Failed to send wallet debited receipt email:", err));
+        ).catch((err: any) => console.error("⚠️ Failed to send wallet debited receipt email:", err));
       }
 
       return {
         ...org.toObject(),
         id: org._id.toString(),
         walletBalance: org.walletBalance / 100,
+      };
+    },
+
+    updateSubscriptionAutoDebit: async (_: any, { autoDebit }: { autoDebit: boolean }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findByIdAndUpdate(
+        authUser.organizationId,
+        { autoDebitWallet: autoDebit },
+        { new: true }
+      );
+      if (!org) throw new Error("Organization not found");
+
+      let sub = await SubscriptionModel.findOne({ organizationId: authUser.organizationId }).sort({ createdAt: -1 });
+      if (sub) {
+        sub.autoDebit = autoDebit;
+        await sub.save();
+      } else {
+        sub = await SubscriptionModel.create({
+          organizationId: authUser.organizationId,
+          packageIds: org.subscribedPackages || ["org-email"],
+          billingCycle: org.billingCycle || "MONTHLY",
+          seatCount: org.totalSeats || 0,
+          totalAmount: 0,
+          currency: "NGN",
+          status: org.subscriptionStatus || "ACTIVE",
+          currentPeriodStartsAt: org.subscriptionStartsAt || new Date(),
+          currentPeriodEndsAt: org.subscriptionExpiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          autoDebit,
+        });
+      }
+
+      return {
+        ...sub.toObject(),
+        id: sub._id.toString(),
+        totalAmount: sub.totalAmount / 100,
+      };
+    },
+
+    cancelSubscription: async (_: any, { reason }: { reason?: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      org.subscriptionStatus = "CANCELLED";
+      await org.save();
+
+      let sub = await SubscriptionModel.findOne({ organizationId: authUser.organizationId }).sort({ createdAt: -1 });
+      if (sub) {
+        sub.status = "CANCELLED";
+        sub.cancelledAt = new Date();
+        sub.cancellationReason = reason || "Cancelled by workspace administrator";
+        await sub.save();
+      } else {
+        sub = await SubscriptionModel.create({
+          organizationId: org._id,
+          packageIds: org.subscribedPackages || ["org-email"],
+          billingCycle: org.billingCycle || "MONTHLY",
+          seatCount: org.totalSeats || 0,
+          totalAmount: 0,
+          currency: "NGN",
+          status: "CANCELLED",
+          currentPeriodStartsAt: org.subscriptionStartsAt || new Date(),
+          currentPeriodEndsAt: org.subscriptionExpiresAt || new Date(),
+          autoDebit: false,
+          cancelledAt: new Date(),
+          cancellationReason: reason || "Cancelled by workspace administrator",
+        });
+      }
+
+      const user = await UserModel.findById(authUser.userId);
+      if (user && user.email) {
+        ResendEmailService.sendPackageCancelledConfirmation(
+          user.email,
+          user.name || "Administrator",
+          org.name,
+          "Sovereign Organization Subscription"
+        ).catch((err: any) => console.error("⚠️ Failed to send cancellation email:", err));
+      }
+
+      return {
+        ...sub.toObject(),
+        id: sub._id.toString(),
+        totalAmount: sub.totalAmount / 100,
       };
     },
 
@@ -521,12 +719,11 @@ export const resolvers = {
     createRole: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
-      const org = await OrganizationModel.findById(authUser.organizationId);
-      if (!org) throw new Error("Organization not found");
 
-      const newRole = {
-        id: `role-${Date.now()}`,
+      const role = await RoleModel.create({
+        organizationId: authUser.organizationId,
         name: input.name,
+        slug: input.name.toLowerCase().replace(/[^a-z0-9]/g, "-"),
         description: input.description || "",
         isSystem: false,
         memberCount: 0,
@@ -541,55 +738,59 @@ export const resolvers = {
           canManageUsers: input.permissions?.canManageUsers ?? false,
           canManageDomains: input.permissions?.canManageDomains ?? false,
         },
-      };
+      });
 
-      org.roles = [...(org.roles || []), newRole];
-      org.markModified("roles");
-      await org.save();
-      return newRole;
+      return {
+        id: role._id.toString(),
+        name: role.name,
+        description: role.description,
+        isSystem: role.isSystem,
+        memberCount: 0,
+        permissions: role.permissions,
+      };
     },
 
     updateRole: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
-      const org = await OrganizationModel.findById(authUser.organizationId);
-      if (!org) throw new Error("Organization not found");
 
-      const rolesList = org.roles || [];
-      const idx = rolesList.findIndex((r: any) => r.id === id);
-      if (idx === -1) throw new Error("Role not found");
+      const role = await RoleModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      if (!role) throw new Error("Role not found");
 
-      const existing = rolesList[idx];
-      if (existing.isSystem) throw new Error("System roles cannot be modified via API.");
+      if (role.isSystem && input.name && input.name !== role.name) {
+        throw new Error("Cannot rename default system roles.");
+      }
 
-      const updated = {
-        ...existing,
-        name: input.name || existing.name,
-        description: input.description ?? existing.description,
-        permissions: {
-          ...existing.permissions,
+      if (input.name) role.name = input.name;
+      if (input.description !== undefined) role.description = input.description;
+      if (input.permissions) {
+        role.permissions = {
+          ...role.permissions,
           ...input.permissions,
-        },
+        };
+      }
+
+      await role.save();
+
+      return {
+        id: role._id.toString(),
+        name: role.name,
+        description: role.description,
+        isSystem: role.isSystem,
+        memberCount: role.memberCount || 0,
+        permissions: role.permissions,
       };
-      rolesList[idx] = updated;
-      org.roles = rolesList;
-      org.markModified("roles");
-      await org.save();
-      return updated;
     },
 
     deleteRole: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
-      const org = await OrganizationModel.findById(authUser.organizationId);
-      if (!org) return false;
 
-      const role = (org.roles || []).find((r: any) => r.id === id);
-      if (role?.isSystem) throw new Error("System roles cannot be deleted.");
+      const role = await RoleModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      if (!role) throw new Error("Role not found");
+      if (role.isSystem) throw new Error("System default roles cannot be deleted.");
 
-      org.roles = (org.roles || []).filter((r: any) => r.id !== id);
-      org.markModified("roles");
-      await org.save();
+      await RoleModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
       return true;
     },
 
