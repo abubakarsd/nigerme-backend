@@ -48,6 +48,49 @@ class OtpService {
         };
     }
     /**
+     * Generates and dispatches an IDENTICAL 6-digit 2FA code to both Email and Phone simultaneously
+     */
+    static async sendUnified2faOtp(email, name = "Workspace Administrator", phone) {
+        const formattedEmail = email.toLowerCase().trim();
+        const rawOtp = crypto_1.default.randomInt(100000, 999999).toString();
+        const otpHash = crypto_1.default.createHash("sha256").update(rawOtp).digest("hex");
+        const expiresAt = new Date(Date.now() + this.OTP_VALIDITY_MINUTES * 60 * 1000);
+        // Save for email identifier
+        await otp_model_js_1.OtpModel.deleteMany({ identifier: formattedEmail, purpose: "login_2fa" });
+        await otp_model_js_1.OtpModel.create({
+            identifier: formattedEmail,
+            otpHash,
+            purpose: "login_2fa",
+            expiresAt,
+            attempts: 0,
+        });
+        // If phone exists, also save for phone identifier so either identifier can verify
+        if (phone) {
+            try {
+                const formattedPhone = termii_client_js_1.TermiiClient.formatNigerianPhone(phone);
+                await otp_model_js_1.OtpModel.deleteMany({ identifier: formattedPhone, purpose: "login_2fa" });
+                await otp_model_js_1.OtpModel.create({
+                    identifier: formattedPhone,
+                    otpHash,
+                    purpose: "login_2fa",
+                    expiresAt,
+                    attempts: 0,
+                });
+                // Send SMS via Termii
+                await termii_client_js_1.TermiiClient.sendOtp(formattedPhone, rawOtp).catch((err) => console.warn("⚠️ Termii SMS dispatch failed:", err));
+            }
+            catch (err) {
+                console.warn("⚠️ Could not format phone for 2FA SMS:", err);
+            }
+        }
+        // Send Email via Resend
+        await index_js_1.ResendEmailService.sendOtpEmail(formattedEmail, name, rawOtp, this.OTP_VALIDITY_MINUTES).catch((err) => console.warn("⚠️ Resend email dispatch failed:", err));
+        return {
+            message: `A 6-digit verification code has been sent to ${formattedEmail}${phone ? ` and ${phone}` : ""}.`,
+            expiresInMinutes: this.OTP_VALIDITY_MINUTES,
+        };
+    }
+    /**
      * Verifies an Email OTP code against stored hash
      */
     static async verifyEmailOtp(email, otpCode, purpose = "email_verification") {

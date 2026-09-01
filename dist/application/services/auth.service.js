@@ -126,15 +126,12 @@ class AuthService {
         if (user.status === "suspended") {
             throw new Error("Your account has been suspended. Please contact support.");
         }
-        // Security: Always dispatch 2FA OTP verification code to Phone and Email
-        if (user.phone) {
-            await otp_service_js_1.OtpService.sendPhoneOtp(user.phone, "login_2fa").catch((err) => console.warn("⚠️ Phone 2FA dispatch warning:", err));
-        }
-        await otp_service_js_1.OtpService.sendEmailOtp(user.email, user.name, "login_2fa").catch((err) => console.warn("⚠️ Email 2FA dispatch warning:", err));
+        // Security: Always dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
+        await otp_service_js_1.OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) => console.warn("⚠️ 2FA dispatch warning:", err));
         return {
             requiresTwoFactor: true,
-            phone: user.phone || user.email,
-            message: "A 6-digit 2FA verification code has been dispatched to your phone and email.",
+            phone: user.email,
+            message: `A 6-digit 2FA verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
         };
     }
     /**
@@ -165,15 +162,12 @@ class AuthService {
         if (!isMatch) {
             throw new Error("Incorrect mailbox password.");
         }
-        // Security: Always dispatch 2FA OTP verification code to Phone and Email
-        if (user.phone) {
-            await otp_service_js_1.OtpService.sendPhoneOtp(user.phone, "login_2fa").catch((err) => console.warn("⚠️ Phone 2FA dispatch warning:", err));
-        }
-        await otp_service_js_1.OtpService.sendEmailOtp(user.email, user.name, "login_2fa").catch((err) => console.warn("⚠️ Email 2FA dispatch warning:", err));
+        // Security: Always dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
+        await otp_service_js_1.OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) => console.warn("⚠️ 2FA dispatch warning:", err));
         return {
             requiresTwoFactor: true,
-            phone: user.phone || user.email,
-            message: "A 6-digit 2FA verification code has been dispatched to your phone and email.",
+            phone: user.email,
+            message: `A 6-digit 2FA verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
         };
     }
     /**
