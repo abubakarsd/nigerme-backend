@@ -510,6 +510,22 @@ exports.resolvers = {
                 sub.cancellationReason = reason || "Cancelled by workspace administrator";
                 await sub.save();
             }
+            else {
+                sub = await index_js_7.SubscriptionModel.create({
+                    organizationId: org._id,
+                    packageIds: org.subscribedPackages || ["org-email"],
+                    billingCycle: org.billingCycle || "MONTHLY",
+                    seatCount: org.totalSeats || 0,
+                    totalAmount: 0,
+                    currency: "NGN",
+                    status: "CANCELLED",
+                    currentPeriodStartsAt: org.subscriptionStartsAt || new Date(),
+                    currentPeriodEndsAt: org.subscriptionExpiresAt || new Date(),
+                    autoDebit: false,
+                    cancelledAt: new Date(),
+                    cancellationReason: reason || "Cancelled by workspace administrator",
+                });
+            }
             const user = await index_js_7.UserModel.findById(authUser.userId);
             if (user && user.email) {
                 index_js_6.ResendEmailService.sendPackageCancelledConfirmation(user.email, user.name || "Administrator", org.name, "Sovereign Organization Subscription").catch((err) => console.error("⚠️ Failed to send cancellation email:", err));
