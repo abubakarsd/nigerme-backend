@@ -224,12 +224,8 @@ export const resolvers = {
     getOrganizationDepartments: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return [];
-      let org = await OrganizationModel.findById(authUser.organizationId);
+      const org = await OrganizationModel.findById(authUser.organizationId);
       if (!org) return [];
-      if (!org.departments || org.departments.length === 0) {
-        const seeded = await seedOrganizationDefaultDepartments(org._id);
-        org.departments = seeded;
-      }
       return (org.departments || []).map((d: any) => ({
         ...d,
         id: d.id || d._id?.toString() || String(Math.random()),

@@ -93,11 +93,8 @@ class AuthService {
             currentPeriodEndsAt: trialEndsAt,
             autoDebit: true,
         });
-        // Seed default roles and departments for this new organization in DB
-        await Promise.all([
-            (0, role_seed_js_1.seedOrganizationDefaultRoles)(organization._id).catch((err) => console.warn("⚠️ Failed to seed default roles during signup:", err)),
-            (0, role_seed_js_1.seedOrganizationDefaultDepartments)(organization._id).catch((err) => console.warn("⚠️ Failed to seed default departments during signup:", err)),
-        ]);
+        // Seed default roles for this new organization in DB (departments created on demand by admin)
+        await (0, role_seed_js_1.seedOrganizationDefaultRoles)(organization._id).catch((err) => console.warn("⚠️ Failed to seed default roles during signup:", err));
         const payload = {
             userId: user._id.toString(),
             email: user.email,

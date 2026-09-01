@@ -146,15 +146,10 @@ export class AuthService {
       autoDebit: true,
     });
 
-    // Seed default roles and departments for this new organization in DB
-    await Promise.all([
-      seedOrganizationDefaultRoles(organization._id).catch((err) =>
-        console.warn("⚠️ Failed to seed default roles during signup:", err)
-      ),
-      seedOrganizationDefaultDepartments(organization._id).catch((err) =>
-        console.warn("⚠️ Failed to seed default departments during signup:", err)
-      ),
-    ]);
+    // Seed default roles for this new organization in DB (departments created on demand by admin)
+    await seedOrganizationDefaultRoles(organization._id).catch((err) =>
+      console.warn("⚠️ Failed to seed default roles during signup:", err)
+    );
 
     const payload: Omit<TokenPayload, "iat" | "exp"> = {
       userId: user._id.toString(),

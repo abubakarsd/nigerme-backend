@@ -219,13 +219,9 @@ exports.resolvers = {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
                 return [];
-            let org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
             if (!org)
                 return [];
-            if (!org.departments || org.departments.length === 0) {
-                const seeded = await (0, role_seed_js_1.seedOrganizationDefaultDepartments)(org._id);
-                org.departments = seeded;
-            }
             return (org.departments || []).map((d) => ({
                 ...d,
                 id: d.id || d._id?.toString() || String(Math.random()),
