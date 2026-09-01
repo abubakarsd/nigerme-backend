@@ -46,6 +46,29 @@ export const resolvers = {
         ...orgObj,
         id: org._id.toString(),
         walletBalance: org.walletBalance / 100, // Return in Naira
+        departments: (org.departments || []).map((d: any) => ({
+          ...d,
+          id: d.id || d._id?.toString() || String(Math.random()),
+          memberIds: d.memberIds || [],
+          packageAccess: d.packageAccess || [],
+        })),
+        roles: (org.roles || []).map((r: any) => ({
+          ...r,
+          id: r.id || r._id?.toString() || String(Math.random()),
+          memberCount: r.memberCount || 0,
+          isSystem: r.isSystem || false,
+          permissions: {
+            canAccessEmail: r.permissions?.canAccessEmail ?? true,
+            canAccessPayroll: r.permissions?.canAccessPayroll ?? false,
+            canAccessPos: r.permissions?.canAccessPos ?? false,
+            canAccessLogistics: r.permissions?.canAccessLogistics ?? false,
+            canAccessHotel: r.permissions?.canAccessHotel ?? false,
+            canAccessAdminConsole: r.permissions?.canAccessAdminConsole ?? false,
+            canManageBilling: r.permissions?.canManageBilling ?? false,
+            canManageUsers: r.permissions?.canManageUsers ?? false,
+            canManageDomains: r.permissions?.canManageDomains ?? false,
+          },
+        })),
       };
     },
 
@@ -110,6 +133,44 @@ export const resolvers = {
 
     getPackage: async (_: any, { packageId }: { packageId: string }) => {
       return PackageService.getPackageById(packageId);
+    },
+
+    // ─── Department & Role Queries ───
+    getOrganizationDepartments: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) return [];
+      return (org.departments || []).map((d: any) => ({
+        ...d,
+        id: d.id || d._id?.toString() || String(Math.random()),
+        memberIds: d.memberIds || [],
+        packageAccess: d.packageAccess || [],
+      }));
+    },
+
+    getOrganizationRoles: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) return [];
+      return (org.roles || []).map((r: any) => ({
+        ...r,
+        id: r.id || r._id?.toString() || String(Math.random()),
+        memberCount: r.memberCount || 0,
+        isSystem: r.isSystem || false,
+        permissions: {
+          canAccessEmail: r.permissions?.canAccessEmail ?? true,
+          canAccessPayroll: r.permissions?.canAccessPayroll ?? false,
+          canAccessPos: r.permissions?.canAccessPos ?? false,
+          canAccessLogistics: r.permissions?.canAccessLogistics ?? false,
+          canAccessHotel: r.permissions?.canAccessHotel ?? false,
+          canAccessAdminConsole: r.permissions?.canAccessAdminConsole ?? false,
+          canManageBilling: r.permissions?.canManageBilling ?? false,
+          canManageUsers: r.permissions?.canManageUsers ?? false,
+          canManageDomains: r.permissions?.canManageDomains ?? false,
+        },
+      }));
     },
   },
 
@@ -402,6 +463,134 @@ export const resolvers = {
       const authUser = requireAuth(context);
       const res = await UserModel.findOneAndDelete({ _id: userId, organizationId: authUser.organizationId });
       return !!res;
+    },
+
+    // ─── Department Mutations ───
+    createDepartment: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      const newDept = {
+        id: `dept-${Date.now()}`,
+        name: input.name,
+        description: input.description || "",
+        lead: input.lead || "",
+        memberIds: input.memberIds || [],
+        packageAccess: input.packageAccess || ["org-email"],
+        createdAt: new Date().toISOString(),
+      };
+
+      org.departments = [...(org.departments || []), newDept];
+      await org.save();
+      return newDept;
+    },
+
+    updateDepartment: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      const depts = org.departments || [];
+      const idx = depts.findIndex((d: any) => d.id === id);
+      if (idx === -1) throw new Error("Department not found");
+
+      const updated = { ...depts[idx], ...input };
+      depts[idx] = updated;
+      org.departments = depts;
+      org.markModified("departments");
+      await org.save();
+      return updated;
+    },
+
+    deleteDepartment: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) return false;
+
+      org.departments = (org.departments || []).filter((d: any) => d.id !== id);
+      org.markModified("departments");
+      await org.save();
+      return true;
+    },
+
+    // ─── Role Mutations ───
+    createRole: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      const newRole = {
+        id: `role-${Date.now()}`,
+        name: input.name,
+        description: input.description || "",
+        isSystem: false,
+        memberCount: 0,
+        permissions: {
+          canAccessEmail: input.permissions?.canAccessEmail ?? true,
+          canAccessPayroll: input.permissions?.canAccessPayroll ?? false,
+          canAccessPos: input.permissions?.canAccessPos ?? false,
+          canAccessLogistics: input.permissions?.canAccessLogistics ?? false,
+          canAccessHotel: input.permissions?.canAccessHotel ?? false,
+          canAccessAdminConsole: input.permissions?.canAccessAdminConsole ?? false,
+          canManageBilling: input.permissions?.canManageBilling ?? false,
+          canManageUsers: input.permissions?.canManageUsers ?? false,
+          canManageDomains: input.permissions?.canManageDomains ?? false,
+        },
+      };
+
+      org.roles = [...(org.roles || []), newRole];
+      org.markModified("roles");
+      await org.save();
+      return newRole;
+    },
+
+    updateRole: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      const rolesList = org.roles || [];
+      const idx = rolesList.findIndex((r: any) => r.id === id);
+      if (idx === -1) throw new Error("Role not found");
+
+      const existing = rolesList[idx];
+      if (existing.isSystem) throw new Error("System roles cannot be modified via API.");
+
+      const updated = {
+        ...existing,
+        name: input.name || existing.name,
+        description: input.description ?? existing.description,
+        permissions: {
+          ...existing.permissions,
+          ...input.permissions,
+        },
+      };
+      rolesList[idx] = updated;
+      org.roles = rolesList;
+      org.markModified("roles");
+      await org.save();
+      return updated;
+    },
+
+    deleteRole: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) return false;
+
+      const role = (org.roles || []).find((r: any) => r.id === id);
+      if (role?.isSystem) throw new Error("System roles cannot be deleted.");
+
+      org.roles = (org.roles || []).filter((r: any) => r.id !== id);
+      org.markModified("roles");
+      await org.save();
+      return true;
     },
 
     // ─── Storage Mutations (AWS S3) ───

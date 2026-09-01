@@ -37,6 +37,37 @@ export const typeDefs = gql`
     assignedAt: String
   }
 
+  type RolePermissions {
+    canAccessEmail: Boolean!
+    canAccessPayroll: Boolean!
+    canAccessPos: Boolean!
+    canAccessLogistics: Boolean!
+    canAccessHotel: Boolean!
+    canAccessAdminConsole: Boolean!
+    canManageBilling: Boolean!
+    canManageUsers: Boolean!
+    canManageDomains: Boolean!
+  }
+
+  type WorkspaceRole {
+    id: ID!
+    name: String!
+    description: String
+    isSystem: Boolean!
+    memberCount: Int!
+    permissions: RolePermissions!
+  }
+
+  type Department {
+    id: ID!
+    name: String!
+    description: String
+    lead: String
+    memberIds: [String!]!
+    packageAccess: [String!]!
+    createdAt: String
+  }
+
   type Organization {
     id: ID!
     name: String!
@@ -66,6 +97,8 @@ export const typeDefs = gql`
     industry: String
     phone: String
     supportEmail: String
+    departments: [Department!]!
+    roles: [WorkspaceRole!]!
     createdAt: String!
   }
 
@@ -285,6 +318,10 @@ export const typeDefs = gql`
     # Product Packages & Pricing
     getPackages: [ProductPackage!]!
     getPackage(packageId: String!): ProductPackage
+
+    # Departments & Roles
+    getOrganizationDepartments: [Department!]!
+    getOrganizationRoles: [WorkspaceRole!]!
   }
 
   type Mutation {
@@ -309,6 +346,16 @@ export const typeDefs = gql`
     updateUserStatus(userId: ID!, status: String!): User!
     deleteUser(userId: ID!): Boolean!
 
+    # ── Departments ──
+    createDepartment(input: DepartmentInput!): Department!
+    updateDepartment(id: ID!, input: DepartmentInput!): Department!
+    deleteDepartment(id: ID!): Boolean!
+
+    # ── Roles ──
+    createRole(input: RoleInput!): WorkspaceRole!
+    updateRole(id: ID!, input: RoleInput!): WorkspaceRole!
+    deleteRole(id: ID!): Boolean!
+
     # ── Storage (AWS S3) ──
     getPresignedUploadUrl(input: RequestUploadUrlInput!): PresignedUploadPayload!
 
@@ -332,6 +379,33 @@ export const typeDefs = gql`
     priceMonthly: Float
     priceAnnual: Float
     priceFormatted: String
+  }
+
+  input RolePermissionsInput {
+    canAccessEmail: Boolean
+    canAccessPayroll: Boolean
+    canAccessPos: Boolean
+    canAccessLogistics: Boolean
+    canAccessHotel: Boolean
+    canAccessAdminConsole: Boolean
+    canManageBilling: Boolean
+    canManageUsers: Boolean
+    canManageDomains: Boolean
+  }
+
+  input RoleInput {
+    name: String!
+    description: String
+    isSystem: Boolean
+    permissions: RolePermissionsInput!
+  }
+
+  input DepartmentInput {
+    name: String!
+    description: String
+    lead: String
+    memberIds: [String!]
+    packageAccess: [String!]
   }
 
   type EmailResponse {
