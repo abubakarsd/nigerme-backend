@@ -45,6 +45,32 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     priority: Int
   }
 
+  type EmailMetricTotals {
+    sent: Int!
+    delivered: Int!
+    open_rate: Float!
+  }
+
+  type EmailMetricDataPoint {
+    period: String!
+    domain_id: String
+    domain_name: String!
+    sent: Int!
+    delivered: Int!
+    open_rate: Float!
+  }
+
+  type EmailMetricsResponse {
+    object: String!
+    start_date: String!
+    end_date: String!
+    metrics: [String!]!
+    dimensions: [String!]!
+    granularity: String!
+    totals: EmailMetricTotals!
+    data: [EmailMetricDataPoint!]!
+  }
+
   type DedicatedVirtualAccount {
     accountNumber: String!
     accountName: String!
@@ -378,6 +404,9 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     getPermissions: [SystemPermission!]!
     getOrganizationDepartments: [Department!]!
     getOrganizationRoles: [WorkspaceRole!]!
+
+    # Resend Email Metrics & Analytics
+    getEmailMetrics(startDate: String, endDate: String): EmailMetricsResponse!
   }
 
   type Mutation {

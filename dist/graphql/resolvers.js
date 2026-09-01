@@ -213,6 +213,14 @@ exports.resolvers = {
                 totalAmount: sub.totalAmount / 100, // in Naira
             };
         },
+        getEmailMetrics: async (_, { startDate, endDate }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            let org = null;
+            if (authUser.organizationId) {
+                org = await organization_service_js_1.OrganizationService.getById(authUser.organizationId);
+            }
+            return index_js_6.ResendDomainService.getEmailMetrics(org?.resendDomainId, org?.domain || "example.com", startDate, endDate);
+        },
     },
     Mutation: {
         // ─── Auth Mutations ───

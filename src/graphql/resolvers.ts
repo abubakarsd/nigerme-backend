@@ -4,7 +4,7 @@ import { TermiiOtpService } from "../services/termii/index.js";
 import { ProvnKycService } from "../services/provn/index.js";
 import { AwsS3Service } from "../services/aws/index.js";
 import { PaystackService } from "../services/paystack/index.js";
-import { ResendEmailService } from "../services/resend/index.js";
+import { ResendEmailService, ResendDomainService } from "../services/resend/index.js";
 import { OrganizationService } from "../application/services/organization.service.js";
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
@@ -218,6 +218,24 @@ export const resolvers = {
         id: sub._id.toString(),
         totalAmount: sub.totalAmount / 100, // in Naira
       };
+    },
+
+    getEmailMetrics: async (
+      _: any,
+      { startDate, endDate }: { startDate?: string; endDate?: string },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      let org = null;
+      if (authUser.organizationId) {
+        org = await OrganizationService.getById(authUser.organizationId);
+      }
+      return ResendDomainService.getEmailMetrics(
+        org?.resendDomainId,
+        org?.domain || "example.com",
+        startDate,
+        endDate
+      );
     },
   },
 
