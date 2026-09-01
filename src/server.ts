@@ -18,6 +18,7 @@ import { PaymentController } from "./interfaces/http/controllers/payment.control
 import { MailWebhookController } from "./interfaces/http/controllers/mail.controller.js";
 import apiRouter from "./interfaces/http/routes/index.js";
 import { SubscriptionCronService } from "./services/billing/subscription-cron.service.js";
+import { ResendEmailService } from "./services/resend/email.service.js";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -244,9 +245,16 @@ async function bootstrap() {
       console.log(`✅ Backend server listening on http://localhost:${env.PORT}`);
       console.log(`🔮 GraphQL API & Studio Sandbox: http://localhost:${env.PORT}/graphql`);
       console.log(`💳 Paystack Webhook Listener: http://localhost:${env.PORT}/webhooks/paystack`);
+      console.log(`📥 Resend Webhook Listener: ${env.API_BASE_URL || `http://localhost:${env.PORT}`}/webhooks/resend`);
       console.log(`🔒 Environment: ${env.NODE_ENV}`);
       // Launch recurring subscription lifecycle & auto-debit worker
       SubscriptionCronService.startScheduler();
+      // Auto-configure or verify Resend Inbound Webhook
+      if (env.API_BASE_URL && env.API_BASE_URL.startsWith("http")) {
+        ResendEmailService.setupInboundWebhook(env.API_BASE_URL).catch((err) =>
+          console.warn("⚠️ Resend webhook auto-setup note:", err?.message || err)
+        );
+      }
     });
 
     // Graceful Shutdown

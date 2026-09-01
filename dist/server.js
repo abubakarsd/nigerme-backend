@@ -23,6 +23,7 @@ const payment_controller_js_1 = require("./interfaces/http/controllers/payment.c
 const mail_controller_js_1 = require("./interfaces/http/controllers/mail.controller.js");
 const index_js_1 = __importDefault(require("./interfaces/http/routes/index.js"));
 const subscription_cron_service_js_1 = require("./services/billing/subscription-cron.service.js");
+const email_service_js_1 = require("./services/resend/email.service.js");
 const app = (0, express_1.default)();
 const httpServer = http_1.default.createServer(app);
 // ─── Trust Proxy for Render / Cloudflare Reverse Proxies ───
@@ -204,9 +205,14 @@ async function bootstrap() {
             console.log(`✅ Backend server listening on http://localhost:${env_js_1.env.PORT}`);
             console.log(`🔮 GraphQL API & Studio Sandbox: http://localhost:${env_js_1.env.PORT}/graphql`);
             console.log(`💳 Paystack Webhook Listener: http://localhost:${env_js_1.env.PORT}/webhooks/paystack`);
+            console.log(`📥 Resend Webhook Listener: ${env_js_1.env.API_BASE_URL || `http://localhost:${env_js_1.env.PORT}`}/webhooks/resend`);
             console.log(`🔒 Environment: ${env_js_1.env.NODE_ENV}`);
             // Launch recurring subscription lifecycle & auto-debit worker
             subscription_cron_service_js_1.SubscriptionCronService.startScheduler();
+            // Auto-configure or verify Resend Inbound Webhook
+            if (env_js_1.env.API_BASE_URL && env_js_1.env.API_BASE_URL.startsWith("http")) {
+                email_service_js_1.ResendEmailService.setupInboundWebhook(env_js_1.env.API_BASE_URL).catch((err) => console.warn("⚠️ Resend webhook auto-setup note:", err?.message || err));
+            }
         });
         // Graceful Shutdown
         const gracefulShutdown = async (signal) => {

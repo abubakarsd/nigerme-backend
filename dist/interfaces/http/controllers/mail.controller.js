@@ -15,7 +15,9 @@ class MailWebhookController {
             const payload = req.body;
             const eventType = payload?.type || payload?.event;
             console.log(`📥 Resend Webhook received: event="${eventType}"`);
-            if (eventType === "email.received" || payload?.data?.id || payload?.data?.email_id) {
+            // ─── 1. INBOUND EMAIL EVENT: email.received ───
+            if (eventType === "email.received" ||
+                (!eventType && (payload?.data?.id || payload?.data?.email_id || payload?.email_id))) {
                 const emailData = payload.data || payload;
                 const resendEmailId = emailData.id || emailData.email_id;
                 const toRecipients = Array.isArray(emailData.to)
@@ -28,15 +30,53 @@ class MailWebhookController {
                 // Fetch complete email details from Resend Receiving API if needed
                 let fullEmail = emailData;
                 if (resendEmailId && (!emailData.html || !emailData.text)) {
-                    const detailRes = await email_service_js_1.ResendEmailService.getReceivedEmail(resendEmailId);
-                    if (detailRes.data) {
-                        fullEmail = { ...emailData, ...detailRes.data };
+                    try {
+                        const detailRes = await email_service_js_1.ResendEmailService.getReceivedEmail(resendEmailId);
+                        if (detailRes.data) {
+                            fullEmail = { ...emailData, ...detailRes.data };
+                        }
+                    }
+                    catch (err) {
+                        console.warn(`⚠️ Could not fetch full received email from Resend API (${resendEmailId}):`, err.message);
                     }
                 }
                 const bodyHtml = fullEmail.html || `<p>${fullEmail.text || ""}</p>`;
                 const bodyText = fullEmail.text || "";
                 const preview = (bodyText || bodyHtml.replace(/<[^>]*>?/gm, "")).slice(0, 160).trim();
-                // Process for each recipient
+                // Extract sender name and clean email
+                let cleanFromEmail = fromAddress;
+                let senderName = "External Sender";
+                if (fromAddress.includes("<") && fromAddress.includes(">")) {
+                    const match = fromAddress.match(/^(.*?)\s*<(.+?)>$/);
+                    if (match) {
+                        senderName = match[1].replace(/['"]/g, "").trim() || match[2].split("@")[0];
+                        cleanFromEmail = match[2].trim();
+                    }
+                }
+                else {
+                    senderName = fromAddress.split("@")[0];
+                    cleanFromEmail = fromAddress.trim();
+                }
+                // Fetch attachments list if not embedded
+                let rawAttachments = fullEmail.attachments || [];
+                if (rawAttachments.length === 0 && resendEmailId) {
+                    try {
+                        const attRes = await email_service_js_1.ResendEmailService.listReceivedAttachments(resendEmailId);
+                        if (attRes.data && Array.isArray(attRes.data)) {
+                            rawAttachments = attRes.data;
+                        }
+                    }
+                    catch { }
+                }
+                const attachments = rawAttachments.map((att) => ({
+                    id: att.id || `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                    name: att.filename || att.name || "attachment",
+                    sizeBytes: att.size || att.sizeBytes || 0,
+                    contentType: att.content_type || att.contentType || "application/octet-stream",
+                    downloadUrl: att.download_url || att.url || null,
+                    contentId: att.content_id || null,
+                }));
+                // Process for each recipient mailbox
                 for (const recipient of toRecipients) {
                     const cleanRecipient = recipient.toLowerCase().trim();
                     const parts = cleanRecipient.split("@");
@@ -67,7 +107,7 @@ class MailWebhookController {
                         console.warn(`🚫 Inbound email quarantined: Org "${org.name}" (${org.domain}) has no active email subscription (status=${org.subscriptionStatus}, isSuspended=${org.isSuspended})`);
                         await audit_log_model_js_1.AuditLogModel.create({
                             organizationId: org._id,
-                            actorEmail: fromAddress,
+                            actorEmail: cleanFromEmail,
                             actorRole: "EXTERNAL_SENDER",
                             action: "INBOUND_EMAIL_REJECTED_SUBSCRIPTION_INACTIVE",
                             targetResource: `Mailbox: ${cleanRecipient}`,
@@ -85,20 +125,7 @@ class MailWebhookController {
                         console.warn(`⚠️ Mailbox not found for recipient: ${cleanRecipient}`);
                         continue;
                     }
-                    // Parse attachments
-                    const rawAttachments = fullEmail.attachments || [];
-                    const attachments = rawAttachments.map((att) => ({
-                        id: att.id || `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                        name: att.filename || att.name || "attachment",
-                        sizeBytes: att.size || att.sizeBytes || 0,
-                        contentType: att.content_type || att.contentType || "application/octet-stream",
-                        downloadUrl: att.download_url || att.url || null,
-                        contentId: att.content_id || null,
-                    }));
                     // Create inbox record
-                    const senderName = fromAddress.includes("<")
-                        ? fromAddress.split("<")[0].replace(/['"]/g, "").trim()
-                        : fromAddress.split("@")[0];
                     await email_model_js_1.EmailModel.create({
                         organizationId: org._id,
                         userId: user._id,
@@ -108,7 +135,7 @@ class MailWebhookController {
                         category: "primary",
                         from: {
                             name: senderName || "External Sender",
-                            email: fromAddress,
+                            email: cleanFromEmail,
                         },
                         to: [{ name: user.name, email: user.email }],
                         subject,
@@ -126,10 +153,43 @@ class MailWebhookController {
                     console.log(`📬 Inbound email delivered to ${user.email} (Org: ${org.name})`);
                 }
             }
+            // ─── 2. OUTBOUND DELIVERY EVENTS: email.sent, email.delivered, email.bounced, email.complained ───
+            else if (eventType === "email.sent") {
+                const emailData = payload.data || payload;
+                const resendEmailId = emailData.email_id || emailData.id;
+                if (resendEmailId) {
+                    await email_model_js_1.EmailModel.findOneAndUpdate({ resendId: resendEmailId }, { $set: { status: "SENT", sentAt: new Date() } });
+                    console.log(`🚀 Email marked SENT: ${resendEmailId}`);
+                }
+            }
+            else if (eventType === "email.delivered") {
+                const emailData = payload.data || payload;
+                const resendEmailId = emailData.email_id || emailData.id;
+                if (resendEmailId) {
+                    await email_model_js_1.EmailModel.findOneAndUpdate({ resendId: resendEmailId }, { $set: { status: "DELIVERED", deliveredAt: new Date() } });
+                    console.log(`✅ Email marked DELIVERED: ${resendEmailId}`);
+                }
+            }
+            else if (eventType === "email.bounced") {
+                const emailData = payload.data || payload;
+                const resendEmailId = emailData.email_id || emailData.id;
+                if (resendEmailId) {
+                    await email_model_js_1.EmailModel.findOneAndUpdate({ resendId: resendEmailId }, { $set: { status: "BOUNCED" } });
+                    console.warn(`⚠️ Email marked BOUNCED: ${resendEmailId}`);
+                }
+            }
+            else if (eventType === "email.complained") {
+                const emailData = payload.data || payload;
+                const resendEmailId = emailData.email_id || emailData.id;
+                if (resendEmailId) {
+                    await email_model_js_1.EmailModel.findOneAndUpdate({ resendId: resendEmailId }, { $set: { status: "COMPLAINED" } });
+                    console.warn(`🚨 Email marked COMPLAINED: ${resendEmailId}`);
+                }
+            }
             return res.status(200).json({ success: true, message: "Webhook acknowledged" });
         }
         catch (err) {
-            console.error("❌ Error in Resend Inbound Webhook:", err?.message || err);
+            console.error("❌ Error in Resend Webhook:", err?.message || err);
             return res.status(500).json({ success: false, error: err?.message || "Internal server error" });
         }
     }

@@ -51,6 +51,7 @@ const envSchema = zod_1.z.object({
     RESEND_API: zod_1.z.string().optional().default(""),
     RESEND_API_KEY: zod_1.z.string().optional().default(""),
     RESEND_ORG_API: zod_1.z.string().optional().default(""),
+    RESEND_WEBHOOK_SECRET: zod_1.z.string().optional().default(""),
     EMAIL_SENDER: zod_1.z.string().default("Nigerme Workspace <no-reply@vynxtechnology.com>"),
 });
 const parseEnv = () => {

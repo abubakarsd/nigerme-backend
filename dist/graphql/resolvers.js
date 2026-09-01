@@ -835,11 +835,9 @@ exports.resolvers = {
             if (!authUser.organizationId)
                 throw new Error("No organization found");
             const res = await organization_service_js_1.OrganizationService.inviteMember(authUser.organizationId, input);
+            const formattedUser = await formatUserWithPermissions(res.user);
             return {
-                user: {
-                    ...res.user.toObject(),
-                    id: res.user._id.toString(),
-                },
+                user: formattedUser,
                 temporaryPassword: res.temporaryPassword,
             };
         },

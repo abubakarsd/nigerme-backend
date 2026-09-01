@@ -54,6 +54,7 @@ const envSchema = z.object({
   RESEND_API: z.string().optional().default(""),
   RESEND_API_KEY: z.string().optional().default(""),
   RESEND_ORG_API: z.string().optional().default(""),
+  RESEND_WEBHOOK_SECRET: z.string().optional().default(""),
   EMAIL_SENDER: z.string().default("Nigerme Workspace <no-reply@vynxtechnology.com>"),
 });
 

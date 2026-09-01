@@ -715,6 +715,9 @@ class ResendEmailService {
     /**
      * Retrieves an attachment for a received email from Resend
      */
+    /**
+     * Retrieves an attachment for a received email from Resend
+     */
     static async getReceivedAttachment(emailId, attachmentId) {
         try {
             const client = this.getClient();
@@ -726,6 +729,67 @@ class ResendEmailService {
         }
         catch (err) {
             return { error: { message: err?.message || "Failed to retrieve attachment" } };
+        }
+    }
+    /**
+     * Lists all attachments for a received email from Resend
+     */
+    static async listReceivedAttachments(emailId) {
+        try {
+            const client = this.getClient();
+            const receivingClient = client.emails?.receiving || client.receiving;
+            if (!receivingClient?.attachments?.list) {
+                return { data: [], error: null };
+            }
+            return await receivingClient.attachments.list({ emailId });
+        }
+        catch (err) {
+            return { data: [], error: { message: err?.message || "Failed to list attachments" } };
+        }
+    }
+    /**
+     * Automatically configures or updates the Inbound & Delivery Webhook on Resend
+     */
+    static async setupInboundWebhook(backendBaseUrl) {
+        try {
+            if (!backendBaseUrl || !backendBaseUrl.startsWith("http")) {
+                return { error: { message: "Invalid backendBaseUrl" } };
+            }
+            const client = this.getClient();
+            const endpoint = `${backendBaseUrl.replace(/\/+$/, "")}/webhooks/resend`;
+            const events = [
+                "email.received",
+                "email.sent",
+                "email.delivered",
+                "email.bounced",
+                "email.complained",
+            ];
+            if (!client.webhooks) {
+                return { error: { message: "Webhooks API not available on this client" } };
+            }
+            const existing = await client.webhooks.list().catch(() => ({ data: [] }));
+            const webhookList = Array.isArray(existing?.data)
+                ? existing.data
+                : Array.isArray(existing?.data?.data)
+                    ? existing.data.data
+                    : [];
+            const found = webhookList.find((w) => w.endpoint === endpoint);
+            if (found) {
+                console.log(`📡 Resend Webhook already active for ${endpoint} (id: ${found.id})`);
+                return await client.webhooks.update(found.id, {
+                    endpoint,
+                    events,
+                });
+            }
+            console.log(`🚀 Provisioning new Resend Inbound Webhook for ${endpoint}...`);
+            return await client.webhooks.create({
+                endpoint,
+                events,
+            });
+        }
+        catch (err) {
+            console.warn("⚠️ Note: Auto-webhook registration skipped:", err?.message || err);
+            return { error: { message: err?.message || "Failed to setup webhook" } };
         }
     }
 }
