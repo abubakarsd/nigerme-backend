@@ -20,6 +20,7 @@ const context_js_1 = require("./graphql/context.js");
 const rateLimiter_middleware_js_1 = require("./interfaces/http/middlewares/rateLimiter.middleware.js");
 const error_middleware_js_1 = require("./interfaces/http/middlewares/error.middleware.js");
 const payment_controller_js_1 = require("./interfaces/http/controllers/payment.controller.js");
+const mail_controller_js_1 = require("./interfaces/http/controllers/mail.controller.js");
 const index_js_1 = __importDefault(require("./interfaces/http/routes/index.js"));
 const subscription_cron_service_js_1 = require("./services/billing/subscription-cron.service.js");
 const app = (0, express_1.default)();
@@ -104,9 +105,11 @@ app.use((0, express_mongo_sanitize_1.default)({
 if (env_js_1.env.NODE_ENV !== "test") {
     app.use((0, morgan_1.default)(env_js_1.env.NODE_ENV === "production" ? "combined" : "dev"));
 }
-// ─── 6. Dedicated Paystack Webhook REST Route ───
-// (Paystack server sends standard HTTP POST webhooks with HMAC headers)
+// ─── 6. Dedicated Webhook REST Routes ───
+// (Paystack payments webhook & Resend inbound email webhook)
 app.post("/webhooks/paystack", payment_controller_js_1.PaymentController.handleWebhook);
+app.post("/webhooks/resend", mail_controller_js_1.MailWebhookController.handleResendWebhook);
+app.post("/api/webhooks/resend", mail_controller_js_1.MailWebhookController.handleResendWebhook);
 // ─── Favicon Handler ───
 app.get("/favicon.ico", (_req, res) => {
     res.status(204).end();
@@ -120,7 +123,8 @@ app.get("/", (_req, res) => {
         endpoints: {
             graphql: "/graphql",
             health: "/health",
-            webhook: "/webhooks/paystack",
+            webhook_paystack: "/webhooks/paystack",
+            webhook_resend: "/webhooks/resend",
         },
         docs: "Use /graphql for all API queries and mutations.",
         timestamp: new Date().toISOString(),

@@ -116,6 +116,10 @@ const OrganizationSchema = new mongoose_1.Schema({
         type: Number,
         default: 1000,
     },
+    emailsSentToday: {
+        type: Number,
+        default: 0,
+    },
     subscribedPackages: {
         type: [String],
         default: ["org-email"],

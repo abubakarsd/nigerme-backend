@@ -744,5 +744,110 @@ export class ResendEmailService {
     `;
     return this.sendEmail({ to, subject, html });
   }
+
+  /**
+   * Dispatches a user-composed email from the webmail client via Resend
+   */
+  static async sendUserEmail(options: {
+    from: string;
+    to: string[];
+    cc?: string[];
+    bcc?: string[];
+    replyTo?: string;
+    subject: string;
+    html: string;
+    text?: string;
+    attachments?: Array<{
+      filename: string;
+      content?: string;
+      path?: string;
+    }>;
+  }): Promise<{ success: boolean; id?: string; error?: string }> {
+    try {
+      const client = this.getClient();
+      const apiKey = env.RESEND_API || env.RESEND_API_KEY || process.env.RESEND_API;
+
+      if (!apiKey) {
+        console.log(`[Resend Fallback Mailer] From: ${options.from} -> To: ${options.to.join(", ")} | Subject: "${options.subject}"`);
+        return { success: true, id: "simulated-mail-" + Date.now() };
+      }
+
+      const payload: any = {
+        from: options.from,
+        to: options.to,
+        subject: options.subject || "(No subject)",
+        html: options.html,
+      };
+
+      if (options.text) payload.text = options.text;
+      if (options.cc && options.cc.length > 0) payload.cc = options.cc;
+      if (options.bcc && options.bcc.length > 0) payload.bcc = options.bcc;
+      if (options.replyTo) payload.replyTo = options.replyTo;
+      if (options.attachments && options.attachments.length > 0) {
+        payload.attachments = options.attachments;
+      }
+
+      const response = await client.emails.send(payload);
+
+      if (response.error) {
+        console.error("❌ Resend sendUserEmail error:", response.error);
+        return { success: false, error: response.error.message };
+      }
+
+      console.log(`✉️ Webmail dispatched via Resend: ${response.data?.id} from ${options.from}`);
+      return { success: true, id: response.data?.id };
+    } catch (err: any) {
+      console.error("❌ Failed to send user email:", err?.message || err);
+      return { success: false, error: err?.message || "Failed to dispatch email via Resend" };
+    }
+  }
+
+  /**
+   * Retrieves a single received email from Resend Inbound Receiving API
+   */
+  static async getReceivedEmail(id: string): Promise<{ data?: any; error?: any }> {
+    try {
+      const client = this.getClient();
+      const receivingClient = (client as any).emails?.receiving || (client as any).receiving;
+      if (!receivingClient || typeof receivingClient.get !== "function") {
+        return { data: null, error: { message: "Resend receiving API not supported on this client version." } };
+      }
+      return await receivingClient.get(id);
+    } catch (err: any) {
+      return { error: { message: err?.message || "Failed to retrieve received email" } };
+    }
+  }
+
+  /**
+   * Lists received emails from Resend Inbound Receiving API
+   */
+  static async listReceivedEmails(params?: { limit?: number; after?: string; before?: string }): Promise<{ data?: any; error?: any }> {
+    try {
+      const client = this.getClient();
+      const receivingClient = (client as any).emails?.receiving || (client as any).receiving;
+      if (!receivingClient || typeof receivingClient.list !== "function") {
+        return { data: [], error: null };
+      }
+      return await receivingClient.list(params);
+    } catch (err: any) {
+      return { error: { message: err?.message || "Failed to list received emails" } };
+    }
+  }
+
+  /**
+   * Retrieves an attachment for a received email from Resend
+   */
+  static async getReceivedAttachment(emailId: string, attachmentId: string): Promise<{ data?: any; error?: any }> {
+    try {
+      const client = this.getClient();
+      const receivingClient = (client as any).emails?.receiving || (client as any).receiving;
+      if (!receivingClient?.attachments?.get) {
+        return { error: { message: "Resend attachment receiving not supported." } };
+      }
+      return await receivingClient.attachments.get({ emailId, id: attachmentId });
+    } catch (err: any) {
+      return { error: { message: err?.message || "Failed to retrieve attachment" } };
+    }
+  }
 }
 

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
+exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
 var user_model_js_1 = require("../infrastructure/database/models/user.model.js");
 Object.defineProperty(exports, "UserModel", { enumerable: true, get: function () { return user_model_js_1.UserModel; } });
 var organization_model_js_1 = require("../infrastructure/database/models/organization.model.js");
@@ -23,3 +23,5 @@ var role_model_js_1 = require("../infrastructure/database/models/role.model.js")
 Object.defineProperty(exports, "RoleModel", { enumerable: true, get: function () { return role_model_js_1.RoleModel; } });
 var permission_model_js_1 = require("../infrastructure/database/models/permission.model.js");
 Object.defineProperty(exports, "PermissionModel", { enumerable: true, get: function () { return permission_model_js_1.PermissionModel; } });
+var email_model_js_1 = require("../infrastructure/database/models/email.model.js");
+Object.defineProperty(exports, "EmailModel", { enumerable: true, get: function () { return email_model_js_1.EmailModel; } });

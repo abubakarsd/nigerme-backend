@@ -431,6 +431,11 @@ export const typeDefs = gql`
 
     # Public Domain Online Verification
     checkDomainOnline(domain: String!): DomainCheckResult!
+
+    # Webmail Client Queries
+    getMyEmails(folder: String, category: String, search: String, limit: Int, offset: Int): [WebmailMessage!]!
+    getEmailById(id: ID!): WebmailMessage
+    getMailboxCounts: MailboxCounts!
   }
 
   type Mutation {
@@ -479,13 +484,95 @@ export const typeDefs = gql`
     initializeWalletFunding(input: FundWalletInput!): PaymentInitPayload!
     fundWalletDirect(amountInNaira: Float!, channel: String, description: String): Transaction!
 
-    # ── Email Dispatch (Resend) ──
+    # ── Webmail Client Dispatch & Management ──
+    sendMail(input: SendMailInput!): WebmailMessage!
+    updateEmailStatus(id: ID!, folder: String, isRead: Boolean, isStarred: Boolean, isImportant: Boolean): WebmailMessage!
+    deleteEmail(id: ID!, permanent: Boolean): Boolean!
+
+    # ── Legacy / System Email Dispatch (Resend) ──
     sendEmail(input: SendEmailInput!): EmailResponse!
     sendOtpEmail(email: String!): EmailResponse!
 
     # ── Product Packages & Pricing Admin ──
     updatePackagePricing(packageId: String!, input: UpdatePackagePricingInput!): ProductPackage!
     resetPackagesToDefault: [ProductPackage!]!
+  }
+
+  type EmailParticipant {
+    name: String!
+    email: String!
+    avatar: String
+  }
+
+  type EmailAttachment {
+    id: String!
+    name: String!
+    sizeBytes: Int!
+    contentType: String!
+    downloadUrl: String
+    contentId: String
+  }
+
+  type WebmailMessage {
+    id: ID!
+    threadId: String!
+    folder: String!
+    category: String!
+    from: EmailParticipant!
+    to: [EmailParticipant!]!
+    cc: [EmailParticipant!]
+    bcc: [EmailParticipant!]
+    replyTo: String
+    subject: String!
+    preview: String!
+    bodyHtml: String!
+    bodyText: String!
+    attachments: [EmailAttachment!]!
+    isRead: Boolean!
+    isStarred: Boolean!
+    isImportant: Boolean!
+    labels: [String!]!
+    status: String!
+    receivedAt: String
+    sentAt: String
+    createdAt: String!
+  }
+
+  type MailboxCounts {
+    inbox: Int!
+    unread: Int!
+    starred: Int!
+    sent: Int!
+    drafts: Int!
+    spam: Int!
+    trash: Int!
+    archive: Int!
+  }
+
+  input EmailParticipantInput {
+    name: String
+    email: String!
+  }
+
+  input EmailAttachmentInput {
+    id: String
+    name: String!
+    sizeBytes: Int
+    contentType: String
+    downloadUrl: String
+    contentId: String
+    content: String
+  }
+
+  input SendMailInput {
+    to: [EmailParticipantInput!]!
+    cc: [EmailParticipantInput!]
+    bcc: [EmailParticipantInput!]
+    replyTo: String
+    subject: String
+    bodyHtml: String!
+    bodyText: String
+    attachments: [EmailAttachmentInput!]
   }
 
   input UpdatePackagePricingInput {
@@ -535,3 +622,4 @@ export const typeDefs = gql`
     text: String
   }
 `;
+

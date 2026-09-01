@@ -15,6 +15,7 @@ import { buildGraphQLContext } from "./graphql/context.js";
 import { globalLimiter } from "./interfaces/http/middlewares/rateLimiter.middleware.js";
 import { errorHandler } from "./interfaces/http/middlewares/error.middleware.js";
 import { PaymentController } from "./interfaces/http/controllers/payment.controller.js";
+import { MailWebhookController } from "./interfaces/http/controllers/mail.controller.js";
 import apiRouter from "./interfaces/http/routes/index.js";
 import { SubscriptionCronService } from "./services/billing/subscription-cron.service.js";
 
@@ -123,9 +124,11 @@ if (env.NODE_ENV !== "test") {
   app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
 }
 
-// ─── 6. Dedicated Paystack Webhook REST Route ───
-// (Paystack server sends standard HTTP POST webhooks with HMAC headers)
+// ─── 6. Dedicated Webhook REST Routes ───
+// (Paystack payments webhook & Resend inbound email webhook)
 app.post("/webhooks/paystack", PaymentController.handleWebhook);
+app.post("/webhooks/resend", MailWebhookController.handleResendWebhook);
+app.post("/api/webhooks/resend", MailWebhookController.handleResendWebhook);
 
 // ─── Favicon Handler ───
 app.get("/favicon.ico", (_req, res) => {
@@ -141,7 +144,8 @@ app.get("/", (_req, res) => {
     endpoints: {
       graphql: "/graphql",
       health: "/health",
-      webhook: "/webhooks/paystack",
+      webhook_paystack: "/webhooks/paystack",
+      webhook_resend: "/webhooks/resend",
     },
     docs: "Use /graphql for all API queries and mutations.",
     timestamp: new Date().toISOString(),

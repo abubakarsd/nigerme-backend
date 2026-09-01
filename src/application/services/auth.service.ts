@@ -4,7 +4,10 @@ import { SubscriptionModel } from "../../infrastructure/database/models/subscrip
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
 import { OtpService, maskEmail } from "./otp.service.js";
 import { ResendEmailService, ResendDomainService } from "../../services/resend/index.js";
-import { seedOrganizationDefaultRoles } from "../../infrastructure/database/seeds/role.seed.js";
+import {
+  seedOrganizationDefaultRoles,
+  seedOrganizationDefaultDepartments,
+} from "../../infrastructure/database/seeds/role.seed.js";
 
 export interface AdminSignupDto {
   name: string;
@@ -143,10 +146,15 @@ export class AuthService {
       autoDebit: true,
     });
 
-    // Seed default roles for this new organization in DB
-    await seedOrganizationDefaultRoles(organization._id).catch((err) =>
-      console.warn("⚠️ Failed to seed default roles during signup:", err)
-    );
+    // Seed default roles and departments for this new organization in DB
+    await Promise.all([
+      seedOrganizationDefaultRoles(organization._id).catch((err) =>
+        console.warn("⚠️ Failed to seed default roles during signup:", err)
+      ),
+      seedOrganizationDefaultDepartments(organization._id).catch((err) =>
+        console.warn("⚠️ Failed to seed default departments during signup:", err)
+      ),
+    ]);
 
     const payload: Omit<TokenPayload, "iat" | "exp"> = {
       userId: user._id.toString(),

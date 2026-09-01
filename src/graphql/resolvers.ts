@@ -9,12 +9,12 @@ import { OrganizationService } from "../application/services/organization.servic
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
-import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel } from "../models/index.js";
+import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, EmailModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService } from "../application/services/otp.service.js";
 import { INITIAL_PACKAGES } from "../infrastructure/database/seeds/package.seed.js";
 import { seedPermissions } from "../infrastructure/database/seeds/permission.seed.js";
-import { seedOrganizationDefaultRoles } from "../infrastructure/database/seeds/role.seed.js";
+import { seedOrganizationDefaultRoles, seedOrganizationDefaultDepartments } from "../infrastructure/database/seeds/role.seed.js";
 
 async function formatUserWithPermissions(userDoc: any) {
   if (!userDoc) return null;
@@ -224,8 +224,12 @@ export const resolvers = {
     getOrganizationDepartments: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return [];
-      const org = await OrganizationModel.findById(authUser.organizationId);
+      let org = await OrganizationModel.findById(authUser.organizationId);
       if (!org) return [];
+      if (!org.departments || org.departments.length === 0) {
+        const seeded = await seedOrganizationDefaultDepartments(org._id);
+        org.departments = seeded;
+      }
       return (org.departments || []).map((d: any) => ({
         ...d,
         id: d.id || d._id?.toString() || String(Math.random()),
@@ -372,6 +376,154 @@ export const resolvers = {
           message: `Unable to resolve ${clean} online: ${err?.message || "DNS lookup failed."}`,
         };
       }
+    },
+
+    // ─── Webmail Queries ───
+    getMyEmails: async (
+      _: any,
+      { folder, category, search, limit = 50, offset = 0 }: any,
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      const query: any = {
+        organizationId: authUser.organizationId,
+        $or: [
+          { userId: authUser.userId || (authUser as any).id },
+          { "to.email": authUser.email.toLowerCase() },
+          { "from.email": authUser.email.toLowerCase() },
+        ],
+      };
+
+      if (folder) {
+        if (folder === "starred") {
+          query.isStarred = true;
+        } else {
+          query.folder = folder;
+        }
+      }
+
+      if (category && (!folder || folder === "inbox")) {
+        query.category = category;
+      }
+
+      if (search && search.trim()) {
+        const regex = new RegExp(search.trim(), "i");
+        query.$or = [
+          { subject: regex },
+          { preview: regex },
+          { "from.name": regex },
+          { "from.email": regex },
+          { "to.email": regex },
+        ];
+      }
+
+      const emails = await EmailModel.find(query)
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit);
+
+      return emails.map((m) => ({
+        id: m._id.toString(),
+        threadId: m.threadId,
+        folder: m.folder,
+        category: m.category || "primary",
+        from: m.from,
+        to: m.to || [],
+        cc: m.cc || [],
+        bcc: m.bcc || [],
+        replyTo: m.replyTo,
+        subject: m.subject || "(No subject)",
+        preview: m.preview || "",
+        bodyHtml: m.bodyHtml || "",
+        bodyText: m.bodyText || "",
+        attachments: (m.attachments || []).map((a) => ({
+          id: a.id,
+          name: a.name,
+          sizeBytes: a.sizeBytes || 0,
+          contentType: a.contentType || "application/octet-stream",
+          downloadUrl: a.downloadUrl,
+          contentId: a.contentId,
+        })),
+        isRead: m.isRead,
+        isStarred: m.isStarred,
+        isImportant: m.isImportant || false,
+        labels: m.labels || [],
+        status: m.status || "SENT",
+        receivedAt: m.receivedAt?.toISOString(),
+        sentAt: m.sentAt?.toISOString(),
+        createdAt: m.createdAt.toISOString(),
+      }));
+    },
+
+    getEmailById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      const email = await EmailModel.findOne({
+        _id: id,
+        organizationId: authUser.organizationId,
+      });
+      if (!email) throw new Error("Email not found");
+
+      if (!email.isRead && email.folder === "inbox") {
+        email.isRead = true;
+        await email.save();
+      }
+
+      return {
+        id: email._id.toString(),
+        threadId: email.threadId,
+        folder: email.folder,
+        category: email.category || "primary",
+        from: email.from,
+        to: email.to || [],
+        cc: email.cc || [],
+        bcc: email.bcc || [],
+        replyTo: email.replyTo,
+        subject: email.subject || "(No subject)",
+        preview: email.preview || "",
+        bodyHtml: email.bodyHtml || "",
+        bodyText: email.bodyText || "",
+        attachments: (email.attachments || []).map((a) => ({
+          id: a.id,
+          name: a.name,
+          sizeBytes: a.sizeBytes || 0,
+          contentType: a.contentType || "application/octet-stream",
+          downloadUrl: a.downloadUrl,
+          contentId: a.contentId,
+        })),
+        isRead: email.isRead,
+        isStarred: email.isStarred,
+        isImportant: email.isImportant || false,
+        labels: email.labels || [],
+        status: email.status || "SENT",
+        receivedAt: email.receivedAt?.toISOString(),
+        sentAt: email.sentAt?.toISOString(),
+        createdAt: email.createdAt.toISOString(),
+      };
+    },
+
+    getMailboxCounts: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      const baseQuery = {
+        organizationId: authUser.organizationId,
+        $or: [
+          { userId: authUser.userId || (authUser as any).id },
+          { "to.email": authUser.email.toLowerCase() },
+          { "from.email": authUser.email.toLowerCase() },
+        ],
+      };
+
+      const [inbox, unread, starred, sent, drafts, spam, trash, archive] = await Promise.all([
+        EmailModel.countDocuments({ ...baseQuery, folder: "inbox" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "inbox", isRead: false }),
+        EmailModel.countDocuments({ ...baseQuery, isStarred: true }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "sent" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "drafts" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "spam" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "trash" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "archive" }),
+      ]);
+
+      return { inbox, unread, starred, sent, drafts, spam, trash, archive };
     },
   },
 
@@ -981,7 +1133,23 @@ export const resolvers = {
 
       const role = await RoleModel.findOne({ _id: id, organizationId: authUser.organizationId });
       if (!role) throw new Error("Role not found");
-      if (role.isSystem) throw new Error("System default roles cannot be deleted.");
+
+      const isProtected =
+        role.slug === "owner" ||
+        role.slug === "admin" ||
+        role.name.toLowerCase().includes("owner") ||
+        role.name.toLowerCase().includes("workspace administrator") ||
+        role.name.toLowerCase() === "administrator";
+
+      if (isProtected) {
+        throw new Error("Owner and Workspace Administrator are core sovereign system roles and cannot be deleted.");
+      }
+
+      // Reassign any users who had this role
+      await UserModel.updateMany(
+        { organizationId: authUser.organizationId, roleId: role._id },
+        { $set: { role: "member", roleName: "Standard Team Member", roleId: null } }
+      ).catch((e) => console.warn("⚠️ Reassigning users from deleted role failed:", e));
 
       await RoleModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
       return true;
@@ -1062,7 +1230,201 @@ export const resolvers = {
       };
     },
 
-    // ─── Email Dispatch Mutations (Resend) ───
+    // ─── Webmail Dispatch & Management Mutations ───
+    sendMail: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      // ── 1. Strict SaaS Subscription Gating ──
+      const now = new Date();
+      const isTrialValid =
+        org.subscriptionStatus === "TRIAL" &&
+        org.trialEndsAt &&
+        now <= new Date(org.trialEndsAt);
+      const isSubActive =
+        org.subscriptionStatus === "ACTIVE" &&
+        (!org.subscriptionExpiresAt || now <= new Date(org.subscriptionExpiresAt));
+      const isGracePeriod =
+        org.subscriptionStatus === "GRACE_PERIOD" &&
+        org.gracePeriodEndsAt &&
+        now <= new Date(org.gracePeriodEndsAt);
+
+      const hasActiveSubscription =
+        !org.isSuspended && (isSubActive || isTrialValid || isGracePeriod);
+      const hasEmailPackage = (org.subscribedPackages || []).includes("org-email");
+
+      if (!hasActiveSubscription || !hasEmailPackage) {
+        throw new Error(
+          `Active 'Business Email' subscription required to dispatch sovereign emails. Your organization subscription status is "${org.subscriptionStatus || "INACTIVE"}". Please activate or fund your wallet in Billing.`
+        );
+      }
+
+      // ── 2. Daily Sending Limit Check ──
+      if (org.emailsSentToday >= org.dailySendingLimit) {
+        throw new Error(
+          `Daily sending limit reached (${org.emailsSentToday}/${org.dailySendingLimit} emails sent today). Please upgrade your plan tier or wait until tomorrow's reset.`
+        );
+      }
+
+      // ── 3. Parse Recipients and From Address ──
+      const toEmails = (input.to || []).map((p: any) => p.email.trim().toLowerCase()).filter(Boolean);
+      if (toEmails.length === 0) {
+        throw new Error("At least one recipient email address is required.");
+      }
+      const ccEmails = (input.cc || []).map((p: any) => p.email.trim().toLowerCase()).filter(Boolean);
+      const bccEmails = (input.bcc || []).map((p: any) => p.email.trim().toLowerCase()).filter(Boolean);
+
+      const senderName = authUser.name || "Workspace Member";
+      const senderEmail = authUser.email;
+      const fromFormatted = `${senderName} <${senderEmail}>`;
+
+      // ── 4. Dispatch via Resend ──
+      const resendResult = await ResendEmailService.sendUserEmail({
+        from: fromFormatted,
+        to: toEmails,
+        cc: ccEmails.length > 0 ? ccEmails : undefined,
+        bcc: bccEmails.length > 0 ? bccEmails : undefined,
+        replyTo: input.replyTo || senderEmail,
+        subject: input.subject || "(No subject)",
+        html: input.bodyHtml,
+        text: input.bodyText || input.bodyHtml.replace(/<[^>]*>?/gm, ""),
+        attachments: (input.attachments || []).map((a: any) => ({
+          filename: a.name,
+          content: a.content,
+          path: a.downloadUrl,
+        })),
+      });
+
+      if (!resendResult.success) {
+        throw new Error(resendResult.error || "Failed to dispatch email via Resend.");
+      }
+
+      // ── 5. Save in Sent Mailbox in MongoDB ──
+      const preview = (input.bodyText || input.bodyHtml.replace(/<[^>]*>?/gm, "")).slice(0, 160).trim();
+      const newEmail = await EmailModel.create({
+        organizationId: org._id,
+        userId: authUser.userId || (authUser as any).id,
+        threadId: `thread-outbound-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        resendId: resendResult.id,
+        folder: "sent",
+        category: "primary",
+        from: {
+          name: senderName,
+          email: senderEmail,
+        },
+        to: input.to.map((p: any) => ({ name: p.name || p.email.split("@")[0], email: p.email })),
+        cc: (input.cc || []).map((p: any) => ({ name: p.name || p.email.split("@")[0], email: p.email })),
+        bcc: (input.bcc || []).map((p: any) => ({ name: p.name || p.email.split("@")[0], email: p.email })),
+        replyTo: input.replyTo || senderEmail,
+        subject: input.subject || "(No subject)",
+        preview,
+        bodyHtml: input.bodyHtml,
+        bodyText: input.bodyText || preview,
+        attachments: (input.attachments || []).map((a: any) => ({
+          id: a.id || `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: a.name,
+          sizeBytes: a.sizeBytes || 0,
+          contentType: a.contentType || "application/octet-stream",
+          downloadUrl: a.downloadUrl,
+          contentId: a.contentId,
+        })),
+        isRead: true,
+        isStarred: false,
+        isImportant: false,
+        labels: ["sent"],
+        status: "SENT",
+        sentAt: new Date(),
+      });
+
+      // Increment org daily count
+      org.emailsSentToday = (org.emailsSentToday || 0) + 1;
+      await org.save();
+
+      return {
+        id: newEmail._id.toString(),
+        threadId: newEmail.threadId,
+        folder: newEmail.folder,
+        category: newEmail.category,
+        from: newEmail.from,
+        to: newEmail.to,
+        cc: newEmail.cc,
+        bcc: newEmail.bcc,
+        replyTo: newEmail.replyTo,
+        subject: newEmail.subject,
+        preview: newEmail.preview,
+        bodyHtml: newEmail.bodyHtml,
+        bodyText: newEmail.bodyText,
+        attachments: newEmail.attachments,
+        isRead: newEmail.isRead,
+        isStarred: newEmail.isStarred,
+        isImportant: newEmail.isImportant,
+        labels: newEmail.labels,
+        status: newEmail.status,
+        sentAt: newEmail.sentAt?.toISOString(),
+        createdAt: newEmail.createdAt.toISOString(),
+      };
+    },
+
+    updateEmailStatus: async (
+      _: any,
+      { id, folder, isRead, isStarred, isImportant }: any,
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      const email = await EmailModel.findOne({
+        _id: id,
+        organizationId: authUser.organizationId,
+      });
+      if (!email) throw new Error("Email not found");
+
+      if (folder) email.folder = folder;
+      if (typeof isRead === "boolean") email.isRead = isRead;
+      if (typeof isStarred === "boolean") email.isStarred = isStarred;
+      if (typeof isImportant === "boolean") email.isImportant = isImportant;
+
+      await email.save();
+
+      return {
+        id: email._id.toString(),
+        threadId: email.threadId,
+        folder: email.folder,
+        category: email.category,
+        from: email.from,
+        to: email.to,
+        cc: email.cc,
+        bcc: email.bcc,
+        replyTo: email.replyTo,
+        subject: email.subject,
+        preview: email.preview,
+        bodyHtml: email.bodyHtml,
+        bodyText: email.bodyText,
+        attachments: email.attachments,
+        isRead: email.isRead,
+        isStarred: email.isStarred,
+        isImportant: email.isImportant,
+        labels: email.labels,
+        status: email.status,
+        createdAt: email.createdAt.toISOString(),
+      };
+    },
+
+    deleteEmail: async (_: any, { id, permanent }: { id: string; permanent?: boolean }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (permanent) {
+        const res = await EmailModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
+        return res.deletedCount > 0;
+      }
+      const email = await EmailModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      if (!email) return false;
+      email.folder = "trash";
+      await email.save();
+      return true;
+    },
+
+    // ─── Legacy / System Email Dispatch Mutations (Resend) ───
     sendEmail: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       requireAuth(context);
       const result = await ResendEmailService.sendEmail({

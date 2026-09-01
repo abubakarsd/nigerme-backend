@@ -9,3 +9,4 @@ export { PackageModel, IPackage } from "../infrastructure/database/models/packag
 export { SubscriptionModel, ISubscription } from "../infrastructure/database/models/subscription.model.js";
 export { RoleModel, IRole, IRolePermissions } from "../infrastructure/database/models/role.model.js";
 export { PermissionModel, IPermission } from "../infrastructure/database/models/permission.model.js";
+export { EmailModel, IEmail, IEmailAttachment, IEmailParticipant } from "../infrastructure/database/models/email.model.js";

@@ -36,6 +36,7 @@ export interface IOrganization extends Document {
   kycStatus: "unverified" | "submitted" | "verified" | "rejected";
   trustLevel: "Tier 1 Sovereign" | "Tier 2 Sovereign" | "Tier 3 Sovereign";
   dailySendingLimit: number;
+  emailsSentToday: number;
   subscribedPackages?: string[];
   billingCycle?: "MONTHLY" | "ANNUAL";
   autoDebitWallet?: boolean;
@@ -140,6 +141,10 @@ const OrganizationSchema = new Schema<IOrganization>(
     dailySendingLimit: {
       type: Number,
       default: 1000,
+    },
+    emailsSentToday: {
+      type: Number,
+      default: 0,
     },
     subscribedPackages: {
       type: [String],
