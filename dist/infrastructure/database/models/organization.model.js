@@ -72,10 +72,10 @@ const OrganizationSchema = new mongoose_1.Schema({
         assignedAt: Date,
     },
     dnsVerification: {
-        spfStatus: { type: String, enum: ["pending", "verified", "failed"], default: "pending" },
-        dkimStatus: { type: String, enum: ["pending", "verified", "failed"], default: "pending" },
-        dmarcStatus: { type: String, enum: ["pending", "verified", "failed"], default: "pending" },
-        mxStatus: { type: String, enum: ["pending", "verified", "failed"], default: "pending" },
+        spfStatus: { type: String, enum: ["not_started", "pending", "verified", "failed"], default: "not_started" },
+        dkimStatus: { type: String, enum: ["not_started", "pending", "verified", "failed"], default: "not_started" },
+        dmarcStatus: { type: String, enum: ["not_started", "pending", "verified", "failed"], default: "not_started" },
+        mxStatus: { type: String, enum: ["not_started", "pending", "verified", "failed"], default: "not_started" },
         lastCheckedAt: Date,
     },
     resendDomainId: {

@@ -17,11 +17,20 @@ class OrganizationService {
         const dkimRec = org.resendRecords?.find((r) => r.record === "DKIM");
         const mxRec = org.resendRecords?.find((r) => r.type === "MX");
         const prevWasVerified = prevStatus === "verified" || org.dnsVerification?.spfStatus === "verified";
+        const mapStatus = (recStatus) => {
+            if (recStatus === "verified")
+                return "verified";
+            if (recStatus === "failed")
+                return "failed";
+            if (recStatus === "pending")
+                return "pending";
+            return "not_started";
+        };
         org.dnsVerification = {
-            spfStatus: isDomainVerified || spfRec?.status === "verified" ? "verified" : spfRec?.status || "pending",
-            dkimStatus: isDomainVerified || dkimRec?.status === "verified" ? "verified" : dkimRec?.status || "pending",
+            spfStatus: isDomainVerified || spfRec?.status === "verified" ? "verified" : mapStatus(spfRec?.status),
+            dkimStatus: isDomainVerified || dkimRec?.status === "verified" ? "verified" : mapStatus(dkimRec?.status),
             dmarcStatus: "verified",
-            mxStatus: isDomainVerified || mxRec?.status === "verified" ? "verified" : mxRec?.status || "pending",
+            mxStatus: isDomainVerified || mxRec?.status === "verified" ? "verified" : mapStatus(mxRec?.status),
             lastCheckedAt: new Date(),
         };
         // If previously verified and now disconnected

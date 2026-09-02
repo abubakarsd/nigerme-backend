@@ -40,11 +40,18 @@ export class OrganizationService {
 
     const prevWasVerified = prevStatus === "verified" || org.dnsVerification?.spfStatus === "verified";
 
+    const mapStatus = (recStatus?: string): "not_started" | "pending" | "verified" | "failed" => {
+      if (recStatus === "verified") return "verified";
+      if (recStatus === "failed") return "failed";
+      if (recStatus === "pending") return "pending";
+      return "not_started";
+    };
+
     org.dnsVerification = {
-      spfStatus: isDomainVerified || spfRec?.status === "verified" ? "verified" : (spfRec?.status as any) || "pending",
-      dkimStatus: isDomainVerified || dkimRec?.status === "verified" ? "verified" : (dkimRec?.status as any) || "pending",
+      spfStatus: isDomainVerified || spfRec?.status === "verified" ? "verified" : mapStatus(spfRec?.status),
+      dkimStatus: isDomainVerified || dkimRec?.status === "verified" ? "verified" : mapStatus(dkimRec?.status),
       dmarcStatus: "verified",
-      mxStatus: isDomainVerified || mxRec?.status === "verified" ? "verified" : (mxRec?.status as any) || "pending",
+      mxStatus: isDomainVerified || mxRec?.status === "verified" ? "verified" : mapStatus(mxRec?.status),
       lastCheckedAt: new Date(),
     };
 
