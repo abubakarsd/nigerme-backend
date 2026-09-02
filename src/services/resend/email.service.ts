@@ -81,31 +81,35 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8faf7; color: #18181b; margin: 0; padding: 24px; }
-          .container { max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 20px; padding: 36px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-          .logo { font-size: 22px; font-weight: 800; color: #09090b; letter-spacing: -0.5px; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .title { font-size: 20px; font-weight: 700; color: #09090b; margin-bottom: 12px; }
-          .code-box { background: #fafbfa; border: 1.5px solid #84cc16; border-radius: 14px; padding: 18px; text-align: center; margin: 24px 0; }
-          .otp { font-family: monospace; font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #15803d; }
-          .desc { font-size: 14px; color: #52525b; line-height: 1.6; margin-bottom: 20px; }
-          .footer { font-size: 12px; color: #a1a1aa; border-top: 1px solid #f4f4f5; padding-top: 20px; margin-top: 24px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 20px; }
+          .code-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px; text-align: center; margin: 20px 0; }
+          .otp { font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #15803d; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="32" height="32" style="display: inline-block; vertical-align: middle; border-radius: 8px; object-fit: contain;" />
-            <span class="logo" style="margin-bottom: 0;">niger<span>me</span></span>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
           </div>
-          <div class="title">Verify your identity</div>
-          <p class="desc">Hello <strong>${name}</strong>,<br>Use the verification code below to complete your sign in or verification on Nigerme Sovereign Workspace.</p>
+          <h1 class="title">Verify your identity</h1>
+          <p class="desc">Hello <strong>${name}</strong>,<br>Use the verification code below to complete your sign in on Nigerme Sovereign Workspace:</p>
           <div class="code-box">
             <div class="otp">${otpCode}</div>
           </div>
-          <p class="desc">This code expires in <strong>${expiresInMinutes} minutes</strong>. If you did not initiate this request, please change your password or notify your workspace administrator immediately.</p>
+          <p class="desc" style="font-size: 13px; color: #6b7280;">This code is valid for <strong>${expiresInMinutes} minutes</strong>. If you did not make this request, you can safely ignore this email.</p>
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud Infrastructure.
+            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
@@ -124,8 +128,8 @@ export class ResendEmailService {
    * Generates the sovereign Welcome & Security Rules email content
    */
   static getWelcomeAndRulesContent(name: string, organizationName: string, orgEmail: string, isOwner = false) {
-    const subject = `Welcome to Nigerme Sovereign Mail — Getting Started, Rules & Security Protocol`;
-    const preview = `Welcome to your sovereign business mailbox. Important security rules, password guidelines, and deliverability policies.`;
+    const subject = `Welcome to Nigerme Sovereign Mail — Getting Started & Account Guidelines`;
+    const preview = `Your sovereign business mailbox is now active for ${organizationName}. Key guidelines and access instructions.`;
 
     const html = `
       <!DOCTYPE html>
@@ -133,94 +137,93 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 24px; }
-          .container { max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 36px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); }
-          .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; }
-          .logo { font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo-box { display: flex; align-items: center; gap: 10px; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: #ecfccb; color: #3f6212; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; border: 1px solid #d9f99d; }
-          .title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 16px 0 8px; }
-          .lead { font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
-          .section-title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #365314; margin: 24px 0 12px; }
-          .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; }
-          .card-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
-          .card-desc { font-size: 12px; color: #64748b; line-height: 1.5; margin: 0; }
-          .rule-card { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 14px; padding: 14px 18px; margin-bottom: 10px; }
-          .rule-title { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 4px; }
-          .rule-desc { font-size: 12px; color: #b45309; line-height: 1.5; margin: 0; }
-          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 800; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-size: 13px; margin: 20px 0; text-align: center; }
-          .footer { font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; margin-top: 28px; text-align: center; line-height: 1.6; }
+          .badge { display: inline-block; background: #f0fdf4; color: #166534; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 6px; border: 1px solid #bbf7d0; }
+          .title { font-size: 20px; font-weight: 800; color: #111827; margin: 0 0 12px; }
+          .lead { font-size: 14px; color: #4b5563; line-height: 1.6; margin-bottom: 24px; }
+          .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #374151; margin: 24px 0 12px; }
+          .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+          .card-title { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 3px; }
+          .card-desc { font-size: 12px; color: #4b5563; line-height: 1.5; margin: 0; }
+          .rule-card { background: #fafaf9; border-left: 3px solid #84cc16; padding: 12px 16px; margin-bottom: 8px; }
+          .rule-title { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 2px; }
+          .rule-desc { font-size: 12px; color: #4b5563; line-height: 1.5; margin: 0; }
+          .btn { display: inline-block; background-color: #84cc16; color: #000000; font-weight: 800; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 13px; margin: 20px 0; text-align: center; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; line-height: 1.6; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="34" height="34" style="display: inline-block; vertical-align: middle; border-radius: 8px; object-fit: contain;" />
-              <div class="logo">niger<span>me</span></div>
+            <div class="logo-box">
+              <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+              <span class="logo">niger<span>me</span></span>
             </div>
-            <div class="badge">Sovereign Business Mail</div>
+            <div class="badge">Business Mailbox</div>
           </div>
 
-          <h1 class="title">Welcome to your Sovereign Business Mailbox, ${name}!</h1>
+          <h1 class="title">Welcome, ${name}!</h1>
           <p class="lead">
-            Your mailbox account (<strong>${orgEmail}</strong>) has been successfully activated for <strong>${organizationName}</strong>. 
-            Nigerme provides end-to-end sovereignty, authenticated SPF/DKIM/DMARC deliverability, and integrated productivity tools.
+            Your mailbox (<strong>${orgEmail}</strong>) has been activated for <strong>${organizationName}</strong>. 
+            Nigerme provides authenticated email deliverability, integrated productivity tools, and sovereign communication infrastructure.
           </p>
 
-          <div class="section-title">✨ How to Navigate Your Sovereign Mailbox</div>
+          <div class="section-title">Mailbox Navigation &amp; Features</div>
           
           <div class="card">
-            <div class="card-title">📂 Organized Inbox Tabs (Primary, Updates, Social, Promotions)</div>
-            <p class="card-desc">Your communications are automatically categorized into <strong>Primary</strong> (direct conversations & high-priority messages), <strong>Updates</strong> (notifications & receipts), <strong>Social</strong> (team & network), and <strong>Promotions</strong> (vendor announcements).</p>
+            <div class="card-title">Categorized Inbox Tabs</div>
+            <p class="card-desc">Messages are automatically organized into <strong>Primary</strong> (direct conversations), <strong>Updates</strong> (notifications), <strong>Social</strong>, and <strong>Promotions</strong>.</p>
           </div>
 
           <div class="card">
-            <div class="card-title">🤖 Nigerme AI Assistant & Quick Summaries</div>
-            <p class="card-desc">The AI Assistant in your right panel provides unread message summaries, action-item extractions, and intelligent reply drafting.</p>
+            <div class="card-title">AI Assistant &amp; Smart Actions</div>
+            <p class="card-desc">Extract action items, summarize long threads, and draft professional replies right from your sidebar.</p>
           </div>
 
           <div class="card">
-            <div class="card-title">📅 Integrated Calendar & Scheduling</div>
-            <p class="card-desc">Convert emails into tasks or calendar meetings with a single click, view today's schedule, and coordinate with frequent contacts.</p>
+            <div class="card-title">Integrated Calendar &amp; Scheduling</div>
+            <p class="card-desc">Turn incoming emails directly into calendar appointments and schedule events with team members.</p>
           </div>
 
-          <div class="section-title">🛡️ Essential Security Protocols & Usage Rules</div>
+          <div class="section-title">Security Guidelines &amp; Policies</div>
 
           <div class="rule-card">
-            <div class="rule-title">1. Confidentiality of Organization Details</div>
-            <p class="rule-desc">Never share your login credentials, API secrets, internal emails, or customer data with unauthorized third parties or unverified services.</p>
-          </div>
-
-          <div class="rule-card">
-            <div class="rule-title">2. Changing Temporary Passwords & 2FA</div>
-            <p class="rule-desc">If your account was provisioned with a temporary password, you must change it immediately upon your first sign-in. Keep Two-Factor Authentication (2FA) enabled at all times to prevent account compromise.</p>
+            <div class="rule-title">1. Account Confidentiality</div>
+            <p class="rule-desc">Never share your mailbox credentials, OTP codes, or organization files with unauthorized parties.</p>
           </div>
 
           <div class="rule-card">
-            <div class="rule-title">3. Sending Emails Outside the Organization</div>
-            <p class="rule-desc">All outbound emails sent from your account carry your organization's sovereign domain reputation. Adhere to professional standards, ensure recipient consent, and strictly avoid spam or unsolicited bulk mailing.</p>
+            <div class="rule-title">2. Password Security &amp; 2FA / Passkeys</div>
+            <p class="rule-desc">Change temporary passwords on your first sign-in and keep Multi-Factor Authentication (2FA / Passkeys) enabled.</p>
           </div>
 
           <div class="rule-card">
-            <div class="rule-title">4. Sovereign Account Safeguards</div>
-            <p class="rule-desc">Your session automatically locks after inactivity to protect corporate data. Always log out when accessing your mailbox from shared or public computers.</p>
+            <div class="rule-title">3. Outbound Sending Integrity</div>
+            <p class="rule-desc">All sent emails carry your organization's verified domain reputation. Strictly adhere to anti-spam policies.</p>
           </div>
 
-          <div style="text-align: center;">
+          <div style="text-align: center; margin-top: 24px;">
             <a href="https://nigerme.com/mail" class="btn">Open Your Mailbox &rarr;</a>
           </div>
 
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png" alt="Welcome to Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.<br>
-            Protected by sovereign cryptography and automated threat intelligence.
+            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
       </html>
     `;
 
-    const bodyText = `Welcome to Nigerme Sovereign Mail, ${name}!\n\nYour mailbox account (${orgEmail}) for ${organizationName} is now active.\n\nKey Rules & Security Protocol:\n1. Confidentiality: Never disclose organization credentials or customer data.\n2. Password & 2FA: Change temporary passwords immediately and keep 2FA active.\n3. Outbound Sending: Always adhere to professional standards and avoid spam.\n4. Account Safeguards: Protect your account session on shared devices.\n\nOpen your mailbox at: https://nigerme.com/mail`;
+    const bodyText = `Welcome to Nigerme Sovereign Mail, ${name}!\n\nYour mailbox account (${orgEmail}) for ${organizationName} is now active.\n\nKey Guidelines:\n1. Confidentiality: Never disclose organization credentials.\n2. Password & 2FA: Change temporary passwords and keep 2FA active.\n3. Outbound Sending: Maintain professional standards and avoid spam.\n\nOpen your mailbox at: https://nigerme.com/mail`;
 
     return { subject, preview, html, bodyText };
   }
@@ -316,39 +319,47 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8faf7; color: #18181b; margin: 0; padding: 24px; }
-          .container { max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 20px; padding: 36px; }
-          .logo { font-size: 22px; font-weight: 800; color: #09090b; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 800; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; margin-top: 16px; }
-          .cred-box { background: #fafbfa; border: 1px solid #e4e4e7; border-radius: 12px; padding: 18px; margin: 16px 0; font-size: 13px; line-height: 1.6; }
-          .desc { font-size: 14px; color: #52525b; line-height: 1.6; }
-          .notice-box { background: #fefce8; border: 1px solid #fef08a; border-radius: 10px; padding: 12px 16px; font-size: 12px; color: #854d0e; margin-top: 14px; }
-          .footer { font-size: 12px; color: #a1a1aa; border-top: 1px solid #f4f4f5; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .btn { display: inline-block; background-color: #84cc16; color: #000000; font-weight: 800; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 13px; margin-top: 16px; }
+          .cred-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 13px; line-height: 1.6; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .notice-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #92400e; margin-top: 14px; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <h2 style="margin: 0 0 16px; font-size: 20px; color: #09090b;">Hello ${name},</h2>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
+          </div>
+          <h2 style="margin: 0 0 12px; font-size: 18px; color: #111827;">Hello ${name},</h2>
           <p class="desc">Your workspace administrator has provisioned your sovereign business mailbox for <strong>${organizationName}</strong>.</p>
           
           <div class="cred-box">
-            <div><strong>Assigned Business Email:</strong> <span style="font-family: monospace; font-weight: bold; color: #09090b;">${assignedOrgEmail}</span></div>
+            <div><strong>Assigned Email:</strong> <span style="font-family: monospace; font-weight: bold; color: #111827;">${assignedOrgEmail}</span></div>
             ${
               tempPassword
-                ? `<div style="margin-top: 8px;"><strong>Temporary Password:</strong> <code style="background: #f1f5f9; padding: 3px 8px; border-radius: 6px; font-weight: bold; color: #0f172a;">${tempPassword}</code></div>`
+                ? `<div style="margin-top: 8px;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #111827;">${tempPassword}</code></div>`
                 : ""
             }
           </div>
 
           <div class="notice-box">
-            <strong>🔒 First-Time Login Notice:</strong> When you log in for the first time, you will be required to create a new, secure password. Subsequent logins will send a 2FA OTP code directly to this personal email address (<code>${personalEmail}</code>).
+            <strong>Security Notice:</strong> You will be required to set a permanent password upon your first sign-in.
           </div>
 
           <p style="text-align: center; margin-top: 24px;">
-            <a href="https://nigerme.com/mail/login" class="btn">Sign In to Sovereign Webmail</a>
+            <a href="https://nigerme.com/mail/login" class="btn">Sign In to Webmail &rarr;</a>
           </p>
+
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
 
           <div class="footer">
             &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
@@ -378,25 +389,33 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8faf7; color: #18181b; margin: 0; padding: 24px; }
-          .container { max-width: 480px; margin: 0 auto; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 20px; padding: 36px; text-align: center; }
-          .logo { font-size: 22px; font-weight: 800; color: #09090b; margin-bottom: 24px; text-align: left; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 480px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; text-align: center; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; text-align: left; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .otp-badge { font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #09090b; background: #f4f4f5; padding: 14px 24px; border-radius: 12px; display: inline-block; margin: 20px 0; font-family: monospace; }
-          .desc { font-size: 14px; color: #52525b; line-height: 1.6; text-align: left; }
-          .footer { font-size: 12px; color: #a1a1aa; border-top: 1px solid #f4f4f5; padding-top: 20px; margin-top: 28px; }
+          .otp-badge { font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 14px 24px; border-radius: 8px; display: inline-block; margin: 20px 0; font-family: monospace; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; text-align: left; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <h2 style="margin: 0 0 12px; font-size: 20px; color: #09090b; text-align: left;">Webmail Login Verification</h2>
-          <p class="desc">A sign-in attempt was initiated for your business mailbox <strong>${orgEmail}</strong>. Enter the 6-digit verification code below to authorize your session:</p>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
+          </div>
+          <h2 style="margin: 0 0 12px; font-size: 18px; color: #111827; text-align: left;">Webmail Verification</h2>
+          <p class="desc">A sign-in attempt was initiated for your mailbox <strong>${orgEmail}</strong>. Enter the verification code below to authorize your session:</p>
           
           <div class="otp-badge">${otpCode}</div>
           
-          <p class="desc" style="font-size: 12px; color: #71717a;">This security code will expire in ${expiresInMinutes} minutes. If you did not attempt this sign in, please contact your workspace administrator immediately.</p>
+          <p class="desc" style="font-size: 13px; color: #6b7280;">Valid for <strong>${expiresInMinutes} minutes</strong>. If you did not initiate this request, notify your administrator immediately.</p>
           
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
           <div class="footer">
             &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
@@ -449,31 +468,38 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; letter-spacing: -0.5px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
-          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <div class="badge">Subscription Cancelled</div>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
+          </div>
           <h2 class="title">Package Cancellation Notice</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
-          <p class="desc">This is to confirm that the <strong>${cancelledPackageName}</strong> package has been removed and cancelled from your organization <strong>${organizationName}</strong>.</p>
+          <p class="desc">This is to confirm that <strong>${cancelledPackageName}</strong> has been cancelled for <strong>${organizationName}</strong>.</p>
           <div class="box">
-            <div style="font-size: 13px; color: #94a3b8;">Cancelled Item: <strong style="color: #ffffff;">${cancelledPackageName}</strong></div>
-            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Status: <strong style="color: #f87171;">Cancelled & Auto-debit removed</strong></div>
+            <div style="font-size: 13px; color: #4b5563;">Cancelled Package: <strong style="color: #111827;">${cancelledPackageName}</strong></div>
+            <div style="font-size: 13px; color: #4b5563; margin-top: 6px;">Status: <strong style="color: #dc2626;">Cancelled &amp; Auto-debit removed</strong></div>
           </div>
-          <p class="desc">If this cancellation was unintended, you can re-activate the package at any time in your <a href="https://app.nigerme.com/admin/subscription" style="color: #84cc16;">Subscription & Packages console</a>.</p>
+          <p class="desc">You can manage your active packages at any time in your <a href="https://app.nigerme.com/admin/subscription" style="color: #65a30d; font-weight: 600;">Subscription console</a>.</p>
+          
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud Infrastructure.
+            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
@@ -504,31 +530,38 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; letter-spacing: -0.5px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: rgba(132, 204, 22, 0.15); color: #a3e635; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
-          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <div class="badge">Subscription Activated</div>
-          <h2 class="title">Package Activated Successfully</h2>
-          <p class="desc">Hello <strong>${name}</strong>,</p>
-          <p class="desc">Congratulations! The <strong>${packageName}</strong> package has been successfully activated for your organization <strong>${organizationName}</strong>.</p>
-          <div class="box">
-            <div style="font-size: 13px; color: #94a3b8;">Subscribed Module: <strong style="color: #ffffff;">${packageName}</strong></div>
-            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Status: <strong style="color: #84cc16;">Active & Provisioned</strong></div>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
           </div>
-          <p class="desc">All members in your workspace now have immediate access to this module.</p>
+          <h2 class="title">Package Activated</h2>
+          <p class="desc">Hello <strong>${name}</strong>,</p>
+          <p class="desc">The <strong>${packageName}</strong> module has been activated for <strong>${organizationName}</strong>.</p>
+          <div class="box">
+            <div style="font-size: 13px; color: #4b5563;">Active Module: <strong style="color: #111827;">${packageName}</strong></div>
+            <div style="font-size: 13px; color: #4b5563; margin-top: 6px;">Status: <strong style="color: #16a34a;">Active &amp; Provisioned</strong></div>
+          </div>
+          <p class="desc">All members in your workspace now have access to this module.</p>
+          
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud Infrastructure.
+            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
@@ -562,33 +595,40 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: rgba(234, 179, 8, 0.15); color: #facc15; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
-          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
-          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; margin-top: 14px; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+          .btn { display: inline-block; background-color: #84cc16; color: #000000; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 13px; margin-top: 14px; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <div class="badge">Upcoming Renewal</div>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
+          </div>
           <h2 class="title">Subscription Renewal Notice</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
-          <p class="desc">Your organization <strong>${organizationName}</strong> subscription will renew in <strong>${daysRemaining} day${daysRemaining === 1 ? "" : "s"}</strong>.</p>
+          <p class="desc">Your subscription for <strong>${organizationName}</strong> will renew in <strong>${daysRemaining} day${daysRemaining === 1 ? "" : "s"}</strong>.</p>
           <div class="box">
-            <div style="font-size: 13px; color: #94a3b8;">Renewal Amount: <strong style="color: #ffffff;">₦${amount.toLocaleString()}</strong></div>
-            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Billing Frequency: <strong style="color: #ffffff;">${cycle}</strong></div>
-            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Payment Method: <strong style="color: #84cc16;">Wallet Auto-Debit</strong></div>
+            <div style="font-size: 13px; color: #4b5563;">Renewal Amount: <strong style="color: #111827;">₦${amount.toLocaleString()}</strong></div>
+            <div style="font-size: 13px; color: #4b5563; margin-top: 6px;">Billing Cycle: <strong style="color: #111827;">${cycle}</strong></div>
+            <div style="font-size: 13px; color: #4b5563; margin-top: 6px;">Payment Method: <strong style="color: #16a34a;">Wallet Auto-Debit</strong></div>
           </div>
-          <p class="desc">Please ensure your organization dedicated wallet has sufficient balance to prevent any service interruptions.</p>
-          <a href="https://app.nigerme.com/admin/billing" class="btn">Check & Fund Wallet</a>
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+          <p class="desc">Please ensure your organization dedicated wallet has sufficient balance to prevent service disruption.</p>
+          <a href="https://app.nigerme.com/admin/billing" class="btn">View Billing &rarr;</a>
+          
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -606,39 +646,46 @@ export class ResendEmailService {
     amount: number,
     graceDaysLeft: number
   ): Promise<{ success: boolean; id?: string }> {
-    const subject = `Action Required: Subscription Payment Failed (5-Day Grace Period Active)`;
+    const subject = `Action Required: Subscription Payment Failed (${graceDaysLeft}-Day Grace Period Active)`;
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #ef4444/40; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
-          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
-          .btn { display: inline-block; background-color: #ef4444; color: #ffffff; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; margin-top: 14px; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #dc2626; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .box { background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 16px; margin: 16px 0; }
+          .btn { display: inline-block; background-color: #dc2626; color: #ffffff; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 13px; margin-top: 14px; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <div class="badge">Payment Overdue • 5-Day Grace Period</div>
-          <h2 class="title">Automatic Wallet Debit Failed</h2>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
+          </div>
+          <h2 class="title">Automatic Debit Failed</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
           <p class="desc">We were unable to renew the subscription for <strong>${organizationName}</strong> due to insufficient wallet balance (<strong>₦${amount.toLocaleString()}</strong> needed).</p>
           <div class="box">
-            <div style="font-size: 13px; color: #f87171;">Grace Period Remaining: <strong>${graceDaysLeft} Days</strong></div>
-            <div style="font-size: 12px; color: #94a3b8; margin-top: 6px;">After the 5-day grace period expires, all outbound and inbound email dispatch and operational service modules will be suspended.</div>
+            <div style="font-size: 13px; color: #dc2626;">Grace Period Remaining: <strong>${graceDaysLeft} Days</strong></div>
+            <div style="font-size: 12px; color: #6b7280; margin-top: 6px;">After the grace period expires, outbound and inbound email dispatch will be restricted.</div>
           </div>
-          <p class="desc">Please fund your dedicated wallet immediately to restore active subscription status.</p>
-          <a href="https://app.nigerme.com/admin/billing" class="btn">Fund Wallet Now</a>
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+          <p class="desc">Please fund your dedicated wallet to maintain uninterrupted service.</p>
+          <a href="https://app.nigerme.com/admin/billing" class="btn">Fund Wallet Now &rarr;</a>
+          
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -661,32 +708,34 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1.5px solid #ef4444; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: #ef4444; color: #ffffff; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
-          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-size: 14px; margin-top: 16px; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #dc2626; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .btn { display: inline-block; background-color: #84cc16; color: #000000; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 13px; margin-top: 16px; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <div class="badge">Workspace Suspended</div>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
+          </div>
           <h2 class="title">Services Temporarily Suspended</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
-          <p class="desc">The 5-day grace period for <strong>${organizationName}</strong> has expired without renewal. In accordance with policy:</p>
-          <ul style="color: #cbd5e1; font-size: 13px; line-height: 1.8;">
-            <li>All outbound email transmission is disabled</li>
-            <li>Inbound email delivery is paused</li>
-            <li>Modular service packages (Payroll, POS, Logistics, Hotel) are locked</li>
-          </ul>
-          <p class="desc">To immediately reactivate your workspace, fund your wallet and click reactivate.</p>
-          <a href="https://app.nigerme.com/admin/billing" class="btn">Reactivate Workspace</a>
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+          <p class="desc">The grace period for <strong>${organizationName}</strong> has expired without renewal. Outbound email transmission and modular services are currently restricted.</p>
+          <p class="desc">To reactivate your workspace, fund your wallet and click reactivate in your admin console.</p>
+          <a href="https://app.nigerme.com/admin/billing" class="btn">Reactivate Workspace &rarr;</a>
+          
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -711,30 +760,37 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: rgba(132, 204, 22, 0.15); color: #a3e635; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
-          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <div class="badge">Payment Successful</div>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
+          </div>
           <h2 class="title">Subscription Renewal Receipt</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
-          <p class="desc">Your subscription for <strong>${organizationName}</strong> has been successfully renewed via wallet auto-debit.</p>
+          <p class="desc">Your subscription for <strong>${organizationName}</strong> has renewed successfully.</p>
           <div class="box">
-            <div style="font-size: 13px; color: #94a3b8;">Amount Paid: <strong style="color: #ffffff;">₦${amount.toLocaleString()}</strong></div>
-            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Next Due Date: <strong style="color: #84cc16;">${nextDueDate}</strong></div>
-            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Status: <strong style="color: #84cc16;">Active &amp; Paid</strong></div>
+            <div style="font-size: 13px; color: #4b5563;">Amount Paid: <strong style="color: #111827;">₦${amount.toLocaleString()}</strong></div>
+            <div style="font-size: 13px; color: #4b5563; margin-top: 6px;">Next Due Date: <strong style="color: #16a34a;">${nextDueDate}</strong></div>
+            <div style="font-size: 13px; color: #4b5563; margin-top: 6px;">Status: <strong style="color: #16a34a;">Active &amp; Paid</strong></div>
           </div>
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+          
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -752,11 +808,11 @@ export class ResendEmailService {
     domainName: string,
     disconnectedRecords: string[] = ["SPF", "DKIM", "MX"]
   ): Promise<{ success: boolean; id?: string }> {
-    const subject = `⚠️ ACTION REQUIRED: DNS records disconnected for ${domainName}`;
+    const subject = `Action Required: DNS records disconnected for ${domainName}`;
     const recordsHtml = disconnectedRecords
       .map(
         (r) =>
-          `<li style="margin-bottom: 6px;"><strong style="color: #f87171;">${r}</strong> - Pending / Disconnected at registrar</li>`
+          `<li style="margin-bottom: 6px;"><strong style="color: #dc2626;">${r}</strong> - Disconnected / Unreachable</li>`
       )
       .join("");
 
@@ -766,38 +822,43 @@ export class ResendEmailService {
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #dc2626; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: rgba(220, 38, 38, 0.2); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 14px; }
-          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
-          .btn { display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 12px; margin-top: 16px; text-align: center; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #dc2626; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .box { background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 16px; margin: 16px 0; }
+          .btn { display: inline-block; background-color: #dc2626; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 13px; padding: 12px 24px; border-radius: 8px; margin-top: 16px; text-align: center; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <div class="badge">DNS Security Alert</div>
-          <h2 class="title">DNS Disconnection Detected for ${domainName}</h2>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
+          </div>
+          <h2 class="title">DNS Disconnection Detected</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
-          <p class="desc">Our automated health check detected that one or more required DNS records for your domain <strong>${domainName}</strong> under <strong>${organizationName}</strong> are currently disconnected or unreachable from global DNS nameservers.</p>
+          <p class="desc">One or more required DNS records for <strong>${domainName}</strong> under <strong>${organizationName}</strong> are currently disconnected:</p>
           
           <div class="box">
-            <div style="font-size: 13px; font-weight: 700; color: #f87171; margin-bottom: 10px;">Affected DNS Records:</div>
-            <ul style="color: #cbd5e1; font-size: 13px; margin: 0; padding-left: 20px;">
+            <ul style="color: #4b5563; font-size: 13px; margin: 0; padding-left: 20px;">
               ${recordsHtml}
             </ul>
           </div>
 
-          <p class="desc"><strong>Impact:</strong> Outbound emails sent from this domain may be marked as spam or rejected by recipient mail servers until DNS records are restored at your domain registrar.</p>
+          <p class="desc">Outbound emails from this domain may be delayed or marked as spam until DNS records are restored.</p>
 
-          <a href="https://app.nigerme.com/admin/domains" class="btn">Fix DNS Configuration in Admin Console</a>
+          <a href="https://app.nigerme.com/admin/domains" class="btn">Update DNS in Admin Console &rarr;</a>
           
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -814,46 +875,49 @@ export class ResendEmailService {
     organizationName: string,
     domainName: string
   ): Promise<{ success: boolean; id?: string }> {
-    const subject = `🎉 Domain DNS Verified & Active: ${domainName}`;
+    const subject = `Domain Active: ${domainName} is verified`;
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #16a34a; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; margin: 0; padding: 32px 16px; }
+          .container { max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }
+          .logo-box { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+          .logo { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 14px; }
-          .title { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 20px 0; }
-          .btn { display: inline-block; background: #84cc16; color: #09090b; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 12px; margin-top: 16px; text-align: center; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .title { font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 12px; }
+          .desc { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
+          .box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0; }
+          .btn { display: inline-block; background-color: #84cc16; color: #000000; text-decoration: none; font-weight: 700; font-size: 13px; padding: 12px 24px; border-radius: 8px; margin-top: 14px; text-align: center; }
+          .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 20px; margin-top: 28px; text-align: center; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="34" height="34" style="display: inline-block; vertical-align: middle; border-radius: 8px; object-fit: contain;" />
-            <span class="logo" style="margin-bottom: 0;">niger<span>me</span></span>
+          <div class="logo-box">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">niger<span>me</span></span>
           </div>
-          <div class="badge">DNS Verified &amp; Protected</div>
-          <h2 class="title">Domain ${domainName} is Fully Active!</h2>
+          <h2 class="title">Domain ${domainName} is Active</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
-          <p class="desc">Great news! All DNS records for <strong>${domainName}</strong> under <strong>${organizationName}</strong> have been verified by global nameservers.</p>
+          <p class="desc">All DNS records for <strong>${domainName}</strong> under <strong>${organizationName}</strong> have been verified.</p>
           
           <div class="box">
-            <div style="font-size: 13px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✓ SPF Outbound Routing: Verified</div>
-            <div style="font-size: 13px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✓ DKIM 2048-bit Cryptographic Signing: Verified</div>
-            <div style="font-size: 13px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✓ MX Mail Exchange: Active</div>
-            <div style="font-size: 13px; color: #4ade80; font-weight: 700;">✓ Anti-Spoofing &amp; DMARC Protection: Enforced</div>
+            <div style="font-size: 13px; color: #166534; font-weight: 600; margin-bottom: 4px;">✓ SPF Outbound Routing: Verified</div>
+            <div style="font-size: 13px; color: #166534; font-weight: 600; margin-bottom: 4px;">✓ DKIM 2048-bit Signing: Verified</div>
+            <div style="font-size: 13px; color: #166534; font-weight: 600; margin-bottom: 4px;">✓ MX Mail Exchange: Active</div>
+            <div style="font-size: 13px; color: #166534; font-weight: 600;">✓ Anti-Spoofing &amp; DMARC: Enforced</div>
           </div>
 
-          <a href="https://app.nigerme.com/admin/domains" class="btn">View Domain in Admin Console</a>
+          <a href="https://app.nigerme.com/admin/domains" class="btn">View Domain Console &rarr;</a>
           
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Cloud.</div>
+          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          </div>
+
+          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
