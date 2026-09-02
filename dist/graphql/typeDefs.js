@@ -121,10 +121,13 @@ exports.typeDefs = (0, graphql_tag_1.default) `
   type WorkspaceRole {
     id: ID!
     name: String!
+    slug: String
     description: String
     isSystem: Boolean!
     memberCount: Int!
     permissions: RolePermissions!
+    createdAt: String
+    updatedAt: String
   }
 
   type Department {

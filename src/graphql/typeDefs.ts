@@ -116,10 +116,13 @@ export const typeDefs = gql`
   type WorkspaceRole {
     id: ID!
     name: String!
+    slug: String
     description: String
     isSystem: Boolean!
     memberCount: Int!
     permissions: RolePermissions!
+    createdAt: String
+    updatedAt: String
   }
 
   type Department {
