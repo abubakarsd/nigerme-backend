@@ -9,7 +9,7 @@ import { OrganizationService } from "../application/services/organization.servic
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
-import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, EmailModel } from "../models/index.js";
+import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, EmailModel, CalendarEventModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService } from "../application/services/otp.service.js";
 import { INITIAL_PACKAGES } from "../infrastructure/database/seeds/package.seed.js";
@@ -570,6 +570,63 @@ export const resolvers = {
       ]);
 
       return { inbox, unread, starred, sent, drafts, spam, trash, archive };
+    },
+
+    // ─── Calendar Events Queries ───
+    getCalendarEvents: async (
+      _: any,
+      { start, end, type }: { start?: string; end?: string; type?: string },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+
+      const userEmail = authUser.email.toLowerCase();
+      const query: any = {
+        organizationId: authUser.organizationId,
+        $or: [
+          { organizerEmail: userEmail },
+          { organizerId: authUser.userId || (authUser as any).id },
+          { "attendees.email": userEmail },
+          { type: "ORGANIZATION" },
+        ],
+      };
+
+      if (start || end) {
+        query.start = {};
+        if (start) query.start.$gte = new Date(start);
+        if (end) query.start.$lte = new Date(end);
+      }
+
+      if (type && type !== "ALL") {
+        query.type = type;
+      }
+
+      const events = await CalendarEventModel.find(query).sort({ start: 1 });
+      return events.map(formatCalendarEvent);
+    },
+
+    getCalendarEventById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return null;
+
+      const event = await CalendarEventModel.findOne({
+        _id: id,
+        organizationId: authUser.organizationId,
+      });
+
+      if (!event) return null;
+
+      const userEmail = authUser.email.toLowerCase();
+      const isOrganizer = event.organizerEmail.toLowerCase() === userEmail;
+      const isAttendee = (event.attendees || []).some((a) => a.email.toLowerCase() === userEmail);
+      const isPublicOrg = event.type === "ORGANIZATION";
+
+      if (!isOrganizer && !isAttendee && !isPublicOrg) {
+        throw new Error("Access denied to this calendar event.");
+      }
+
+      return formatCalendarEvent(event);
     },
   },
 
@@ -1509,5 +1566,134 @@ export const resolvers = {
       requireAuth(context);
       return PackageService.resetPackagesToDefault();
     },
+
+    // ─── Calendar Event Mutations ───
+    createCalendarEvent: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+
+      const attendees = Array.isArray(input.attendees) ? [...input.attendees] : [];
+      // Ensure organizer is included in attendees list
+      if (!attendees.some((a) => a.email && a.email.toLowerCase() === authUser.email.toLowerCase())) {
+        attendees.unshift({
+          name: authUser.name || authUser.email.split("@")[0],
+          email: authUser.email.toLowerCase(),
+          userId: authUser.userId || (authUser as any).id,
+          status: "ACCEPTED",
+        });
+      }
+
+      const event = await CalendarEventModel.create({
+        organizationId: authUser.organizationId,
+        organizerId: authUser.userId || (authUser as any).id,
+        organizerName: authUser.name || authUser.email.split("@")[0],
+        organizerEmail: authUser.email.toLowerCase(),
+        title: input.title.trim(),
+        description: input.description || "",
+        start: new Date(input.start),
+        end: new Date(input.end),
+        allDay: !!input.allDay,
+        timezone: input.timezone || "Africa/Lagos",
+        location: input.location || "Nigerme Meet Virtual Room",
+        meetUrl: input.meetUrl || `https://meet.nigerme.com/${Math.random().toString(36).substring(7)}`,
+        attendees,
+        color: input.color || "bg-[#84cc16]",
+        type: input.type || "ORGANIZATION",
+        relatedTaskId: input.relatedTaskId,
+        relatedEmailId: input.relatedEmailId,
+      });
+
+      return formatCalendarEvent(event);
+    },
+
+    updateCalendarEvent: async (
+      _: any,
+      { id, input }: { id: string; input: any },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+
+      const event = await CalendarEventModel.findOne({
+        _id: id,
+        organizationId: authUser.organizationId,
+      });
+      if (!event) throw new Error("Event not found");
+
+      const userEmail = authUser.email.toLowerCase();
+      const isOrganizer = event.organizerEmail.toLowerCase() === userEmail;
+      const isAdmin = authUser.role === "admin" || (authUser as any).userType === "saas_admin";
+      if (!isOrganizer && !isAdmin) {
+        throw new Error("Only the organizer or an administrator can update this event.");
+      }
+
+      if (input.title !== undefined) event.title = input.title.trim();
+      if (input.description !== undefined) event.description = input.description;
+      if (input.start !== undefined) event.start = new Date(input.start);
+      if (input.end !== undefined) event.end = new Date(input.end);
+      if (input.allDay !== undefined) event.allDay = input.allDay;
+      if (input.timezone !== undefined) event.timezone = input.timezone;
+      if (input.location !== undefined) event.location = input.location;
+      if (input.meetUrl !== undefined) event.meetUrl = input.meetUrl;
+      if (input.color !== undefined) event.color = input.color;
+      if (input.type !== undefined) event.type = input.type;
+      if (input.attendees !== undefined) event.attendees = input.attendees;
+
+      await event.save();
+      return formatCalendarEvent(event);
+    },
+
+    deleteCalendarEvent: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+
+      const event = await CalendarEventModel.findOne({
+        _id: id,
+        organizationId: authUser.organizationId,
+      });
+      if (!event) return true;
+
+      const userEmail = authUser.email.toLowerCase();
+      const isOrganizer = event.organizerEmail.toLowerCase() === userEmail;
+      const isAdmin = authUser.role === "admin" || (authUser as any).userType === "saas_admin";
+      if (!isOrganizer && !isAdmin) {
+        throw new Error("Only the organizer or an administrator can delete this event.");
+      }
+
+      await CalendarEventModel.deleteOne({ _id: id });
+      return true;
+    },
   },
 };
+
+function formatCalendarEvent(doc: any) {
+  if (!doc) return null;
+  const e = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: e._id ? e._id.toString() : e.id,
+    organizationId: e.organizationId ? e.organizationId.toString() : "",
+    organizerId: e.organizerId ? e.organizerId.toString() : "",
+    organizerName: e.organizerName || "",
+    organizerEmail: e.organizerEmail || "",
+    title: e.title || "",
+    description: e.description || "",
+    start: e.start ? new Date(e.start).toISOString() : new Date().toISOString(),
+    end: e.end ? new Date(e.end).toISOString() : new Date().toISOString(),
+    allDay: !!e.allDay,
+    timezone: e.timezone || "Africa/Lagos",
+    location: e.location || "Nigerme Meet Virtual Room",
+    meetUrl: e.meetUrl || "",
+    attendees: (e.attendees || []).map((a: any) => ({
+      name: a.name || "",
+      email: a.email || "",
+      userId: a.userId ? a.userId.toString() : null,
+      status: a.status || "PENDING",
+    })),
+    color: e.color || "bg-[#84cc16]",
+    type: e.type || "ORGANIZATION",
+    relatedTaskId: e.relatedTaskId || null,
+    relatedEmailId: e.relatedEmailId || null,
+    createdAt: e.createdAt ? new Date(e.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: e.updatedAt ? new Date(e.updatedAt).toISOString() : new Date().toISOString(),
+  };
+}

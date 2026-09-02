@@ -435,6 +435,10 @@ export const typeDefs = gql`
     getMyEmails(folder: String, category: String, search: String, limit: Int, offset: Int): [WebmailMessage!]!
     getEmailById(id: ID!): WebmailMessage
     getMailboxCounts: MailboxCounts!
+
+    # Calendar Events
+    getCalendarEvents(start: String, end: String, type: String): [CalendarEvent!]!
+    getCalendarEventById(id: ID!): CalendarEvent
   }
 
   type Mutation {
@@ -495,6 +499,78 @@ export const typeDefs = gql`
     # ── Product Packages & Pricing Admin ──
     updatePackagePricing(packageId: String!, input: UpdatePackagePricingInput!): ProductPackage!
     resetPackagesToDefault: [ProductPackage!]!
+
+    # ── Calendar Management ──
+    createCalendarEvent(input: CreateCalendarEventInput!): CalendarEvent!
+    updateCalendarEvent(id: ID!, input: UpdateCalendarEventInput!): CalendarEvent!
+    deleteCalendarEvent(id: ID!): Boolean!
+  }
+
+  type CalendarAttendee {
+    name: String!
+    email: String!
+    userId: ID
+    status: String!
+  }
+
+  input CalendarAttendeeInput {
+    name: String!
+    email: String!
+    userId: ID
+    status: String
+  }
+
+  type CalendarEvent {
+    id: ID!
+    organizationId: ID!
+    organizerId: ID!
+    organizerName: String!
+    organizerEmail: String!
+    title: String!
+    description: String
+    start: String!
+    end: String!
+    allDay: Boolean
+    timezone: String
+    location: String
+    meetUrl: String
+    attendees: [CalendarAttendee!]!
+    color: String!
+    type: String!
+    relatedTaskId: String
+    relatedEmailId: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input CreateCalendarEventInput {
+    title: String!
+    description: String
+    start: String!
+    end: String!
+    allDay: Boolean
+    timezone: String
+    location: String
+    meetUrl: String
+    attendees: [CalendarAttendeeInput!]
+    color: String
+    type: String
+    relatedTaskId: String
+    relatedEmailId: String
+  }
+
+  input UpdateCalendarEventInput {
+    title: String
+    description: String
+    start: String
+    end: String
+    allDay: Boolean
+    timezone: String
+    location: String
+    meetUrl: String
+    attendees: [CalendarAttendeeInput!]
+    color: String
+    type: String
   }
 
   type EmailParticipant {
