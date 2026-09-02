@@ -413,8 +413,9 @@ exports.resolvers = {
                 .limit(limit);
             if (emails.length === 0 && offset === 0 && (!search || !search.trim()) && authUser.organizationId) {
                 const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
-                if (org) {
-                    await index_js_6.ResendEmailService.provisionWelcomeEmailInMailbox(authUser.organizationId, authUser.userId || authUser.id, authUser.name || authUser.email.split("@")[0], authUser.email, org.name, authUser.role === "admin");
+                const user = await index_js_7.UserModel.findById(authUser.userId || authUser.id);
+                if (org && user) {
+                    await index_js_6.ResendEmailService.provisionWelcomeEmailInMailbox(authUser.organizationId, user._id, user.name || user.email.split("@")[0], user.email, org.name, user.role === "admin" || user.role === "owner");
                     emails = await index_js_7.EmailModel.find(query)
                         .sort({ createdAt: -1 })
                         .skip(offset)

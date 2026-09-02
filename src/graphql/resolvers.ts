@@ -453,14 +453,15 @@ export const resolvers = {
 
       if (emails.length === 0 && offset === 0 && (!search || !search.trim()) && authUser.organizationId) {
         const org = await OrganizationModel.findById(authUser.organizationId);
-        if (org) {
+        const user = await UserModel.findById(authUser.userId || (authUser as any).id);
+        if (org && user) {
           await ResendEmailService.provisionWelcomeEmailInMailbox(
             authUser.organizationId,
-            authUser.userId || (authUser as any).id,
-            authUser.name || authUser.email.split("@")[0],
-            authUser.email,
+            user._id,
+            user.name || user.email.split("@")[0],
+            user.email,
             org.name,
-            authUser.role === "admin"
+            user.role === "admin" || user.role === "owner"
           );
           emails = await EmailModel.find(query)
             .sort({ createdAt: -1 })

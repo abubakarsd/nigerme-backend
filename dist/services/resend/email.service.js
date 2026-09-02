@@ -221,8 +221,9 @@ class ResendEmailService {
         try {
             const { EmailModel } = await import("../../infrastructure/database/models/email.model.js");
             const { subject, preview, html, bodyText } = this.getWelcomeAndRulesContent(userName, organizationName, userEmail, isOwner);
-            // Check if welcome email already exists for this user to prevent duplicates
+            // Check if welcome email already exists for this user
             const existing = await EmailModel.findOne({
+                organizationId,
                 userId,
                 subject,
             });
@@ -236,7 +237,7 @@ class ResendEmailService {
                     from: {
                         name: "Nigerme Business Mail",
                         email: "welcome@nigerme.com",
-                        avatar: "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png",
+                        avatar: exports.BRAND_LOGO_URL,
                     },
                     to: [
                         {
@@ -259,6 +260,20 @@ class ResendEmailService {
                     receivedAt: new Date(),
                 });
                 console.log(`✅ Provisioned sovereign welcome & rules email in mailbox for ${userEmail}`);
+            }
+            else {
+                // Update existing welcome email to latest formatted HTML and correct details
+                existing.to = [{ name: userName, email: userEmail }];
+                existing.preview = preview;
+                existing.bodyHtml = html;
+                existing.bodyText = bodyText;
+                existing.from = {
+                    name: "Nigerme Business Mail",
+                    email: "welcome@nigerme.com",
+                    avatar: exports.BRAND_LOGO_URL,
+                };
+                await existing.save();
+                console.log(`🔄 Refreshed sovereign welcome email in mailbox for ${userEmail}`);
             }
         }
         catch (err) {
@@ -299,14 +314,14 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <img src="${exports.BRAND_LOGO_URL}" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
             <span class="logo">niger<span>me</span></span>
           </div>
           <h2 style="margin: 0 0 12px; font-size: 18px; color: #111827;">Hello ${name},</h2>
           <p class="desc">Your workspace administrator has provisioned your sovereign business mailbox for <strong>${organizationName}</strong>.</p>
           
           <div class="cred-box">
-            <div><strong>Assigned Email:</strong> <span style="font-family: monospace; font-weight: bold; color: #111827;">${assignedOrgEmail}</span></div>
+            <div><strong>Assigned Business Email:</strong> <span style="font-family: monospace; font-weight: bold; color: #111827;">${assignedOrgEmail}</span></div>
             ${tempPassword
             ? `<div style="margin-top: 8px;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #111827;">${tempPassword}</code></div>`
             : ""}
@@ -320,8 +335,8 @@ class ResendEmailService {
             <a href="https://nigerme.com/mail/login" class="btn">Sign In to Webmail &rarr;</a>
           </p>
 
-          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
