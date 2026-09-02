@@ -94,7 +94,10 @@ export class ResendEmailService {
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="32" height="32" style="display: inline-block; vertical-align: middle; border-radius: 8px; object-fit: contain;" />
+            <span class="logo" style="margin-bottom: 0;">niger<span>me</span></span>
+          </div>
           <div class="title">Verify your identity</div>
           <p class="desc">Hello <strong>${name}</strong>,<br>Use the verification code below to complete your sign in or verification on Nigerme Sovereign Workspace.</p>
           <div class="code-box">
@@ -152,7 +155,10 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">niger<span>me</span></div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="34" height="34" style="display: inline-block; vertical-align: middle; border-radius: 8px; object-fit: contain;" />
+              <div class="logo">niger<span>me</span></div>
+            </div>
             <div class="badge">Sovereign Business Mail</div>
           </div>
 
@@ -255,7 +261,7 @@ export class ResendEmailService {
           from: {
             name: "Nigerme Business Mail",
             email: "welcome@nigerme.com",
-            avatar: "/favicon.png",
+            avatar: "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png",
           },
           to: [
             {
@@ -829,7 +835,10 @@ export class ResendEmailService {
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
+            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="34" height="34" style="display: inline-block; vertical-align: middle; border-radius: 8px; object-fit: contain;" />
+            <span class="logo" style="margin-bottom: 0;">niger<span>me</span></span>
+          </div>
           <div class="badge">DNS Verified &amp; Protected</div>
           <h2 class="title">Domain ${domainName} is Fully Active!</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
