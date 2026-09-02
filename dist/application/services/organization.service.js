@@ -179,6 +179,8 @@ class OrganizationService {
                 }
                 const destinationEmail = user.personalEmail || user.email;
                 index_js_1.ResendEmailService.sendMemberInvitationEmail(destinationEmail, user.name, org.name, user.email, tempPassword).catch((err) => console.error("⚠️ Failed to send member invitation email:", err));
+                // Provision welcome and rules email in the new member's sovereign mailbox
+                index_js_1.ResendEmailService.provisionWelcomeEmailInMailbox(orgId, user._id, user.name, user.email, org.name, false).catch((err) => console.warn("⚠️ Welcome mailbox provisioning error:", err));
             }
         });
         return {

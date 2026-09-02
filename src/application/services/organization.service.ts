@@ -238,6 +238,16 @@ export class OrganizationService {
           user.email,
           tempPassword
         ).catch((err) => console.error("⚠️ Failed to send member invitation email:", err));
+
+        // Provision welcome and rules email in the new member's sovereign mailbox
+        ResendEmailService.provisionWelcomeEmailInMailbox(
+          orgId,
+          user._id,
+          user.name,
+          user.email,
+          org.name,
+          false
+        ).catch((err) => console.warn("⚠️ Welcome mailbox provisioning error:", err));
       }
     });
 

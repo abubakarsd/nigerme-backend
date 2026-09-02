@@ -164,7 +164,16 @@ export class AuthService {
     const accessToken = TokenManager.generateAccessToken(payload);
     const refreshToken = TokenManager.generateRefreshToken(payload);
 
-    // Asynchronously dispatch welcome onboarding email via Resend
+    // Asynchronously provision welcome email in primary mailbox and dispatch via Resend
+    ResendEmailService.provisionWelcomeEmailInMailbox(
+      organization._id,
+      user._id,
+      user.name,
+      user.email,
+      organization.name,
+      true
+    ).catch((err) => console.warn("⚠️ Welcome mailbox provisioning error:", err));
+
     ResendEmailService.sendWelcomeEmail(
       user.email,
       user.name,

@@ -106,7 +106,8 @@ class AuthService {
         };
         const accessToken = token_manager_js_1.TokenManager.generateAccessToken(payload);
         const refreshToken = token_manager_js_1.TokenManager.generateRefreshToken(payload);
-        // Asynchronously dispatch welcome onboarding email via Resend
+        // Asynchronously provision welcome email in primary mailbox and dispatch via Resend
+        index_js_1.ResendEmailService.provisionWelcomeEmailInMailbox(organization._id, user._id, user.name, user.email, organization.name, true).catch((err) => console.warn("⚠️ Welcome mailbox provisioning error:", err));
         index_js_1.ResendEmailService.sendWelcomeEmail(user.email, user.name, organization.name, organization.domain).catch((err) => console.error("⚠️ Failed to send welcome email:", err));
         return {
             accessToken,

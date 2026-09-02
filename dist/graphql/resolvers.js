@@ -406,10 +406,20 @@ exports.resolvers = {
                     { "to.email": regex },
                 ];
             }
-            const emails = await index_js_7.EmailModel.find(query)
+            let emails = await index_js_7.EmailModel.find(query)
                 .sort({ createdAt: -1 })
                 .skip(offset)
                 .limit(limit);
+            if (emails.length === 0 && offset === 0 && (!search || !search.trim()) && authUser.organizationId) {
+                const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+                if (org) {
+                    await index_js_6.ResendEmailService.provisionWelcomeEmailInMailbox(authUser.organizationId, authUser.userId || authUser.id, authUser.name || authUser.email.split("@")[0], authUser.email, org.name, authUser.role === "admin");
+                    emails = await index_js_7.EmailModel.find(query)
+                        .sort({ createdAt: -1 })
+                        .skip(offset)
+                        .limit(limit);
+                }
+            }
             return emails.map((m) => ({
                 id: m._id.toString(),
                 threadId: m.threadId,

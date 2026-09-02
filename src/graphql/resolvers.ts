@@ -445,10 +445,28 @@ export const resolvers = {
         ];
       }
 
-      const emails = await EmailModel.find(query)
+      let emails = await EmailModel.find(query)
         .sort({ createdAt: -1 })
         .skip(offset)
         .limit(limit);
+
+      if (emails.length === 0 && offset === 0 && (!search || !search.trim()) && authUser.organizationId) {
+        const org = await OrganizationModel.findById(authUser.organizationId);
+        if (org) {
+          await ResendEmailService.provisionWelcomeEmailInMailbox(
+            authUser.organizationId,
+            authUser.userId || (authUser as any).id,
+            authUser.name || authUser.email.split("@")[0],
+            authUser.email,
+            org.name,
+            authUser.role === "admin"
+          );
+          emails = await EmailModel.find(query)
+            .sort({ createdAt: -1 })
+            .skip(offset)
+            .limit(limit);
+        }
+      }
 
       return emails.map((m) => ({
         id: m._id.toString(),

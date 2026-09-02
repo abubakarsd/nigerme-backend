@@ -103,70 +103,160 @@ class ResendEmailService {
         });
     }
     /**
-     * Sends a Welcome email to newly registered organization owners
+     * Generates the sovereign Welcome & Security Rules email content
      */
-    static async sendWelcomeEmail(to, name, organizationName, domain) {
-        const subject = `Welcome to Nigerme — Action Required: Verify your domain ${domain}`;
+    static getWelcomeAndRulesContent(name, organizationName, orgEmail, isOwner = false) {
+        const subject = `Welcome to Nigerme Sovereign Mail — Getting Started, Rules & Security Protocol`;
+        const preview = `Welcome to your sovereign business mailbox. Important security rules, password guidelines, and deliverability policies.`;
         const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-          .container { max-width: 580px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px; color: #f8fafc; }
-          .logo { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 24px; letter-spacing: -0.5px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 24px; }
+          .container { max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 36px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); }
+          .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; }
+          .logo { font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
           .logo span { color: #84cc16; }
-          .badge { display: inline-block; background: rgba(132, 204, 22, 0.15); color: #a3e635; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
-          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-size: 14px; margin: 20px 0; text-align: center; }
-          .step-card { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 16px 20px; margin-bottom: 12px; }
-          .step-num { font-size: 11px; font-weight: 800; color: #84cc16; text-transform: uppercase; margin-bottom: 4px; }
-          .step-title { font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 4px; }
-          .step-desc { font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0; }
-          .desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; margin-top: 28px; text-align: center; }
+          .badge { display: inline-block; background: #ecfccb; color: #3f6212; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; border: 1px solid #d9f99d; }
+          .title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 16px 0 8px; }
+          .lead { font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
+          .section-title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #365314; margin: 24px 0 12px; }
+          .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; }
+          .card-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+          .card-desc { font-size: 12px; color: #64748b; line-height: 1.5; margin: 0; }
+          .rule-card { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 14px; padding: 14px 18px; margin-bottom: 10px; }
+          .rule-title { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 4px; }
+          .rule-desc { font-size: 12px; color: #b45309; line-height: 1.5; margin: 0; }
+          .btn { display: inline-block; background-color: #84cc16; color: #09090b; font-weight: 800; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-size: 13px; margin: 20px 0; text-align: center; }
+          .footer { font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; margin-top: 28px; text-align: center; line-height: 1.6; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo">niger<span>me</span></div>
-          <div class="badge">Sovereign Workspace Ready</div>
-          <h2 style="margin: 0 0 12px; font-size: 22px; color: #ffffff;">Welcome to Nigerme, ${name}!</h2>
-          <p class="desc">Your enterprise organization <strong>${organizationName}</strong> has been successfully provisioned on the sovereign cloud with domain <code>${domain}</code>.</p>
+          <div class="header">
+            <div class="logo">niger<span>me</span></div>
+            <div class="badge">Sovereign Business Mail</div>
+          </div>
+
+          <h1 class="title">Welcome to your Sovereign Business Mailbox, ${name}!</h1>
+          <p class="lead">
+            Your mailbox account (<strong>${orgEmail}</strong>) has been successfully activated for <strong>${organizationName}</strong>. 
+            Nigerme provides end-to-end sovereignty, authenticated SPF/DKIM/DMARC deliverability, and integrated productivity tools.
+          </p>
+
+          <div class="section-title">✨ How to Navigate Your Sovereign Mailbox</div>
           
-          <div style="margin: 24px 0 16px;">
-            <div class="step-card">
-              <div class="step-num">Step 1 — Essential</div>
-              <div class="step-title">Verify your DNS Records</div>
-              <p class="step-desc">Add your SPF (TXT), DKIM (CNAME), DMARC (TXT), and MX records in your domain registrar (Namecheap, GoDaddy, Cloudflare) to activate enterprise inbound and outbound email routing.</p>
-            </div>
+          <div class="card">
+            <div class="card-title">📂 Organized Inbox Tabs (Primary, Updates, Social, Promotions)</div>
+            <p class="card-desc">Your communications are automatically categorized into <strong>Primary</strong> (direct conversations & high-priority messages), <strong>Updates</strong> (notifications & receipts), <strong>Social</strong> (team & network), and <strong>Promotions</strong> (vendor announcements).</p>
+          </div>
 
-            <div class="step-card">
-              <div class="step-num">Step 2</div>
-              <div class="step-title">Provision Team Mailboxes & Roles</div>
-              <p class="step-desc">Create custom email accounts (e.g. <code>info@${domain}</code>) for your staff and configure granular department permissions.</p>
-            </div>
+          <div class="card">
+            <div class="card-title">🤖 Nigerme AI Assistant & Quick Summaries</div>
+            <p class="card-desc">The AI Assistant in your right panel provides unread message summaries, action-item extractions, and intelligent reply drafting.</p>
+          </div>
 
-            <div class="step-card">
-              <div class="step-num">Step 3</div>
-              <div class="step-title">Access Integrated Apps</div>
-              <p class="step-desc">Manage Payroll, POS billing, Sovereign Storage, Calendar, and Logistics directly inside your workspace.</p>
-            </div>
+          <div class="card">
+            <div class="card-title">📅 Integrated Calendar & Scheduling</div>
+            <p class="card-desc">Convert emails into tasks or calendar meetings with a single click, view today's schedule, and coordinate with frequent contacts.</p>
+          </div>
+
+          <div class="section-title">🛡️ Essential Security Protocols & Usage Rules</div>
+
+          <div class="rule-card">
+            <div class="rule-title">1. Confidentiality of Organization Details</div>
+            <p class="rule-desc">Never share your login credentials, API secrets, internal emails, or customer data with unauthorized third parties or unverified services.</p>
+          </div>
+
+          <div class="rule-card">
+            <div class="rule-title">2. Changing Temporary Passwords & 2FA</div>
+            <p class="rule-desc">If your account was provisioned with a temporary password, you must change it immediately upon your first sign-in. Keep Two-Factor Authentication (2FA) enabled at all times to prevent account compromise.</p>
+          </div>
+
+          <div class="rule-card">
+            <div class="rule-title">3. Sending Emails Outside the Organization</div>
+            <p class="rule-desc">All outbound emails sent from your account carry your organization's sovereign domain reputation. Adhere to professional standards, ensure recipient consent, and strictly avoid spam or unsolicited bulk mailing.</p>
+          </div>
+
+          <div class="rule-card">
+            <div class="rule-title">4. Sovereign Account Safeguards</div>
+            <p class="rule-desc">Your session automatically locks after inactivity to protect corporate data. Always log out when accessing your mailbox from shared or public computers.</p>
           </div>
 
           <div style="text-align: center;">
-            <a href="https://swiftmail-dashboard.vercel.app/admin/domains" class="btn">Configure & Verify DNS Domain &rarr;</a>
+            <a href="https://nigerme.com/mail" class="btn">Open Your Mailbox &rarr;</a>
           </div>
 
           <div class="footer">
             &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.<br>
-            Protected by End-to-End Cryptography & Real-Time Threat Intelligence.
+            Protected by sovereign cryptography and automated threat intelligence.
           </div>
         </div>
       </body>
       </html>
     `;
-        return this.sendEmail({ to, subject, html });
+        const bodyText = `Welcome to Nigerme Sovereign Mail, ${name}!\n\nYour mailbox account (${orgEmail}) for ${organizationName} is now active.\n\nKey Rules & Security Protocol:\n1. Confidentiality: Never disclose organization credentials or customer data.\n2. Password & 2FA: Change temporary passwords immediately and keep 2FA active.\n3. Outbound Sending: Always adhere to professional standards and avoid spam.\n4. Account Safeguards: Protect your account session on shared devices.\n\nOpen your mailbox at: https://nigerme.com/mail`;
+        return { subject, preview, html, bodyText };
+    }
+    /**
+     * Automatically provisions the Welcome & Rules email in the user's MongoDB mailbox
+     */
+    static async provisionWelcomeEmailInMailbox(organizationId, userId, userName, userEmail, organizationName, isOwner = false) {
+        try {
+            const { EmailModel } = await import("../../infrastructure/database/models/email.model.js");
+            const { subject, preview, html, bodyText } = this.getWelcomeAndRulesContent(userName, organizationName, userEmail, isOwner);
+            // Check if welcome email already exists for this user to prevent duplicates
+            const existing = await EmailModel.findOne({
+                userId,
+                subject,
+            });
+            if (!existing) {
+                await EmailModel.create({
+                    organizationId,
+                    userId,
+                    threadId: `thread-welcome-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                    folder: "inbox",
+                    category: "primary",
+                    from: {
+                        name: "Nigerme Business Mail",
+                        email: "welcome@nigerme.com",
+                        avatar: "/favicon.png",
+                    },
+                    to: [
+                        {
+                            name: userName,
+                            email: userEmail,
+                        },
+                    ],
+                    cc: [],
+                    bcc: [],
+                    subject,
+                    preview,
+                    bodyHtml: html,
+                    bodyText,
+                    attachments: [],
+                    isRead: false,
+                    isStarred: true,
+                    isImportant: true,
+                    labels: ["Welcome", "Getting Started", "Security"],
+                    status: "RECEIVED",
+                    receivedAt: new Date(),
+                });
+                console.log(`✅ Provisioned sovereign welcome & rules email in mailbox for ${userEmail}`);
+            }
+        }
+        catch (err) {
+            console.warn("⚠️ Could not provision welcome email in database:", err.message);
+        }
+    }
+    /**
+     * Sends a Welcome email to newly registered organization owners
+     */
+    static async sendWelcomeEmail(to, name, organizationName, domain) {
+        const { subject, html, bodyText } = this.getWelcomeAndRulesContent(name, organizationName, to, true);
+        return this.sendEmail({ to, subject, html, text: bodyText });
     }
     /**
      * Sends an invitation to a new team member
