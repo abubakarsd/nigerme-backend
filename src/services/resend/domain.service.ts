@@ -39,74 +39,6 @@ export class ResendDomainService {
   }
 
   /**
-   * Generates a structured fallback DNS record set when Resend API key is not configured or in testing mode.
-   */
-  static generateFallbackDnsRecords(domainName: string): ResendDomainResponse {
-    const cleanDomain = domainName.toLowerCase().trim();
-    const token = Math.random().toString(36).substring(2, 10);
-
-    const records: IResendDnsRecord[] = [
-      {
-        record: "SPF",
-        name: "send",
-        type: "MX",
-        value: "feedback-smtp.us-east-1.amazonses.com",
-        priority: 10,
-        status: "not_started",
-        ttl: "Auto",
-      },
-      {
-        record: "SPF",
-        name: "send",
-        type: "TXT",
-        value: '"v=spf1 include:amazonses.com ~all"',
-        status: "not_started",
-        ttl: "Auto",
-      },
-      {
-        record: "DKIM",
-        name: `resend1._domainkey.${cleanDomain}`,
-        type: "CNAME",
-        value: `resend1.${cleanDomain}.dkim.amazonses.com.`,
-        status: "not_started",
-        ttl: "Auto",
-      },
-      {
-        record: "DKIM",
-        name: `resend2._domainkey.${cleanDomain}`,
-        type: "CNAME",
-        value: `resend2.${cleanDomain}.dkim.amazonses.com.`,
-        status: "not_started",
-        ttl: "Auto",
-      },
-      {
-        record: "DKIM",
-        name: `resend3._domainkey.${cleanDomain}`,
-        type: "CNAME",
-        value: `resend3.${cleanDomain}.dkim.amazonses.com.`,
-        status: "not_started",
-        ttl: "Auto",
-      },
-      {
-        record: "Tracking",
-        name: `links.${cleanDomain}`,
-        type: "CNAME",
-        value: "links1.resend-dns.com",
-        status: "not_started",
-        ttl: "Auto",
-      },
-    ];
-
-    return {
-      id: `sim_dom_${token}`,
-      name: cleanDomain,
-      status: "not_started",
-      region: "us-east-1",
-      records,
-    };
-  }
-
-  /**
    * Creates a new domain in Resend via the POST /domains endpoint.
    */
   static async createDomain(
@@ -118,8 +50,7 @@ export class ResendDomainService {
       const orgApiKey = env.RESEND_ORG_API || process.env.RESEND_ORG_API;
 
       if (!orgApiKey) {
-        console.log(`[Resend Fallback] Provisioned simulation domain for "${clean}"`);
-        return { success: true, data: this.generateFallbackDnsRecords(clean) };
+        return { success: false, error: "RESEND_ORG_API key not configured in environment variables." };
       }
 
       const client = this.getClient();
@@ -171,8 +102,8 @@ export class ResendDomainService {
   ): Promise<{ success: boolean; data?: ResendDomainResponse; error?: string }> {
     try {
       const orgApiKey = env.RESEND_ORG_API || process.env.RESEND_ORG_API;
-      if (!orgApiKey || domainId.startsWith("sim_dom_")) {
-        return { success: true, data: this.generateFallbackDnsRecords("organization.com") };
+      if (!orgApiKey) {
+        return { success: false, error: "RESEND_ORG_API key not configured in environment variables." };
       }
 
       const client = this.getClient();
@@ -219,14 +150,8 @@ export class ResendDomainService {
   ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const orgApiKey = env.RESEND_ORG_API || process.env.RESEND_ORG_API;
-      if (!orgApiKey || domainId.startsWith("sim_dom_")) {
-        return {
-          success: true,
-          data: {
-            id: domainId,
-            status: "verified",
-          },
-        };
+      if (!orgApiKey) {
+        return { success: false, error: "RESEND_ORG_API key not configured." };
       }
 
       const client = this.getClient();
@@ -468,7 +393,7 @@ export class ResendDomainService {
    */
   static async findOrCreateDomain(
     domainName: string
-  ): Promise<{ success: boolean; data: ResendDomainResponse; isExisting?: boolean }> {
+  ): Promise<{ success: boolean; data?: ResendDomainResponse; error?: string; isExisting?: boolean }> {
     const clean = domainName.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     const createResult = await this.createDomain(clean);
 
@@ -488,11 +413,9 @@ export class ResendDomainService {
       }
     }
 
-    // Fallback gracefully so signup flow remains resilient
     return {
-      success: true,
-      data: this.generateFallbackDnsRecords(clean),
-      isExisting: false,
+      success: false,
+      error: createResult.error || "Could not retrieve domain from Resend API.",
     };
   }
 

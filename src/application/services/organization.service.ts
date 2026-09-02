@@ -34,9 +34,10 @@ export class OrganizationService {
    */
   private static async syncAndNotifyDnsStatus(org: IOrganization, prevStatus?: string): Promise<void> {
     const isDomainVerified = org.resendStatus === "verified";
-    const spfRec = org.resendRecords?.find((r) => r.record === "SPF" || r.type === "TXT");
     const dkimRec = org.resendRecords?.find((r) => r.record === "DKIM");
-    const mxRec = org.resendRecords?.find((r) => r.type === "MX");
+    const spfTxtRec = org.resendRecords?.find((r) => r.record === "SPF" && r.type === "TXT");
+    const spfMxRec = org.resendRecords?.find((r) => r.record === "SPF" && r.type === "MX");
+    const mxRec = org.resendRecords?.find((r) => r.record === "Receiving" || (r.type === "MX" && !r.name));
 
     const prevWasVerified = prevStatus === "verified" || org.dnsVerification?.spfStatus === "verified";
 
@@ -47,18 +48,24 @@ export class OrganizationService {
       return "not_started";
     };
 
+    const spfStatus = isDomainVerified || spfTxtRec?.status === "verified" || spfMxRec?.status === "verified"
+      ? "verified"
+      : mapStatus(spfTxtRec?.status || spfMxRec?.status);
+    const dkimStatus = isDomainVerified || dkimRec?.status === "verified" ? "verified" : mapStatus(dkimRec?.status);
+    const mxStatus = isDomainVerified || mxRec?.status === "verified" ? "verified" : mapStatus(mxRec?.status);
+
     org.dnsVerification = {
-      spfStatus: isDomainVerified || spfRec?.status === "verified" ? "verified" : mapStatus(spfRec?.status),
-      dkimStatus: isDomainVerified || dkimRec?.status === "verified" ? "verified" : mapStatus(dkimRec?.status),
+      spfStatus,
+      dkimStatus,
       dmarcStatus: "verified",
-      mxStatus: isDomainVerified || mxRec?.status === "verified" ? "verified" : mapStatus(mxRec?.status),
+      mxStatus,
       lastCheckedAt: new Date(),
     };
 
     // If previously verified and now disconnected
-    if (prevWasVerified && !isDomainVerified && (spfRec?.status === "failed" || dkimRec?.status === "failed" || mxRec?.status === "failed")) {
+    if (prevWasVerified && !isDomainVerified && ((spfTxtRec?.status === "failed" || spfMxRec?.status === "failed") || dkimRec?.status === "failed" || mxRec?.status === "failed")) {
       const disconnected: string[] = [];
-      if (spfRec?.status !== "verified") disconnected.push("SPF Outbound Authorization");
+      if (spfTxtRec?.status !== "verified" && spfMxRec?.status !== "verified") disconnected.push("SPF Outbound Authorization");
       if (dkimRec?.status !== "verified") disconnected.push("DKIM Cryptographic Key");
       if (mxRec?.status !== "verified") disconnected.push("MX Mail Exchange Routing");
 

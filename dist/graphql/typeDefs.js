@@ -47,10 +47,10 @@ exports.typeDefs = (0, graphql_tag_1.default) `
   }
 
   type ResendDnsRecord {
-    record: String!
-    name: String!
-    type: String!
-    value: String!
+    record: String
+    name: String
+    type: String
+    value: String
     ttl: String
     status: String
     priority: Int
