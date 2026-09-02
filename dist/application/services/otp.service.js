@@ -48,8 +48,8 @@ class OtpService {
             expiresAt,
             attempts: 0,
         });
-        // Send Email via Resend
-        const result = await index_js_1.ResendEmailService.sendOtpEmail(formattedEmail, name, rawOtp, this.OTP_VALIDITY_MINUTES);
+        // Send Email via Resend (use advert banner for signups / admin creation)
+        const result = await index_js_1.ResendEmailService.sendOtpEmail(formattedEmail, name, rawOtp, this.OTP_VALIDITY_MINUTES, purpose === "signup");
         if (!result.success && result.error) {
             console.warn("⚠️ Resend email delivery issue:", result.error);
         }

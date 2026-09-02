@@ -1,8 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ResendEmailService = void 0;
+exports.ResendEmailService = exports.FOOTER_BANNER_URL = exports.ADVERT_BANNER_URL = exports.BRAND_LOGO_URL = void 0;
 const resend_1 = require("resend");
 const env_js_1 = require("../../config/env.js");
+exports.BRAND_LOGO_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png";
+exports.ADVERT_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png";
+exports.FOOTER_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png";
 class ResendEmailService {
     static resendClient = null;
     static getClient() {
@@ -60,8 +63,9 @@ class ResendEmailService {
     /**
      * Sends a branded Two-Factor / Login OTP email
      */
-    static async sendOtpEmail(to, name, otpCode, expiresInMinutes = 10) {
+    static async sendOtpEmail(to, name, otpCode, expiresInMinutes = 10, isSignup = false) {
         const subject = `${otpCode} is your Nigerme verification code`;
+        const bannerUrl = isSignup ? exports.ADVERT_BANNER_URL : exports.FOOTER_BANNER_URL;
         const html = `
       <!DOCTYPE html>
       <html>
@@ -83,7 +87,7 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <img src="${exports.BRAND_LOGO_URL}" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
             <span class="logo">niger<span>me</span></span>
           </div>
           <h1 class="title">Verify your identity</h1>
@@ -92,8 +96,8 @@ class ResendEmailService {
             <div class="otp">${otpCode}</div>
           </div>
           <p class="desc" style="font-size: 13px; color: #6b7280;">This code is valid for <strong>${expiresInMinutes} minutes</strong>. If you did not make this request, you can safely ignore this email.</p>
-          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
+            <img src="${bannerUrl}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
           <div class="footer">
             &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
@@ -115,6 +119,7 @@ class ResendEmailService {
     static getWelcomeAndRulesContent(name, organizationName, orgEmail, isOwner = false) {
         const subject = `Welcome to Nigerme Sovereign Mail — Getting Started & Account Guidelines`;
         const preview = `Your sovereign business mailbox is now active for ${organizationName}. Key guidelines and access instructions.`;
+        const bannerUrl = isOwner ? exports.ADVERT_BANNER_URL : exports.FOOTER_BANNER_URL;
         const html = `
       <!DOCTYPE html>
       <html>
@@ -145,7 +150,7 @@ class ResendEmailService {
         <div class="container">
           <div class="header">
             <div class="logo-box">
-              <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+              <img src="${exports.BRAND_LOGO_URL}" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
               <span class="logo">niger<span>me</span></span>
             </div>
             <div class="badge">Business Mailbox</div>
@@ -195,8 +200,8 @@ class ResendEmailService {
             <a href="https://nigerme.com/mail" class="btn">Open Your Mailbox &rarr;</a>
           </div>
 
-          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png" alt="Welcome to Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
+            <img src="${bannerUrl}" alt="Welcome to Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
@@ -467,7 +472,7 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <img src="${exports.BRAND_LOGO_URL}" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
             <span class="logo">niger<span>me</span></span>
           </div>
           <h2 class="title">Package Activated</h2>
@@ -479,8 +484,8 @@ class ResendEmailService {
           </div>
           <p class="desc">All members in your workspace now have access to this module.</p>
           
-          <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+          <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
+            <img src="${exports.ADVERT_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
