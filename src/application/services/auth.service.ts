@@ -1,4 +1,5 @@
 import { UserModel } from "../../infrastructure/database/models/user.model.js";
+import { RoleModel } from "../../infrastructure/database/models/role.model.js";
 import { OrganizationModel } from "../../infrastructure/database/models/organization.model.js";
 import { SubscriptionModel } from "../../infrastructure/database/models/subscription.model.js";
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
@@ -216,6 +217,24 @@ export class AuthService {
       throw new Error("Your account has been suspended. Please contact support.");
     }
 
+    // Role separation: Normal email users without admin privileges cannot use the SaaS Admin Console login
+    if (user.userType === "email_user") {
+      const isAdminRole =
+        user.role === "admin" || user.role === "owner" || user.role === "superadmin";
+      let hasAdminPerm = isAdminRole;
+      if (!hasAdminPerm && user.roleId) {
+        const roleDoc = await RoleModel.findById(user.roleId);
+        if (roleDoc?.permissions?.canAccessAdminConsole) {
+          hasAdminPerm = true;
+        }
+      }
+      if (!hasAdminPerm) {
+        throw new Error(
+          "Access Restricted: This login portal is reserved for organization administrators. Normal mailbox users should sign in through the Webmail portal at /mail/login."
+        );
+      }
+    }
+
     // Security: Always dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
     await OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) =>
       console.warn("⚠️ 2FA dispatch warning:", err)
@@ -325,6 +344,7 @@ export class AuthService {
       role: user.role,
       userType: user.userType,
       organizationId: user.organizationId?.toString(),
+      sessionType: "webmail",
     };
 
     return {
@@ -390,12 +410,18 @@ export class AuthService {
     user.lastLoginAt = new Date();
     await user.save();
 
+    const sessionType: "admin" | "webmail" =
+      user.userType === "saas_admin" || user.role === "admin" || user.role === "owner"
+        ? "admin"
+        : "webmail";
+
     const payload: Omit<TokenPayload, "iat" | "exp"> = {
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
       userType: user.userType,
       organizationId: user.organizationId?.toString(),
+      sessionType,
     };
 
     return {

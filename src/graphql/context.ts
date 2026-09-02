@@ -31,3 +31,16 @@ export function requireAuth(context: GraphQLContext): TokenPayload {
   }
   return context.user;
 }
+
+export function requireAdmin(context: GraphQLContext): TokenPayload {
+  const user = requireAuth(context);
+  if (
+    user.userType === "email_user" &&
+    user.role !== "admin" &&
+    user.role !== "owner" &&
+    user.role !== "superadmin"
+  ) {
+    throw new Error("Forbidden: Administrator privileges required.");
+  }
+  return user;
+}

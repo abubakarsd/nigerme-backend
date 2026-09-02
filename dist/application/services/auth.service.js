@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const user_model_js_1 = require("../../infrastructure/database/models/user.model.js");
+const role_model_js_1 = require("../../infrastructure/database/models/role.model.js");
 const organization_model_js_1 = require("../../infrastructure/database/models/organization.model.js");
 const subscription_model_js_1 = require("../../infrastructure/database/models/subscription.model.js");
 const token_manager_js_1 = require("../../infrastructure/security/token.manager.js");
@@ -145,6 +146,20 @@ class AuthService {
         if (user.status === "suspended") {
             throw new Error("Your account has been suspended. Please contact support.");
         }
+        // Role separation: Normal email users without admin privileges cannot use the SaaS Admin Console login
+        if (user.userType === "email_user") {
+            const isAdminRole = user.role === "admin" || user.role === "owner" || user.role === "superadmin";
+            let hasAdminPerm = isAdminRole;
+            if (!hasAdminPerm && user.roleId) {
+                const roleDoc = await role_model_js_1.RoleModel.findById(user.roleId);
+                if (roleDoc?.permissions?.canAccessAdminConsole) {
+                    hasAdminPerm = true;
+                }
+            }
+            if (!hasAdminPerm) {
+                throw new Error("Access Restricted: This login portal is reserved for organization administrators. Normal mailbox users should sign in through the Webmail portal at /mail/login.");
+            }
+        }
         // Security: Always dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
         await otp_service_js_1.OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) => console.warn("⚠️ 2FA dispatch warning:", err));
         return {
@@ -229,6 +244,7 @@ class AuthService {
             role: user.role,
             userType: user.userType,
             organizationId: user.organizationId?.toString(),
+            sessionType: "webmail",
         };
         return {
             accessToken: token_manager_js_1.TokenManager.generateAccessToken(payload),
@@ -289,12 +305,16 @@ class AuthService {
         }
         user.lastLoginAt = new Date();
         await user.save();
+        const sessionType = user.userType === "saas_admin" || user.role === "admin" || user.role === "owner"
+            ? "admin"
+            : "webmail";
         const payload = {
             userId: user._id.toString(),
             email: user.email,
             role: user.role,
             userType: user.userType,
             organizationId: user.organizationId?.toString(),
+            sessionType,
         };
         return {
             accessToken: token_manager_js_1.TokenManager.generateAccessToken(payload),
