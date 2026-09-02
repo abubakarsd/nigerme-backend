@@ -115,6 +115,7 @@ export class AuthService {
       kycStatus: "unverified",
       trustLevel: "Tier 1 Sovereign",
       dailySendingLimit: 1000,
+      phone: dto.phone || user.phone || "",
       subscribedPackages: ["org-email"],
       totalSeats: 0,
       usedSeats: 0,

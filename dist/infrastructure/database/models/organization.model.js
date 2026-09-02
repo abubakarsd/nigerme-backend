@@ -122,7 +122,7 @@ const OrganizationSchema = new mongoose_1.Schema({
     },
     subscribedPackages: {
         type: [String],
-        default: ["org-email"],
+        default: [],
     },
     billingCycle: {
         type: String,
@@ -174,7 +174,7 @@ const OrganizationSchema = new mongoose_1.Schema({
     },
     phone: {
         type: String,
-        default: "+234 800 NIGERME",
+        default: "",
     },
     supportEmail: {
         type: String,

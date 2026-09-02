@@ -118,10 +118,17 @@ exports.resolvers = {
                 };
                 await org.save();
             }
+            let cleanPhone = org.phone && org.phone !== "+234 800 NIGERME" ? org.phone : "";
+            if (!cleanPhone && authUser.userId) {
+                const user = await index_js_7.UserModel.findById(authUser.userId);
+                if (user?.phone)
+                    cleanPhone = user.phone;
+            }
             const orgObj = org.toObject();
             return {
                 ...orgObj,
                 id: org._id.toString(),
+                phone: cleanPhone,
                 walletBalance: org.walletBalance / 100, // Return in Naira
                 departments: (org.departments || []).map((d) => ({
                     ...d,
@@ -297,7 +304,7 @@ exports.resolvers = {
             if (authUser.organizationId) {
                 org = await organization_service_js_1.OrganizationService.getById(authUser.organizationId);
             }
-            return index_js_6.ResendDomainService.getEmailMetrics(org?.resendDomainId, org?.domain || "example.com", startDate, endDate);
+            return index_js_6.ResendDomainService.getEmailMetrics(org?.resendDomainId, org?.domain || "example.com", startDate, endDate, authUser.organizationId);
         },
         checkDomainOnline: async (_, { domain }) => {
             const clean = domain

@@ -121,10 +121,17 @@ export const resolvers = {
         await org.save();
       }
 
+      let cleanPhone = org.phone && org.phone !== "+234 800 NIGERME" ? org.phone : "";
+      if (!cleanPhone && authUser.userId) {
+        const user = await UserModel.findById(authUser.userId);
+        if (user?.phone) cleanPhone = user.phone;
+      }
+
       const orgObj = org.toObject();
       return {
         ...orgObj,
         id: org._id.toString(),
+        phone: cleanPhone,
         walletBalance: org.walletBalance / 100, // Return in Naira
         departments: (org.departments || []).map((d: any) => ({
           ...d,
@@ -320,7 +327,8 @@ export const resolvers = {
         org?.resendDomainId,
         org?.domain || "example.com",
         startDate,
-        endDate
+        endDate,
+        authUser.organizationId
       );
     },
 

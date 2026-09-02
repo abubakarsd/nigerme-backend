@@ -504,75 +504,92 @@ export class ResendDomainService {
     domainId?: string,
     domainName: string = "example.com",
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    organizationId?: string
   ): Promise<any> {
     const end = endDate ? new Date(endDate) : new Date();
     const start = startDate
       ? new Date(startDate)
       : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+    const cleanDomain = domainName.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    const domId = domainId || "local";
+
     const startIso = start.toISOString().split("T")[0]; // YYYY-MM-DD
     const endIso = end.toISOString().split("T")[0];
 
-    try {
-      const client = this.getClient();
+    // ONLY query Resend API if an explicit domainId is provisioned for this organization
+    if (domainId && domainId.trim().length > 0 && domainId !== "local") {
+      try {
+        const client = this.getClient();
 
-      // Call the real Resend Metrics API
-      const result: any = await (client.emails as any).metrics({
-        startDate: startIso,
-        endDate: endIso,
-        metrics: [
-          "sent",
-          "delivered",
-          "delivery_delayed",
-          "failed",
-          "bounced",
-          "bounced_permanent",
-          "bounced_transient",
-          "opened",
-          "unique_opened",
-          "clicked",
-          "unique_clicked",
-          "complained",
-          "unsubscribed",
-          "delivery_rate",
-          "open_rate",
-          "click_rate",
-          "bounce_rate",
-          "complaint_rate",
-        ],
-        dimensions: ["period", "domain"],
-        ...(domainId ? { domainId: [domainId] } : {}),
-      });
+        // Call the real Resend Metrics API scoped to this domain ID only
+        const result: any = await (client.emails as any).metrics({
+          startDate: startIso,
+          endDate: endIso,
+          metrics: [
+            "sent",
+            "delivered",
+            "delivery_delayed",
+            "failed",
+            "bounced",
+            "bounced_permanent",
+            "bounced_transient",
+            "opened",
+            "unique_opened",
+            "clicked",
+            "unique_clicked",
+            "complained",
+            "unsubscribed",
+            "delivery_rate",
+            "open_rate",
+            "click_rate",
+            "bounce_rate",
+            "complaint_rate",
+          ],
+          dimensions: ["period", "domain"],
+          domainId: [domainId],
+        });
 
-      if (result && result.totals) {
-        console.log(`📊 Resend Metrics API success: sent=${result.totals.sent}, delivered=${result.totals.delivered}`);
-        return {
-          object: "metrics",
-          start_date: result.start_date || start.toISOString(),
-          end_date: result.end_date || end.toISOString(),
-          metrics: result.metrics || [],
-          dimensions: result.dimensions || ["period", "domain"],
-          granularity: result.granularity || "daily",
-          totals: result.totals,
-          data: result.data || [],
-        };
+        if (result && result.totals) {
+          console.log(`📊 Resend Metrics API success for ${cleanDomain}: sent=${result.totals.sent}, delivered=${result.totals.delivered}`);
+          const filteredData = (result.data || [])
+            .filter((d: any) => !d.domain_id || d.domain_id === domainId || d.domain_name === cleanDomain)
+            .map((d: any) => ({
+              ...d,
+              domain_name: d.domain_name || cleanDomain,
+            }));
+
+          return {
+            object: "metrics",
+            start_date: result.start_date || start.toISOString(),
+            end_date: result.end_date || end.toISOString(),
+            metrics: result.metrics || [],
+            dimensions: result.dimensions || ["period", "domain"],
+            granularity: result.granularity || "daily",
+            totals: result.totals,
+            data: filteredData,
+          };
+        }
+      } catch (err: any) {
+        console.warn("⚠️ Resend Metrics API unavailable, falling back to local EmailModel counts:", err?.message || err);
       }
-    } catch (err: any) {
-      console.warn("⚠️ Resend Metrics API unavailable, falling back to local EmailModel counts:", err?.message || err);
     }
 
-    // ─── Fallback: Compute real metrics from MongoDB EmailModel ───
+    // ─── Fallback: Compute real metrics from MongoDB EmailModel scoped to organization ───
     try {
       const { EmailModel } = await import("../../infrastructure/database/models/email.model.js");
-      const cleanDomain = domainName.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-      const domId = domainId || "local";
+
+      const baseFilter: any = { createdAt: { $gte: start, $lte: end } };
+      if (organizationId) {
+        baseFilter.organizationId = organizationId;
+      }
 
       const [totalSent, totalDelivered, totalBounced, totalComplained] = await Promise.all([
-        EmailModel.countDocuments({ folder: "sent", createdAt: { $gte: start, $lte: end } }),
-        EmailModel.countDocuments({ status: "DELIVERED", createdAt: { $gte: start, $lte: end } }),
-        EmailModel.countDocuments({ status: "BOUNCED", createdAt: { $gte: start, $lte: end } }),
-        EmailModel.countDocuments({ status: "COMPLAINED", createdAt: { $gte: start, $lte: end } }),
+        EmailModel.countDocuments({ ...baseFilter, folder: "sent" }),
+        EmailModel.countDocuments({ ...baseFilter, status: "DELIVERED" }),
+        EmailModel.countDocuments({ ...baseFilter, status: "BOUNCED" }),
+        EmailModel.countDocuments({ ...baseFilter, status: "COMPLAINED" }),
       ]);
 
       const deliveryRate = totalSent > 0 ? Number(((totalDelivered / totalSent) * 100).toFixed(1)) : 0;
@@ -587,9 +604,15 @@ export class ResendDomainService {
         if (d > end) break;
         const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
         const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999);
+
+        const dayFilter: any = { createdAt: { $gte: dayStart, $lte: dayEnd } };
+        if (organizationId) {
+          dayFilter.organizationId = organizationId;
+        }
+
         const [daySent, dayDelivered] = await Promise.all([
-          EmailModel.countDocuments({ folder: "sent", createdAt: { $gte: dayStart, $lte: dayEnd } }),
-          EmailModel.countDocuments({ status: "DELIVERED", createdAt: { $gte: dayStart, $lte: dayEnd } }),
+          EmailModel.countDocuments({ ...dayFilter, folder: "sent" }),
+          EmailModel.countDocuments({ ...dayFilter, status: "DELIVERED" }),
         ]);
         const dayOpenRate = daySent > 0 ? Number(((dayDelivered / daySent) * 100).toFixed(1)) : 0;
         dailyData.push({

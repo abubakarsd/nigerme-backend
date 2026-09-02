@@ -148,7 +148,7 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     subscribedPackages: {
       type: [String],
-      default: ["org-email"],
+      default: [],
     },
     billingCycle: {
       type: String,
@@ -200,7 +200,7 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     phone: {
       type: String,
-      default: "+234 800 NIGERME",
+      default: "",
     },
     supportEmail: {
       type: String,
