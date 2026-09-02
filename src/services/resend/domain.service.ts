@@ -513,18 +513,40 @@ export class ResendDomainService {
       : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const cleanDomain = domainName.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    const domId = domainId || "local";
+    let effectiveDomainId = domainId && domainId !== "local" && !domainId.startsWith("sim_dom_") ? domainId : undefined;
 
     const startIso = start.toISOString().split("T")[0]; // YYYY-MM-DD
     const endIso = end.toISOString().split("T")[0];
 
-    // ONLY query Resend API if an explicit domainId is provisioned for this organization
-    if (domainId && domainId.trim().length > 0 && domainId !== "local") {
+    const orgApiKey = env.RESEND_ORG_API || process.env.RESEND_ORG_API || env.RESEND_API_KEY || process.env.RESEND_API_KEY;
+
+    if (orgApiKey) {
       try {
         const client = this.getClient();
 
-        // Call the real Resend Metrics API scoped to this domain ID only
-        const result: any = await (client.emails as any).metrics({
+        // 1. If domainId is missing or local, attempt to resolve from Resend domains list by domainName
+        if (!effectiveDomainId && cleanDomain && cleanDomain !== "example.com") {
+          try {
+            const listResp: any = await client.domains.list();
+            const domainList = listResp?.data?.data || listResp?.data || [];
+            const matching = domainList.find((d: any) => d.name?.toLowerCase() === cleanDomain);
+            if (matching?.id) {
+              effectiveDomainId = matching.id;
+              if (organizationId) {
+                const { OrganizationModel } = await import("../../infrastructure/database/models/organization.model.js");
+                await OrganizationModel.findByIdAndUpdate(organizationId, {
+                  resendDomainId: matching.id,
+                  resendStatus: matching.status,
+                });
+              }
+            }
+          } catch (listErr: any) {
+            console.warn("⚠️ Could not auto-resolve domain from Resend list:", listErr?.message);
+          }
+        }
+
+        // 2. Call the real Resend Metrics API
+        const metricsOptions: any = {
           startDate: startIso,
           endDate: endIso,
           metrics: [
@@ -532,6 +554,7 @@ export class ResendDomainService {
             "delivered",
             "delivery_delayed",
             "failed",
+            "suppressed",
             "bounced",
             "bounced_permanent",
             "bounced_transient",
@@ -546,37 +569,56 @@ export class ResendDomainService {
             "click_rate",
             "bounce_rate",
             "complaint_rate",
+            "unsubscribe_rate",
           ],
           dimensions: ["period", "domain"],
-          domainId: [domainId],
-        });
+        };
 
-        if (result && result.totals) {
-          console.log(`📊 Resend Metrics API success for ${cleanDomain}: sent=${result.totals.sent}, delivered=${result.totals.delivered}`);
-          const filteredData = (result.data || [])
-            .filter((d: any) => !d.domain_id || d.domain_id === domainId || d.domain_name === cleanDomain)
+        if (effectiveDomainId) {
+          metricsOptions.domainId = [effectiveDomainId];
+        }
+
+        const rawRes: any = await (client.emails as any).metrics(metricsOptions);
+        const metricsObj = rawRes?.data || rawRes;
+
+        if (metricsObj && metricsObj.totals) {
+          console.log(`📊 Resend Metrics API live data received for ${cleanDomain}: sent=${metricsObj.totals.sent}, delivered=${metricsObj.totals.delivered}`);
+          const filteredData = (metricsObj.data || [])
+            .filter((d: any) => !effectiveDomainId || !d.domain_id || d.domain_id === effectiveDomainId || d.domain_name === cleanDomain)
             .map((d: any) => ({
               ...d,
               domain_name: d.domain_name || cleanDomain,
             }));
 
+          const totals = metricsObj.totals;
           return {
             object: "metrics",
-            start_date: result.start_date || start.toISOString(),
-            end_date: result.end_date || end.toISOString(),
-            metrics: result.metrics || [],
-            dimensions: result.dimensions || ["period", "domain"],
-            granularity: result.granularity || "daily",
-            totals: result.totals,
+            start_date: metricsObj.start_date || start.toISOString(),
+            end_date: metricsObj.end_date || end.toISOString(),
+            metrics: metricsObj.metrics || [],
+            dimensions: metricsObj.dimensions || ["period", "domain"],
+            granularity: metricsObj.granularity || "daily",
+            totals: {
+              sent: totals.sent ?? 0,
+              delivered: totals.delivered ?? 0,
+              bounced: totals.bounced ?? 0,
+              complained: totals.complained ?? 0,
+              opened: totals.opened ?? totals.unique_opened ?? 0,
+              unique_opened: totals.unique_opened ?? 0,
+              delivery_rate: totals.delivery_rate ?? (totals.sent > 0 ? Number(((totals.delivered / totals.sent) * 100).toFixed(1)) : 0),
+              open_rate: totals.open_rate ?? (totals.delivered > 0 ? Number((( (totals.unique_opened ?? totals.opened ?? 0) / totals.delivered) * 100).toFixed(1)) : 0),
+              bounce_rate: totals.bounce_rate ?? 0,
+              complaint_rate: totals.complaint_rate ?? 0,
+            },
             data: filteredData,
           };
         }
       } catch (err: any) {
-        console.warn("⚠️ Resend Metrics API unavailable, falling back to local EmailModel counts:", err?.message || err);
+        console.warn("⚠️ Resend Metrics API call failed, using tenant EmailModel data:", err?.message || err);
       }
     }
 
-    // ─── Fallback: Compute real metrics from MongoDB EmailModel scoped to organization ───
+    // ─── Fallback: Compute real metrics from MongoDB EmailModel scoped strictly to organization ───
     try {
       const { EmailModel } = await import("../../infrastructure/database/models/email.model.js");
 
@@ -617,7 +659,7 @@ export class ResendDomainService {
         const dayOpenRate = daySent > 0 ? Number(((dayDelivered / daySent) * 100).toFixed(1)) : 0;
         dailyData.push({
           period: d.toISOString().split("T")[0],
-          domain_id: domId,
+          domain_id: effectiveDomainId || "local",
           domain_name: cleanDomain,
           sent: daySent,
           delivered: dayDelivered,
@@ -643,7 +685,7 @@ export class ResendDomainService {
           complaint_rate: complaintRate,
           open_rate: deliveryRate,
         },
-        data: dailyData,
+        data: totalSent > 0 ? dailyData : [],
       };
     } catch (dbErr: any) {
       console.error("❌ Fallback EmailModel metrics also failed:", dbErr?.message || dbErr);
@@ -654,7 +696,7 @@ export class ResendDomainService {
         metrics: [],
         dimensions: [],
         granularity: "daily",
-        totals: { sent: 0, delivered: 0, open_rate: 0 },
+        totals: { sent: 0, delivered: 0, open_rate: 0, delivery_rate: 0, bounce_rate: 0, complained: 0, bounced: 0 },
         data: [],
       };
     }
