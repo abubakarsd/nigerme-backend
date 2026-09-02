@@ -9,13 +9,14 @@ import { OrganizationService } from "../application/services/organization.servic
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
-import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, EmailModel, CalendarEventModel, PasskeyModel } from "../models/index.js";
+import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, DepartmentModel, EmailModel, CalendarEventModel, PasskeyModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService } from "../application/services/otp.service.js";
 import { PasskeyService } from "../application/services/passkey.service.js";
 import { INITIAL_PACKAGES } from "../infrastructure/database/seeds/package.seed.js";
 import { seedPermissions } from "../infrastructure/database/seeds/permission.seed.js";
 import { seedOrganizationDefaultRoles, seedOrganizationDefaultDepartments } from "../infrastructure/database/seeds/role.seed.js";
+import mongoose from "mongoose";
 
 async function formatUserWithPermissions(userDoc: any) {
   if (!userDoc) return null;
@@ -26,21 +27,27 @@ async function formatUserWithPermissions(userDoc: any) {
   let canAccessPos = false;
   let canAccessLogistics = false;
   let canAccessHotel = false;
-  let canAccessAdminConsole = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner";
+  let canAccessAdminConsole = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
+  let canManageBilling = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
+  let canManageUsers = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
+  let canManageDomains = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
   let accessiblePackages = ["org-email"];
 
   // 1. If SaaS Admin or Org Owner
-  if (user.userType === "saas_admin" || user.role === "admin" || user.role === "owner") {
+  if (user.userType === "saas_admin" || user.role === "admin" || user.role === "owner" || user.role === "superadmin") {
     canAccessPayroll = true;
     canAccessPos = true;
     canAccessLogistics = true;
     canAccessHotel = true;
     canAccessAdminConsole = true;
+    canManageBilling = true;
+    canManageUsers = true;
+    canManageDomains = true;
     accessiblePackages = ["org-email", "org-pos", "org-payroll", "org-logistics", "org-hotel"];
   } else {
     // 2. Lookup assigned RoleModel if roleId or slug exists
     let role = null;
-    if (user.roleId) {
+    if (user.roleId && mongoose.isValidObjectId(user.roleId)) {
       role = await RoleModel.findById(user.roleId);
     } else if (user.organizationId && user.role) {
       role = await RoleModel.findOne({ organizationId: user.organizationId, slug: user.role.toLowerCase() });
@@ -53,21 +60,9 @@ async function formatUserWithPermissions(userDoc: any) {
       canAccessLogistics = !!role.permissions?.canAccessLogistics;
       canAccessHotel = !!role.permissions?.canAccessHotel;
       canAccessAdminConsole = !!role.permissions?.canAccessAdminConsole;
-    }
-
-    // 3. Lookup department in organization for role name override
-    if (user.organizationId && (user.departmentId || user.department)) {
-      const org = await OrganizationModel.findById(user.organizationId);
-      if (org && org.departments) {
-        const dept = org.departments.find(
-          (d: any) =>
-            (user.departmentId && d.id === user.departmentId) ||
-            (user.department && d.name?.toLowerCase() === user.department?.toLowerCase())
-        );
-        if (dept) {
-          if (dept.roleName && !role) roleName = dept.roleName;
-        }
-      }
+      canManageBilling = !!role.permissions?.canManageBilling;
+      canManageUsers = !!role.permissions?.canManageUsers;
+      canManageDomains = !!role.permissions?.canManageDomains;
     }
 
     const pkgs = new Set<string>(["org-email"]);
@@ -78,19 +73,29 @@ async function formatUserWithPermissions(userDoc: any) {
     accessiblePackages = Array.from(pkgs);
   }
 
+  // Resolve department name from DepartmentModel if departmentId is set
+  let departmentName = user.department || null;
+  if (user.departmentId && mongoose.isValidObjectId(user.departmentId)) {
+    const dept = await DepartmentModel.findById(user.departmentId);
+    if (dept) departmentName = dept.name;
+  }
+
   return {
     ...user,
     id: user._id?.toString() || user.id,
     roleId: user.roleId?.toString() || null,
     roleName,
-    department: user.department || null,
-    departmentId: user.departmentId || null,
+    department: departmentName,
+    departmentId: user.departmentId ? user.departmentId.toString() : null,
     canAccessEmail: user.canAccessEmail ?? true,
     canAccessPayroll,
     canAccessPos,
     canAccessLogistics,
     canAccessHotel,
     canAccessAdminConsole,
+    canManageBilling,
+    canManageUsers,
+    canManageDomains,
     accessiblePackages,
   };
 }
@@ -246,22 +251,65 @@ export const resolvers = {
     getOrganizationDepartments: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return [];
-      const org = await OrganizationModel.findById(authUser.organizationId);
-      if (!org) return [];
 
-      const uniqueDeptMap = new Map<string, any>();
-      for (const d of org.departments || []) {
-        const key = (d.name || "").toLowerCase().trim();
-        if (key && !uniqueDeptMap.has(key)) {
-          uniqueDeptMap.set(key, d);
-        }
+      let depts = await DepartmentModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: 1 });
+      if (!depts || depts.length === 0) {
+        await seedOrganizationDefaultDepartments(authUser.organizationId);
+        depts = await DepartmentModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: 1 });
       }
 
-      return Array.from(uniqueDeptMap.values()).map((d: any) => ({
-        ...d,
-        id: d.id || d._id?.toString() || String(Math.random()),
-        memberIds: d.memberIds || [],
-      }));
+      const usersInOrg = await UserModel.find({ organizationId: authUser.organizationId }, "_id name email department departmentId");
+
+      return depts.map((d) => {
+        const matchingUsers = usersInOrg.filter(
+          (u) => (u.departmentId && u.departmentId.toString() === d._id.toString()) ||
+                 (u.department && u.department.toLowerCase() === d.name.toLowerCase())
+        );
+        return {
+          id: d._id.toString(),
+          name: d.name,
+          code: d.code || d.name.slice(0, 4).toUpperCase(),
+          description: d.description || "",
+          lead: d.leadName || "",
+          leadName: d.leadName || "",
+          leadEmail: d.leadEmail || "",
+          leadId: d.leadId ? d.leadId.toString() : null,
+          color: d.color || "blue",
+          memberCount: matchingUsers.length,
+          memberIds: matchingUsers.map((u) => u._id.toString()),
+          createdAt: d.createdAt?.toISOString() || new Date().toISOString(),
+          updatedAt: d.updatedAt?.toISOString() || new Date().toISOString(),
+        };
+      });
+    },
+
+    getDepartmentById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+
+      const d = await DepartmentModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      if (!d) throw new Error("Department not found");
+
+      const matchingUsers = await UserModel.find({
+        organizationId: authUser.organizationId,
+        $or: [{ departmentId: d._id }, { department: d.name }],
+      }, "_id");
+
+      return {
+        id: d._id.toString(),
+        name: d.name,
+        code: d.code || d.name.slice(0, 4).toUpperCase(),
+        description: d.description || "",
+        lead: d.leadName || "",
+        leadName: d.leadName || "",
+        leadEmail: d.leadEmail || "",
+        leadId: d.leadId ? d.leadId.toString() : null,
+        color: d.color || "blue",
+        memberCount: matchingUsers.length,
+        memberIds: matchingUsers.map((u) => u._id.toString()),
+        createdAt: d.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: d.updatedAt?.toISOString() || new Date().toISOString(),
+      };
     },
 
     getPermissions: async () => {
@@ -279,34 +327,32 @@ export const resolvers = {
     getOrganizationRoles: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return [];
-      const roles = await RoleModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: 1 });
-
-      const uniqueRoleMap = new Map<string, any>();
-      for (const r of roles) {
-        const key = r.name.toLowerCase().trim();
-        if (!uniqueRoleMap.has(key)) {
-          uniqueRoleMap.set(key, r);
-        }
+      let roles = await RoleModel.find({ organizationId: authUser.organizationId }).sort({ isSystem: -1, createdAt: 1 });
+      if (!roles || roles.length === 0) {
+        await seedOrganizationDefaultRoles(authUser.organizationId);
+        roles = await RoleModel.find({ organizationId: authUser.organizationId }).sort({ isSystem: -1, createdAt: 1 });
       }
 
-      return Array.from(uniqueRoleMap.values()).map((r) => ({
-        id: r._id.toString(),
-        name: r.name,
-        description: r.description,
-        isSystem: r.isSystem,
-        memberCount: r.memberCount || 0,
-        permissions: {
-          canAccessEmail: r.permissions?.canAccessEmail ?? true,
-          canAccessPayroll: r.permissions?.canAccessPayroll ?? false,
-          canAccessPos: r.permissions?.canAccessPos ?? false,
-          canAccessLogistics: r.permissions?.canAccessLogistics ?? false,
-          canAccessHotel: r.permissions?.canAccessHotel ?? false,
-          canAccessAdminConsole: r.permissions?.canAccessAdminConsole ?? false,
-          canManageBilling: r.permissions?.canManageBilling ?? false,
-          canManageUsers: r.permissions?.canManageUsers ?? false,
-          canManageDomains: r.permissions?.canManageDomains ?? false,
-        },
-      }));
+      const usersInOrg = await UserModel.find({ organizationId: authUser.organizationId }, "_id role roleId");
+
+      return roles.map((r) => {
+        const count = usersInOrg.filter(
+          (u) => (u.roleId && u.roleId.toString() === r._id.toString()) ||
+                 (u.role && (u.role.toLowerCase() === r.name.toLowerCase() || u.role.toLowerCase() === r.slug?.toLowerCase()))
+        ).length;
+
+        return {
+          id: r._id.toString(),
+          name: r.name,
+          slug: r.slug,
+          description: r.description,
+          isSystem: r.isSystem,
+          memberCount: count,
+          permissions: r.permissions,
+          createdAt: r.createdAt?.toISOString() || new Date().toISOString(),
+          updatedAt: r.updatedAt?.toISOString() || new Date().toISOString(),
+        };
+      });
     },
 
     getOrganizationSubscriptions: async (_: any, { limit = 20 }: { limit?: number }, context: GraphQLContext) => {
@@ -1132,88 +1178,155 @@ export const resolvers = {
     createDepartment: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
-      const org = await OrganizationModel.findById(authUser.organizationId);
-      if (!org) throw new Error("Organization not found");
 
-      let roleName = input.roleName;
-      if (input.roleId && !roleName) {
-        const r = await RoleModel.findById(input.roleId);
-        if (r) roleName = r.name;
+      const name = input.name.trim();
+      const existing = await DepartmentModel.findOne({
+        organizationId: authUser.organizationId,
+        name: { $regex: new RegExp(`^${name}$`, "i") },
+      });
+      if (existing) {
+        throw new Error(`A department with name "${name}" already exists.`);
       }
 
-      const deptId = `dept-${Date.now()}`;
-      const newDept = {
-        id: deptId,
-        name: input.name,
+      let code = input.code?.trim().toUpperCase();
+      if (!code) {
+        code = name.slice(0, 4).toUpperCase();
+      }
+
+      const dept = await DepartmentModel.create({
+        organizationId: authUser.organizationId,
+        name,
+        code,
         description: input.description || "",
-        lead: input.lead || "",
-        roleId: input.roleId || null,
-        roleName: roleName || null,
-        memberIds: input.memberIds || [],
-        createdAt: new Date().toISOString(),
-      };
+        leadName: input.leadName || input.lead || "",
+        leadEmail: input.leadEmail || "",
+        leadId: input.leadId || undefined,
+        color: input.color || "blue",
+        memberCount: input.memberIds ? input.memberIds.length : 0,
+      });
 
-      org.departments = [...(org.departments || []), newDept];
-      await org.save();
-
-      // If members are specified, sync their department info on UserModel
       if (input.memberIds && input.memberIds.length > 0) {
         await UserModel.updateMany(
           { _id: { $in: input.memberIds }, organizationId: authUser.organizationId },
-          { $set: { department: input.name, departmentId: deptId, ...(input.roleId ? { roleId: input.roleId } : {}) } }
-        ).catch((err) => console.warn("⚠️ Failed to sync user department references:", err));
+          { $set: { department: name, departmentId: dept._id } }
+        );
       }
 
-      return newDept;
+      return {
+        id: dept._id.toString(),
+        name: dept.name,
+        code: dept.code,
+        description: dept.description,
+        lead: dept.leadName,
+        leadName: dept.leadName,
+        leadEmail: dept.leadEmail,
+        leadId: dept.leadId ? dept.leadId.toString() : null,
+        color: dept.color,
+        memberCount: input.memberIds ? input.memberIds.length : 0,
+        memberIds: input.memberIds || [],
+        createdAt: dept.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: dept.updatedAt?.toISOString() || new Date().toISOString(),
+      };
     },
 
     updateDepartment: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
-      const org = await OrganizationModel.findById(authUser.organizationId);
-      if (!org) throw new Error("Organization not found");
 
-      const depts = org.departments || [];
-      const idx = depts.findIndex((d: any) => d.id === id);
-      if (idx === -1) throw new Error("Department not found");
+      const dept = await DepartmentModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      if (!dept) throw new Error("Department not found");
 
-      let roleName = input.roleName;
-      if (input.roleId && !roleName) {
-        const r = await RoleModel.findById(input.roleId);
-        if (r) roleName = r.name;
-      }
+      const oldName = dept.name;
+      if (input.name) dept.name = input.name.trim();
+      if (input.code !== undefined) dept.code = input.code.trim().toUpperCase();
+      if (input.description !== undefined) dept.description = input.description.trim();
+      if (input.leadName !== undefined || input.lead !== undefined) dept.leadName = input.leadName || input.lead || "";
+      if (input.leadEmail !== undefined) dept.leadEmail = input.leadEmail.trim().toLowerCase();
+      if (input.leadId !== undefined) dept.leadId = input.leadId || undefined;
+      if (input.color) dept.color = input.color;
 
-      const updated = {
-        ...depts[idx],
-        ...input,
-        ...(roleName ? { roleName } : {}),
-      };
-      depts[idx] = updated;
-      org.departments = depts;
-      org.markModified("departments");
-      await org.save();
+      await dept.save();
 
-      // If memberIds are specified, update their department on UserModel
-      if (input.memberIds && input.memberIds.length > 0) {
+      // If name changed, sync user.department string
+      if (input.name && input.name !== oldName) {
         await UserModel.updateMany(
-          { _id: { $in: input.memberIds }, organizationId: authUser.organizationId },
-          { $set: { department: updated.name, departmentId: id, ...(updated.roleId ? { roleId: updated.roleId } : {}) } }
-        ).catch((err) => console.warn("⚠️ Failed to sync user department references:", err));
+          { organizationId: authUser.organizationId, departmentId: dept._id },
+          { $set: { department: dept.name } }
+        );
       }
 
-      return updated;
+      // If memberIds provided, sync members
+      if (input.memberIds && Array.isArray(input.memberIds)) {
+        await UserModel.updateMany(
+          { organizationId: authUser.organizationId, departmentId: dept._id, _id: { $nin: input.memberIds } },
+          { $unset: { departmentId: 1, department: 1 } }
+        );
+        await UserModel.updateMany(
+          { organizationId: authUser.organizationId, _id: { $in: input.memberIds } },
+          { $set: { departmentId: dept._id, department: dept.name } }
+        );
+      }
+
+      const matchingUsers = await UserModel.find({
+        organizationId: authUser.organizationId,
+        $or: [{ departmentId: dept._id }, { department: dept.name }],
+      }, "_id");
+
+      return {
+        id: dept._id.toString(),
+        name: dept.name,
+        code: dept.code,
+        description: dept.description,
+        lead: dept.leadName,
+        leadName: dept.leadName,
+        leadEmail: dept.leadEmail,
+        leadId: dept.leadId ? dept.leadId.toString() : null,
+        color: dept.color,
+        memberCount: matchingUsers.length,
+        memberIds: matchingUsers.map((u) => u._id.toString()),
+        createdAt: dept.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: dept.updatedAt?.toISOString() || new Date().toISOString(),
+      };
     },
 
     deleteDepartment: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
-      const org = await OrganizationModel.findById(authUser.organizationId);
-      if (!org) return false;
 
-      org.departments = (org.departments || []).filter((d: any) => d.id !== id);
-      org.markModified("departments");
-      await org.save();
+      const dept = await DepartmentModel.findOneAndDelete({ _id: id, organizationId: authUser.organizationId });
+      if (!dept) return false;
+
+      // Clear users' department links
+      await UserModel.updateMany(
+        { organizationId: authUser.organizationId, $or: [{ departmentId: id }, { department: dept.name }] },
+        { $unset: { departmentId: 1, department: 1 } }
+      );
+
       return true;
+    },
+
+    assignUserDepartment: async (_: any, { userId, departmentId }: { userId: string; departmentId?: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+
+      let deptName = null;
+      if (departmentId && mongoose.isValidObjectId(departmentId)) {
+        const dept = await DepartmentModel.findOne({ _id: departmentId, organizationId: authUser.organizationId });
+        if (dept) deptName = dept.name;
+      }
+
+      const updateQuery: any = departmentId && deptName
+        ? { $set: { departmentId, department: deptName } }
+        : { $unset: { departmentId: 1, department: 1 } };
+
+      const user = await UserModel.findOneAndUpdate(
+        { _id: userId, organizationId: authUser.organizationId },
+        updateQuery,
+        { new: true }
+      );
+      if (!user) throw new Error("User not found");
+
+      return formatUserWithPermissions(user);
     },
 
     // ─── Role Mutations ───
@@ -1244,10 +1357,13 @@ export const resolvers = {
       return {
         id: role._id.toString(),
         name: role.name,
+        slug: role.slug,
         description: role.description,
         isSystem: role.isSystem,
         memberCount: 0,
         permissions: role.permissions,
+        createdAt: role.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: role.updatedAt?.toISOString() || new Date().toISOString(),
       };
     },
 
@@ -1273,13 +1389,21 @@ export const resolvers = {
 
       await role.save();
 
+      const memberCount = await UserModel.countDocuments({
+        organizationId: authUser.organizationId,
+        $or: [{ roleId: role._id }, { role: role.name }, { role: role.slug }],
+      });
+
       return {
         id: role._id.toString(),
         name: role.name,
+        slug: role.slug,
         description: role.description,
         isSystem: role.isSystem,
-        memberCount: role.memberCount || 0,
+        memberCount,
         permissions: role.permissions,
+        createdAt: role.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: role.updatedAt?.toISOString() || new Date().toISOString(),
       };
     },
 
@@ -1309,6 +1433,23 @@ export const resolvers = {
 
       await RoleModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
       return true;
+    },
+
+    assignUserRole: async (_: any, { userId, roleId }: { userId: string; roleId: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+
+      const role = await RoleModel.findOne({ _id: roleId, organizationId: authUser.organizationId });
+      if (!role) throw new Error("Role not found");
+
+      const user = await UserModel.findOneAndUpdate(
+        { _id: userId, organizationId: authUser.organizationId },
+        { $set: { roleId: role._id, role: role.name } },
+        { new: true }
+      );
+      if (!user) throw new Error("User not found");
+
+      return formatUserWithPermissions(user);
     },
 
     // ─── Storage Mutations (AWS S3) ───

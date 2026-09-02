@@ -125,12 +125,17 @@ export const typeDefs = gql`
   type Department {
     id: ID!
     name: String!
+    code: String
     description: String
     lead: String
-    roleId: ID
-    roleName: String
-    memberIds: [String!]!
+    leadName: String
+    leadEmail: String
+    leadId: ID
+    color: String
+    memberCount: Int!
+    memberIds: [String!]
     createdAt: String
+    updatedAt: String
   }
 
   type Organization {
@@ -424,6 +429,7 @@ export const typeDefs = gql`
     # Departments & Roles & Permissions
     getPermissions: [SystemPermission!]!
     getOrganizationDepartments: [Department!]!
+    getDepartmentById(id: ID!): Department
     getOrganizationRoles: [WorkspaceRole!]!
 
     # Resend Email Metrics & Analytics
@@ -483,11 +489,13 @@ export const typeDefs = gql`
     createDepartment(input: DepartmentInput!): Department!
     updateDepartment(id: ID!, input: DepartmentInput!): Department!
     deleteDepartment(id: ID!): Boolean!
+    assignUserDepartment(userId: ID!, departmentId: ID): User!
 
     # ── Roles ──
     createRole(input: RoleInput!): WorkspaceRole!
     updateRole(id: ID!, input: RoleInput!): WorkspaceRole!
     deleteRole(id: ID!): Boolean!
+    assignUserRole(userId: ID!, roleId: ID!): User!
 
     # ── Storage (AWS S3) ──
     getPresignedUploadUrl(input: RequestUploadUrlInput!): PresignedUploadPayload!
@@ -699,10 +707,13 @@ export const typeDefs = gql`
 
   input DepartmentInput {
     name: String!
+    code: String
     description: String
     lead: String
-    roleId: ID
-    roleName: String
+    leadName: String
+    leadEmail: String
+    leadId: ID
+    color: String
     memberIds: [String!]
   }
 
