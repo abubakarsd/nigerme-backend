@@ -23,10 +23,10 @@ export interface IOrganization extends Document {
     assignedAt: Date;
   };
   dnsVerification: {
-    spfStatus: "not_started" | "pending" | "verified" | "failed";
-    dkimStatus: "not_started" | "pending" | "verified" | "failed";
-    dmarcStatus: "not_started" | "pending" | "verified" | "failed";
-    mxStatus: "not_started" | "pending" | "verified" | "failed";
+    spfStatus: string;
+    dkimStatus: string;
+    dmarcStatus: string;
+    mxStatus: string;
     lastCheckedAt?: Date;
   };
   resendDomainId?: string;
@@ -98,10 +98,10 @@ const OrganizationSchema = new Schema<IOrganization>(
       assignedAt: Date,
     },
     dnsVerification: {
-      spfStatus: { type: String, enum: ["not_started", "pending", "verified", "failed"], default: "not_started" },
-      dkimStatus: { type: String, enum: ["not_started", "pending", "verified", "failed"], default: "not_started" },
-      dmarcStatus: { type: String, enum: ["not_started", "pending", "verified", "failed"], default: "not_started" },
-      mxStatus: { type: String, enum: ["not_started", "pending", "verified", "failed"], default: "not_started" },
+      spfStatus: { type: String, default: "not_started" },
+      dkimStatus: { type: String, default: "not_started" },
+      dmarcStatus: { type: String, default: "not_started" },
+      mxStatus: { type: String, default: "not_started" },
       lastCheckedAt: Date,
     },
     resendDomainId: {
