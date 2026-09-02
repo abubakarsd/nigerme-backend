@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CalendarEventModel = exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
+exports.PasskeyModel = exports.CalendarEventModel = exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
 var user_model_js_1 = require("../infrastructure/database/models/user.model.js");
 Object.defineProperty(exports, "UserModel", { enumerable: true, get: function () { return user_model_js_1.UserModel; } });
 var organization_model_js_1 = require("../infrastructure/database/models/organization.model.js");
@@ -27,3 +27,5 @@ var email_model_js_1 = require("../infrastructure/database/models/email.model.js
 Object.defineProperty(exports, "EmailModel", { enumerable: true, get: function () { return email_model_js_1.EmailModel; } });
 var calendar_event_model_js_1 = require("../infrastructure/database/models/calendar-event.model.js");
 Object.defineProperty(exports, "CalendarEventModel", { enumerable: true, get: function () { return calendar_event_model_js_1.CalendarEventModel; } });
+var passkey_model_js_1 = require("../infrastructure/database/models/passkey.model.js");
+Object.defineProperty(exports, "PasskeyModel", { enumerable: true, get: function () { return passkey_model_js_1.PasskeyModel; } });

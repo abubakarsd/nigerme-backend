@@ -11,4 +11,5 @@ export { RoleModel, IRole, IRolePermissions } from "../infrastructure/database/m
 export { PermissionModel, IPermission } from "../infrastructure/database/models/permission.model.js";
 export { EmailModel, IEmail, IEmailAttachment, IEmailParticipant } from "../infrastructure/database/models/email.model.js";
 export { CalendarEventModel, ICalendarEvent, ICalendarAttendee } from "../infrastructure/database/models/calendar-event.model.js";
+export { PasskeyModel, IPasskey } from "../infrastructure/database/models/passkey.model.js";
 

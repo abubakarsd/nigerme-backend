@@ -15,6 +15,7 @@ const package_service_js_1 = require("../application/services/package.service.js
 const index_js_7 = require("../models/index.js");
 const token_manager_js_1 = require("../infrastructure/security/token.manager.js");
 const otp_service_js_1 = require("../application/services/otp.service.js");
+const passkey_service_js_1 = require("../application/services/passkey.service.js");
 const package_seed_js_1 = require("../infrastructure/database/seeds/package.seed.js");
 async function formatUserWithPermissions(userDoc) {
     if (!userDoc)
@@ -565,6 +566,20 @@ exports.resolvers = {
             }
             return formatCalendarEvent(event);
         },
+        // ─── Passkey & WebAuthn Queries ───
+        getPasskeyRegistrationOptions: async (_, __, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            const origin = context.req?.headers?.origin || context.req?.headers?.referer;
+            return passkey_service_js_1.PasskeyService.generateRegistrationOptions(authUser.userId, origin);
+        },
+        getPasskeyAuthOptions: async (_, { email }, context) => {
+            const origin = context.req?.headers?.origin || context.req?.headers?.referer;
+            return passkey_service_js_1.PasskeyService.generateAuthenticationOptions(email, origin);
+        },
+        getMyPasskeys: async (_, __, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            return passkey_service_js_1.PasskeyService.getMyPasskeys(authUser.userId);
+        },
     },
     Mutation: {
         // ─── Auth Mutations ───
@@ -576,6 +591,7 @@ exports.resolvers = {
             if (result.requiresTwoFactor) {
                 return {
                     requiresTwoFactor: true,
+                    twoFactorType: result.twoFactorType || "OTP",
                     mustChangePassword: false,
                     phone: result.phone,
                     message: result.message,
@@ -593,6 +609,7 @@ exports.resolvers = {
             if (result.requiresTwoFactor) {
                 return {
                     requiresTwoFactor: true,
+                    twoFactorType: result.twoFactorType || "OTP",
                     mustChangePassword: false,
                     phone: result.phone,
                     personalEmail: result.personalEmail,
@@ -605,6 +622,30 @@ exports.resolvers = {
                 mustChangePassword: result.mustChangePassword,
                 personalEmail: result.personalEmail,
                 tokens: result.tokens || null,
+            };
+        },
+        // ─── Passkey Mutations ───
+        verifyPasskeyRegistration: async (_, { responseJson, friendlyName }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            const origin = context.req?.headers?.origin || context.req?.headers?.referer;
+            return passkey_service_js_1.PasskeyService.verifyRegistration(authUser.userId, responseJson, friendlyName, origin);
+        },
+        verifyPasskeyAuth: async (_, { email, responseJson }, context) => {
+            const origin = context.req?.headers?.origin || context.req?.headers?.referer;
+            return passkey_service_js_1.PasskeyService.verifyAuthentication(email, responseJson, origin);
+        },
+        deletePasskey: async (_, { id }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            return passkey_service_js_1.PasskeyService.deletePasskey(authUser.userId, id);
+        },
+        requestPasskeyOtpFallback: async (_, { email }) => {
+            const user = await index_js_7.UserModel.findOne({ email: email.toLowerCase().trim() });
+            if (!user)
+                throw new Error("User account not found");
+            await otp_service_js_1.OtpService.sendUnified2faOtp(user.email, user.name, user.phone);
+            return {
+                message: `A 6-digit verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
+                expiresInMinutes: 10,
             };
         },
         setInitialPassword: async (_, { input }) => {

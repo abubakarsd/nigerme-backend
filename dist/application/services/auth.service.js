@@ -5,6 +5,7 @@ const user_model_js_1 = require("../../infrastructure/database/models/user.model
 const role_model_js_1 = require("../../infrastructure/database/models/role.model.js");
 const organization_model_js_1 = require("../../infrastructure/database/models/organization.model.js");
 const subscription_model_js_1 = require("../../infrastructure/database/models/subscription.model.js");
+const passkey_model_js_1 = require("../../infrastructure/database/models/passkey.model.js");
 const token_manager_js_1 = require("../../infrastructure/security/token.manager.js");
 const otp_service_js_1 = require("./otp.service.js");
 const index_js_1 = require("../../services/resend/index.js");
@@ -161,10 +162,21 @@ class AuthService {
                 throw new Error("Access Restricted: This login portal is reserved for organization administrators. Normal mailbox users should sign in through the Webmail portal at /mail/login.");
             }
         }
-        // Security: Always dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
+        // Check if user has registered a passkey in Settings
+        const passkeyCount = await passkey_model_js_1.PasskeyModel.countDocuments({ userId: user._id });
+        if (passkeyCount > 0) {
+            return {
+                requiresTwoFactor: true,
+                twoFactorType: "PASSKEY",
+                phone: user.email,
+                message: "Your account is protected with a passkey or security key for multi-factor authentication (MFA). To finish signing in, follow the instructions from your browser.",
+            };
+        }
+        // Security: Otherwise dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
         await otp_service_js_1.OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) => console.warn("⚠️ 2FA dispatch warning:", err));
         return {
             requiresTwoFactor: true,
+            twoFactorType: "OTP",
             phone: user.email,
             message: `A 6-digit 2FA verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
         };
@@ -206,6 +218,18 @@ class AuthService {
                 personalEmail: user.personalEmail ? (0, otp_service_js_1.maskEmail)(user.personalEmail) : undefined,
             };
         }
+        // Check if user has registered a passkey in Settings
+        const passkeyCount = await passkey_model_js_1.PasskeyModel.countDocuments({ userId: user._id });
+        if (passkeyCount > 0) {
+            return {
+                requiresTwoFactor: true,
+                twoFactorType: "PASSKEY",
+                mustChangePassword: false,
+                phone: user.email,
+                personalEmail: user.personalEmail ? (0, otp_service_js_1.maskEmail)(user.personalEmail) : (0, otp_service_js_1.maskEmail)(user.email),
+                message: "Your account is protected with a passkey or security key for multi-factor authentication (MFA). To finish signing in, follow the instructions from your browser.",
+            };
+        }
         // 2. RETURNING/EXISTING USER: Dispatch 2FA OTP code directly to their personal email
         const targetPersonalEmail = user.personalEmail || user.email;
         const otpRes = await otp_service_js_1.OtpService.sendPersonalEmail2faOtp(targetPersonalEmail, user.name, user.email).catch((err) => {
@@ -217,6 +241,7 @@ class AuthService {
         });
         return {
             requiresTwoFactor: true,
+            twoFactorType: "OTP",
             mustChangePassword: false,
             phone: targetPersonalEmail,
             personalEmail: otpRes.personalEmailMasked || (0, otp_service_js_1.maskEmail)(targetPersonalEmail),

@@ -2,6 +2,7 @@ import { UserModel } from "../../infrastructure/database/models/user.model.js";
 import { RoleModel } from "../../infrastructure/database/models/role.model.js";
 import { OrganizationModel } from "../../infrastructure/database/models/organization.model.js";
 import { SubscriptionModel } from "../../infrastructure/database/models/subscription.model.js";
+import { PasskeyModel } from "../../infrastructure/database/models/passkey.model.js";
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
 import { OtpService, maskEmail } from "./otp.service.js";
 import { ResendEmailService, ResendDomainService } from "../../services/resend/index.js";
@@ -210,7 +211,7 @@ export class AuthService {
    */
   static async login(dto: LoginDto): Promise<
     | { requiresTwoFactor: false; tokens: AuthTokens }
-    | { requiresTwoFactor: true; phone: string; message: string }
+    | { requiresTwoFactor: true; twoFactorType?: string; phone: string; message: string }
   > {
     const user = await UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
     if (!user) {
@@ -244,13 +245,26 @@ export class AuthService {
       }
     }
 
-    // Security: Always dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
+    // Check if user has registered a passkey in Settings
+    const passkeyCount = await PasskeyModel.countDocuments({ userId: user._id });
+    if (passkeyCount > 0) {
+      return {
+        requiresTwoFactor: true,
+        twoFactorType: "PASSKEY",
+        phone: user.email,
+        message:
+          "Your account is protected with a passkey or security key for multi-factor authentication (MFA). To finish signing in, follow the instructions from your browser.",
+      } as any;
+    }
+
+    // Security: Otherwise dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
     await OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) =>
       console.warn("⚠️ 2FA dispatch warning:", err)
     );
 
     return {
       requiresTwoFactor: true,
+      twoFactorType: "OTP",
       phone: user.email,
       message: `A 6-digit 2FA verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
     };
@@ -262,7 +276,7 @@ export class AuthService {
    */
   static async mailLogin(dto: LoginDto): Promise<
     | { requiresTwoFactor: false; mustChangePassword?: boolean; personalEmail?: string; tokens: AuthTokens | null }
-    | { requiresTwoFactor: true; mustChangePassword?: boolean; phone: string; personalEmail?: string; message: string }
+    | { requiresTwoFactor: true; twoFactorType?: string; mustChangePassword?: boolean; phone: string; personalEmail?: string; message: string }
   > {
     const user = await UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
     if (!user) {
@@ -305,6 +319,20 @@ export class AuthService {
       };
     }
 
+    // Check if user has registered a passkey in Settings
+    const passkeyCount = await PasskeyModel.countDocuments({ userId: user._id });
+    if (passkeyCount > 0) {
+      return {
+        requiresTwoFactor: true,
+        twoFactorType: "PASSKEY",
+        mustChangePassword: false,
+        phone: user.email,
+        personalEmail: user.personalEmail ? maskEmail(user.personalEmail) : maskEmail(user.email),
+        message:
+          "Your account is protected with a passkey or security key for multi-factor authentication (MFA). To finish signing in, follow the instructions from your browser.",
+      };
+    }
+
     // 2. RETURNING/EXISTING USER: Dispatch 2FA OTP code directly to their personal email
     const targetPersonalEmail = user.personalEmail || user.email;
     const otpRes = await OtpService.sendPersonalEmail2faOtp(
@@ -321,6 +349,7 @@ export class AuthService {
 
     return {
       requiresTwoFactor: true,
+      twoFactorType: "OTP",
       mustChangePassword: false,
       phone: targetPersonalEmail,
       personalEmail: otpRes.personalEmailMasked || maskEmail(targetPersonalEmail),

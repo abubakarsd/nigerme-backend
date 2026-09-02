@@ -179,6 +179,7 @@ export const typeDefs = gql`
 
   type LoginResponse {
     requiresTwoFactor: Boolean!
+    twoFactorType: String
     mustChangePassword: Boolean
     phone: String
     personalEmail: String
@@ -439,6 +440,11 @@ export const typeDefs = gql`
     # Calendar Events
     getCalendarEvents(start: String, end: String, type: String): [CalendarEvent!]!
     getCalendarEventById(id: ID!): CalendarEvent
+
+    # Passkey & WebAuthn Queries
+    getPasskeyRegistrationOptions: String!
+    getPasskeyAuthOptions(email: String!): String!
+    getMyPasskeys: [PasskeyCredentialInfo!]!
   }
 
   type Mutation {
@@ -452,6 +458,12 @@ export const typeDefs = gql`
     requestEmailOtp(email: String!, name: String, purpose: String): OtpResponse!
     verifyEmailOtp(email: String!, code: String!, purpose: String): Boolean!
     refreshToken(refreshToken: String!): AuthPayload!
+
+    # ── Passkey & WebAuthn Mutations ──
+    verifyPasskeyRegistration(responseJson: String!, friendlyName: String): Boolean!
+    verifyPasskeyAuth(email: String!, responseJson: String!): AuthPayload!
+    deletePasskey(id: ID!): Boolean!
+    requestPasskeyOtpFallback(email: String!): OtpResponse!
 
     # ── Organization & Domain & Users ──
     updateOrganization(input: UpdateOrganizationInput!): Organization!
@@ -504,6 +516,16 @@ export const typeDefs = gql`
     createCalendarEvent(input: CreateCalendarEventInput!): CalendarEvent!
     updateCalendarEvent(id: ID!, input: UpdateCalendarEventInput!): CalendarEvent!
     deleteCalendarEvent(id: ID!): Boolean!
+  }
+
+  type PasskeyCredentialInfo {
+    id: ID!
+    credentialId: String!
+    friendlyName: String!
+    deviceType: String!
+    backedUp: Boolean!
+    createdAt: String!
+    lastUsedAt: String
   }
 
   type CalendarAttendee {

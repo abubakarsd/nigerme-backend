@@ -9,9 +9,10 @@ import { OrganizationService } from "../application/services/organization.servic
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
-import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, EmailModel, CalendarEventModel } from "../models/index.js";
+import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, EmailModel, CalendarEventModel, PasskeyModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService } from "../application/services/otp.service.js";
+import { PasskeyService } from "../application/services/passkey.service.js";
 import { INITIAL_PACKAGES } from "../infrastructure/database/seeds/package.seed.js";
 import { seedPermissions } from "../infrastructure/database/seeds/permission.seed.js";
 import { seedOrganizationDefaultRoles, seedOrganizationDefaultDepartments } from "../infrastructure/database/seeds/role.seed.js";
@@ -628,6 +629,23 @@ export const resolvers = {
 
       return formatCalendarEvent(event);
     },
+
+    // ─── Passkey & WebAuthn Queries ───
+    getPasskeyRegistrationOptions: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      const origin = context.req?.headers?.origin || context.req?.headers?.referer;
+      return PasskeyService.generateRegistrationOptions(authUser.userId, origin);
+    },
+
+    getPasskeyAuthOptions: async (_: any, { email }: { email: string }, context: GraphQLContext) => {
+      const origin = context.req?.headers?.origin || context.req?.headers?.referer;
+      return PasskeyService.generateAuthenticationOptions(email, origin);
+    },
+
+    getMyPasskeys: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      return PasskeyService.getMyPasskeys(authUser.userId);
+    },
   },
 
   Mutation: {
@@ -641,6 +659,7 @@ export const resolvers = {
       if (result.requiresTwoFactor) {
         return {
           requiresTwoFactor: true,
+          twoFactorType: (result as any).twoFactorType || "OTP",
           mustChangePassword: false,
           phone: result.phone,
           message: result.message,
@@ -659,6 +678,7 @@ export const resolvers = {
       if (result.requiresTwoFactor) {
         return {
           requiresTwoFactor: true,
+          twoFactorType: (result as any).twoFactorType || "OTP",
           mustChangePassword: false,
           phone: result.phone,
           personalEmail: (result as any).personalEmail,
@@ -671,6 +691,41 @@ export const resolvers = {
         mustChangePassword: result.mustChangePassword,
         personalEmail: (result as any).personalEmail,
         tokens: (result as any).tokens || null,
+      };
+    },
+
+    // ─── Passkey Mutations ───
+    verifyPasskeyRegistration: async (
+      _: any,
+      { responseJson, friendlyName }: { responseJson: string; friendlyName?: string },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      const origin = context.req?.headers?.origin || context.req?.headers?.referer;
+      return PasskeyService.verifyRegistration(authUser.userId, responseJson, friendlyName, origin);
+    },
+
+    verifyPasskeyAuth: async (
+      _: any,
+      { email, responseJson }: { email: string; responseJson: string },
+      context: GraphQLContext
+    ) => {
+      const origin = context.req?.headers?.origin || context.req?.headers?.referer;
+      return PasskeyService.verifyAuthentication(email, responseJson, origin);
+    },
+
+    deletePasskey: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      return PasskeyService.deletePasskey(authUser.userId, id);
+    },
+
+    requestPasskeyOtpFallback: async (_: any, { email }: { email: string }) => {
+      const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
+      if (!user) throw new Error("User account not found");
+      await OtpService.sendUnified2faOtp(user.email, user.name, user.phone);
+      return {
+        message: `A 6-digit verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
+        expiresInMinutes: 10,
       };
     },
 
