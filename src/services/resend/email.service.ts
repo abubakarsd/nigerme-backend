@@ -3,7 +3,7 @@ import { env } from "../../config/env.js";
 
 export const BRAND_LOGO_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png";
 export const ADVERT_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png";
-export const FOOTER_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png";
+export const FOOTER_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/footer-banner.png";
 
 export interface SendEmailOptions {
   to: string | string[];
@@ -432,7 +432,7 @@ export class ResendEmailService {
           <p class="desc" style="font-size: 13px; color: #6b7280;">Valid for <strong>${expiresInMinutes} minutes</strong>. If you did not initiate this request, notify your administrator immediately.</p>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">
@@ -514,7 +514,7 @@ export class ResendEmailService {
           <p class="desc">You can manage your active packages at any time in your <a href="https://app.nigerme.com/admin/subscription" style="color: #65a30d; font-weight: 600;">Subscription console</a>.</p>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">
@@ -644,7 +644,7 @@ export class ResendEmailService {
           <a href="https://app.nigerme.com/admin/billing" class="btn">View Billing &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
@@ -701,7 +701,7 @@ export class ResendEmailService {
           <a href="https://app.nigerme.com/admin/billing" class="btn">Fund Wallet Now &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
@@ -751,7 +751,7 @@ export class ResendEmailService {
           <a href="https://app.nigerme.com/admin/billing" class="btn">Reactivate Workspace &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
@@ -806,7 +806,7 @@ export class ResendEmailService {
           </div>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
@@ -874,7 +874,7 @@ export class ResendEmailService {
           <a href="https://app.nigerme.com/admin/domains" class="btn">Update DNS in Admin Console &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
@@ -933,7 +933,7 @@ export class ResendEmailService {
           <a href="https://app.nigerme.com/admin/domains" class="btn">View Domain Console &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/ChatGPT+Image+Sep+2%2C+2026%2C+12_13_41+PM.png" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
