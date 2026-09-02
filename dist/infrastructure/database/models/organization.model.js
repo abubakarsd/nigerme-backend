@@ -122,7 +122,7 @@ const OrganizationSchema = new mongoose_1.Schema({
     },
     subscribedPackages: {
         type: [String],
-        default: [],
+        default: ["org-email"],
     },
     billingCycle: {
         type: String,

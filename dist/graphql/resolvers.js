@@ -118,6 +118,26 @@ exports.resolvers = {
                 };
                 await org.save();
             }
+            let needsSave = false;
+            if (!org.subscribedPackages || org.subscribedPackages.length === 0) {
+                org.subscribedPackages = ["org-email"];
+                needsSave = true;
+            }
+            if (!org.subscriptionStatus) {
+                org.subscriptionStatus = "TRIAL";
+                needsSave = true;
+            }
+            if (!org.trialStartsAt) {
+                org.trialStartsAt = org.createdAt || new Date();
+                needsSave = true;
+            }
+            if (!org.trialEndsAt) {
+                org.trialEndsAt = new Date(new Date(org.trialStartsAt).getTime() + 7 * 24 * 60 * 60 * 1000);
+                needsSave = true;
+            }
+            if (needsSave) {
+                await org.save();
+            }
             let cleanPhone = org.phone && org.phone !== "+234 800 NIGERME" ? org.phone : "";
             if (!cleanPhone && authUser.userId) {
                 const user = await index_js_7.UserModel.findById(authUser.userId);
@@ -1080,16 +1100,17 @@ exports.resolvers = {
                 throw new Error("Organization not found");
             // ── 1. Strict SaaS Subscription Gating ──
             const now = new Date();
-            const isTrialValid = org.subscriptionStatus === "TRIAL" &&
-                org.trialEndsAt &&
-                now <= new Date(org.trialEndsAt);
+            const isTrialValid = (org.subscriptionStatus === "TRIAL" || !org.subscriptionStatus) &&
+                (!org.trialEndsAt || now <= new Date(org.trialEndsAt));
             const isSubActive = org.subscriptionStatus === "ACTIVE" &&
                 (!org.subscriptionExpiresAt || now <= new Date(org.subscriptionExpiresAt));
             const isGracePeriod = org.subscriptionStatus === "GRACE_PERIOD" &&
                 org.gracePeriodEndsAt &&
                 now <= new Date(org.gracePeriodEndsAt);
             const hasActiveSubscription = !org.isSuspended && (isSubActive || isTrialValid || isGracePeriod);
-            const hasEmailPackage = (org.subscribedPackages || []).includes("org-email");
+            const hasEmailPackage = !org.subscribedPackages ||
+                org.subscribedPackages.length === 0 ||
+                org.subscribedPackages.includes("org-email");
             if (!hasActiveSubscription || !hasEmailPackage) {
                 throw new Error(`Active 'Business Email' subscription required to dispatch sovereign emails. Your organization subscription status is "${org.subscriptionStatus || "INACTIVE"}". Please activate or fund your wallet in Billing.`);
             }

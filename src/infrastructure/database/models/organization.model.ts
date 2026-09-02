@@ -148,7 +148,7 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     subscribedPackages: {
       type: [String],
-      default: [],
+      default: ["org-email"],
     },
     billingCycle: {
       type: String,
