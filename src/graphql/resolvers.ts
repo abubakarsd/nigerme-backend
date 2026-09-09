@@ -9,7 +9,7 @@ import { OrganizationService } from "../application/services/organization.servic
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
-import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, DepartmentModel, EmailModel, CalendarEventModel, PasskeyModel } from "../models/index.js";
+import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, DepartmentModel, EmailModel, CalendarEventModel, PasskeyModel, WalletModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService, maskEmail } from "../application/services/otp.service.js";
 import { PasskeyService } from "../application/services/passkey.service.js";
@@ -188,12 +188,30 @@ export const resolvers = {
         if (user?.phone) cleanPhone = user.phone;
       }
 
+      const wallet = await WalletModel.findOne({ organizationId: org._id });
+      const hasWallet = !!wallet;
+      const currentBalanceNaira = wallet
+        ? (wallet.balance || 0) / 100
+        : (org.walletBalance ? org.walletBalance / 100 : 0);
+
       const orgObj = org.toObject();
       return {
         ...orgObj,
         id: org._id.toString(),
         phone: cleanPhone,
-        walletBalance: org.walletBalance / 100, // Return in Naira
+        walletBalance: currentBalanceNaira,
+        hasWallet,
+        wallet: wallet
+          ? {
+              id: wallet._id.toString(),
+              organizationId: wallet.organizationId.toString(),
+              balance: (wallet.balance || 0) / 100,
+              currency: wallet.currency || "NGN",
+              status: wallet.status || "ACTIVE",
+              createdAt: wallet.createdAt ? wallet.createdAt.toISOString() : null,
+              updatedAt: wallet.updatedAt ? wallet.updatedAt.toISOString() : null,
+            }
+          : null,
         departments: (org.departments || []).map((d: any) => ({
           ...d,
           id: d.id || d._id?.toString() || String(Math.random()),
@@ -258,8 +276,27 @@ export const resolvers = {
 
     getWalletBalance: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
+      if (!authUser.organizationId) return 0;
+      const wallet = await WalletModel.findOne({ organizationId: authUser.organizationId });
+      if (wallet) return (wallet.balance || 0) / 100;
       const org = await OrganizationModel.findById(authUser.organizationId);
       return org ? org.walletBalance / 100 : 0; // Return in Naira
+    },
+
+    getWallet: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return null;
+      const wallet = await WalletModel.findOne({ organizationId: authUser.organizationId });
+      if (!wallet) return null;
+      return {
+        id: wallet._id.toString(),
+        organizationId: wallet.organizationId.toString(),
+        balance: (wallet.balance || 0) / 100,
+        currency: wallet.currency || "NGN",
+        status: wallet.status || "ACTIVE",
+        createdAt: wallet.createdAt ? wallet.createdAt.toISOString() : null,
+        updatedAt: wallet.updatedAt ? wallet.updatedAt.toISOString() : null,
+      };
     },
 
     getAuditLogs: async (_: any, { limit = 50 }: { limit?: number }, context: GraphQLContext) => {
@@ -1129,6 +1166,11 @@ export const resolvers = {
 
       // Deduct from wallet
       org.walletBalance = (org.walletBalance || 0) - costInKobo;
+      const wallet = await WalletModel.findOne({ organizationId: org._id });
+      if (wallet) {
+        wallet.balance = Math.max(0, (wallet.balance || 0) - costInKobo);
+        await wallet.save();
+      }
       org.subscribedPackages = packageIds;
       org.billingCycle = billingCycle as any;
       org.usedSeats = Math.max(1, userCount, org.usedSeats || 1);
@@ -1702,6 +1744,35 @@ export const resolvers = {
       });
     },
 
+    createWallet: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+
+      let wallet = await WalletModel.findOne({ organizationId: authUser.organizationId });
+      if (!wallet) {
+        const org = await OrganizationModel.findById(authUser.organizationId);
+        const initialBalance = org?.walletBalance || 0;
+
+        wallet = await WalletModel.create({
+          organizationId: authUser.organizationId,
+          ownerId: authUser.userId,
+          balance: initialBalance,
+          currency: "NGN",
+          status: "ACTIVE",
+        });
+      }
+
+      return {
+        id: wallet._id.toString(),
+        organizationId: wallet.organizationId.toString(),
+        balance: (wallet.balance || 0) / 100,
+        currency: wallet.currency || "NGN",
+        status: wallet.status || "ACTIVE",
+        createdAt: wallet.createdAt ? wallet.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: wallet.updatedAt ? wallet.updatedAt.toISOString() : new Date().toISOString(),
+      };
+    },
+
     fundWalletDirect: async (
       _: any,
       {
@@ -1714,6 +1785,21 @@ export const resolvers = {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
       const amountInKobo = Math.round(amountInNaira * 100);
+
+      // Update or create in WalletModel (wallet DB table)
+      let wallet = await WalletModel.findOne({ organizationId: authUser.organizationId });
+      if (!wallet) {
+        wallet = await WalletModel.create({
+          organizationId: authUser.organizationId,
+          ownerId: authUser.userId,
+          balance: amountInKobo,
+          currency: "NGN",
+          status: "ACTIVE",
+        });
+      } else {
+        wallet.balance = (wallet.balance || 0) + amountInKobo;
+        await wallet.save();
+      }
 
       const org = await OrganizationModel.findByIdAndUpdate(
         authUser.organizationId,
@@ -1832,6 +1918,28 @@ export const resolvers = {
       };
       org.kycStatus = "verified";
       await org.save();
+
+      // Ensure record in WalletModel (wallet DB table)
+      try {
+        let wallet = await WalletModel.findOne({ organizationId: org._id });
+        if (!wallet) {
+          await WalletModel.create({
+            organizationId: org._id,
+            ownerId: authUser.userId,
+            balance: org.walletBalance || 0,
+            currency: "NGN",
+            status: "ACTIVE",
+            bvnVerified: true,
+            bvnMasked: maskIdentifier(cleanBvn),
+          });
+        } else {
+          wallet.bvnVerified = true;
+          wallet.bvnMasked = maskIdentifier(cleanBvn);
+          await wallet.save();
+        }
+      } catch (wErr) {
+        console.warn("[WalletModel] Sync notice:", wErr);
+      }
 
       return {
         success: true,

@@ -186,12 +186,29 @@ exports.resolvers = {
                 if (user?.phone)
                     cleanPhone = user.phone;
             }
+            const wallet = await index_js_7.WalletModel.findOne({ organizationId: org._id });
+            const hasWallet = !!wallet;
+            const currentBalanceNaira = wallet
+                ? (wallet.balance || 0) / 100
+                : (org.walletBalance ? org.walletBalance / 100 : 0);
             const orgObj = org.toObject();
             return {
                 ...orgObj,
                 id: org._id.toString(),
                 phone: cleanPhone,
-                walletBalance: org.walletBalance / 100, // Return in Naira
+                walletBalance: currentBalanceNaira,
+                hasWallet,
+                wallet: wallet
+                    ? {
+                        id: wallet._id.toString(),
+                        organizationId: wallet.organizationId.toString(),
+                        balance: (wallet.balance || 0) / 100,
+                        currency: wallet.currency || "NGN",
+                        status: wallet.status || "ACTIVE",
+                        createdAt: wallet.createdAt ? wallet.createdAt.toISOString() : null,
+                        updatedAt: wallet.updatedAt ? wallet.updatedAt.toISOString() : null,
+                    }
+                    : null,
                 departments: (org.departments || []).map((d) => ({
                     ...d,
                     id: d.id || d._id?.toString() || String(Math.random()),
@@ -252,8 +269,30 @@ exports.resolvers = {
         },
         getWalletBalance: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                return 0;
+            const wallet = await index_js_7.WalletModel.findOne({ organizationId: authUser.organizationId });
+            if (wallet)
+                return (wallet.balance || 0) / 100;
             const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
             return org ? org.walletBalance / 100 : 0; // Return in Naira
+        },
+        getWallet: async (_, __, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                return null;
+            const wallet = await index_js_7.WalletModel.findOne({ organizationId: authUser.organizationId });
+            if (!wallet)
+                return null;
+            return {
+                id: wallet._id.toString(),
+                organizationId: wallet.organizationId.toString(),
+                balance: (wallet.balance || 0) / 100,
+                currency: wallet.currency || "NGN",
+                status: wallet.status || "ACTIVE",
+                createdAt: wallet.createdAt ? wallet.createdAt.toISOString() : null,
+                updatedAt: wallet.updatedAt ? wallet.updatedAt.toISOString() : null,
+            };
         },
         getAuditLogs: async (_, { limit = 50 }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
@@ -992,6 +1031,11 @@ exports.resolvers = {
             }
             // Deduct from wallet
             org.walletBalance = (org.walletBalance || 0) - costInKobo;
+            const wallet = await index_js_7.WalletModel.findOne({ organizationId: org._id });
+            if (wallet) {
+                wallet.balance = Math.max(0, (wallet.balance || 0) - costInKobo);
+                await wallet.save();
+            }
             org.subscribedPackages = packageIds;
             org.billingCycle = billingCycle;
             org.usedSeats = Math.max(1, userCount, org.usedSeats || 1);
@@ -1479,11 +1523,52 @@ exports.resolvers = {
                 callbackUrl: input.callbackUrl,
             });
         },
+        createWallet: async (_, __, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            let wallet = await index_js_7.WalletModel.findOne({ organizationId: authUser.organizationId });
+            if (!wallet) {
+                const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+                const initialBalance = org?.walletBalance || 0;
+                wallet = await index_js_7.WalletModel.create({
+                    organizationId: authUser.organizationId,
+                    ownerId: authUser.userId,
+                    balance: initialBalance,
+                    currency: "NGN",
+                    status: "ACTIVE",
+                });
+            }
+            return {
+                id: wallet._id.toString(),
+                organizationId: wallet.organizationId.toString(),
+                balance: (wallet.balance || 0) / 100,
+                currency: wallet.currency || "NGN",
+                status: wallet.status || "ACTIVE",
+                createdAt: wallet.createdAt ? wallet.createdAt.toISOString() : new Date().toISOString(),
+                updatedAt: wallet.updatedAt ? wallet.updatedAt.toISOString() : new Date().toISOString(),
+            };
+        },
         fundWalletDirect: async (_, { amountInNaira, channel = "bank_transfer", description = "Direct Wallet Funding", }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
                 throw new Error("No organization found");
             const amountInKobo = Math.round(amountInNaira * 100);
+            // Update or create in WalletModel (wallet DB table)
+            let wallet = await index_js_7.WalletModel.findOne({ organizationId: authUser.organizationId });
+            if (!wallet) {
+                wallet = await index_js_7.WalletModel.create({
+                    organizationId: authUser.organizationId,
+                    ownerId: authUser.userId,
+                    balance: amountInKobo,
+                    currency: "NGN",
+                    status: "ACTIVE",
+                });
+            }
+            else {
+                wallet.balance = (wallet.balance || 0) + amountInKobo;
+                await wallet.save();
+            }
             const org = await index_js_7.OrganizationModel.findByIdAndUpdate(authUser.organizationId, { $inc: { walletBalance: amountInKobo } }, { new: true });
             if (!org)
                 throw new Error("Organization not found");
@@ -1585,6 +1670,29 @@ exports.resolvers = {
             };
             org.kycStatus = "verified";
             await org.save();
+            // Ensure record in WalletModel (wallet DB table)
+            try {
+                let wallet = await index_js_7.WalletModel.findOne({ organizationId: org._id });
+                if (!wallet) {
+                    await index_js_7.WalletModel.create({
+                        organizationId: org._id,
+                        ownerId: authUser.userId,
+                        balance: org.walletBalance || 0,
+                        currency: "NGN",
+                        status: "ACTIVE",
+                        bvnVerified: true,
+                        bvnMasked: (0, encryption_js_1.maskIdentifier)(cleanBvn),
+                    });
+                }
+                else {
+                    wallet.bvnVerified = true;
+                    wallet.bvnMasked = (0, encryption_js_1.maskIdentifier)(cleanBvn);
+                    await wallet.save();
+                }
+            }
+            catch (wErr) {
+                console.warn("[WalletModel] Sync notice:", wErr);
+            }
             return {
                 success: true,
                 message: "Dedicated Virtual Account generated successfully via Provn & Paystack.",

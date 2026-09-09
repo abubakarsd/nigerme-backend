@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PasskeyModel = exports.DepartmentModel = exports.CalendarEventModel = exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
+exports.WalletModel = exports.PasskeyModel = exports.DepartmentModel = exports.CalendarEventModel = exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
 var user_model_js_1 = require("../infrastructure/database/models/user.model.js");
 Object.defineProperty(exports, "UserModel", { enumerable: true, get: function () { return user_model_js_1.UserModel; } });
 var organization_model_js_1 = require("../infrastructure/database/models/organization.model.js");
@@ -31,3 +31,5 @@ var department_model_js_1 = require("../infrastructure/database/models/departmen
 Object.defineProperty(exports, "DepartmentModel", { enumerable: true, get: function () { return department_model_js_1.DepartmentModel; } });
 var passkey_model_js_1 = require("../infrastructure/database/models/passkey.model.js");
 Object.defineProperty(exports, "PasskeyModel", { enumerable: true, get: function () { return passkey_model_js_1.PasskeyModel; } });
+var wallet_model_js_1 = require("../infrastructure/database/models/wallet.model.js");
+Object.defineProperty(exports, "WalletModel", { enumerable: true, get: function () { return wallet_model_js_1.WalletModel; } });

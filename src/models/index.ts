@@ -13,4 +13,5 @@ export { EmailModel, IEmail, IEmailAttachment, IEmailParticipant } from "../infr
 export { CalendarEventModel, ICalendarEvent, ICalendarAttendee } from "../infrastructure/database/models/calendar-event.model.js";
 export { DepartmentModel, IDepartment } from "../infrastructure/database/models/department.model.js";
 export { PasskeyModel, IPasskey } from "../infrastructure/database/models/passkey.model.js";
+export { WalletModel, IWallet } from "../infrastructure/database/models/wallet.model.js";
 

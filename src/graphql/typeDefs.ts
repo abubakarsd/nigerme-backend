@@ -157,6 +157,16 @@ export const typeDefs = gql`
     updatedAt: String
   }
 
+  type Wallet {
+    id: ID!
+    organizationId: ID!
+    balance: Float!
+    currency: String!
+    status: String!
+    createdAt: String
+    updatedAt: String
+  }
+
   type Organization {
     id: ID!
     name: String!
@@ -164,6 +174,8 @@ export const typeDefs = gql`
     ownerId: ID!
     plan: String!
     walletBalance: Float!
+    hasWallet: Boolean!
+    wallet: Wallet
     kycStatus: String!
     trustLevel: String!
     dailySendingLimit: Int!
@@ -444,9 +456,10 @@ export const typeDefs = gql`
     # Storage (AWS S3)
     getSecureFileUrl(fileKey: String!): String!
 
-    # Billing & Ledger (Paystack)
+    # Billing & Ledger (Paystack & Wallet)
     getTransactions(limit: Int): [Transaction!]!
     getWalletBalance: Float!
+    getWallet: Wallet
 
     # Audit & Security
     getAuditLogs(limit: Int): [AuditLog!]!
@@ -539,7 +552,8 @@ export const typeDefs = gql`
     # ── KYC (Provn) ──
     submitKyc(input: SubmitKycInput!): KycRecord!
 
-    # ── Payments (Paystack & Direct Funding) ──
+    # ── Payments (Paystack & Direct Funding & Wallet) ──
+    createWallet: Wallet!
     initializeWalletFunding(input: FundWalletInput!): PaymentInitPayload!
     fundWalletDirect(amountInNaira: Float!, channel: String, description: String): Transaction!
     createDedicatedVirtualAccount(bvn: String!): CreateDedicatedVirtualAccountPayload!
