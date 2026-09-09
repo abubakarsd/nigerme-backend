@@ -234,7 +234,7 @@ export class AuthService {
     const linkedUser = await UserModel.findOne({ personalEmail: cleanEmail });
     if (linkedUser && linkedUser.email !== cleanEmail) {
       throw new Error(
-        `Please sign in using your official company email (${linkedUser.email}). Your linked personal email (${cleanEmail}) can only be used to receive verification codes.`
+        "Please sign in using your official organization email address. Your linked personal email can only be used to receive verification codes."
       );
     }
 
@@ -317,7 +317,7 @@ export class AuthService {
     const linkedUser = await UserModel.findOne({ personalEmail: cleanEmail });
     if (linkedUser && linkedUser.email !== cleanEmail) {
       throw new Error(
-        `Please sign in using your official mailbox address (${linkedUser.email}). Your linked personal email (${cleanEmail}) can only be used to receive verification codes.`
+        "Please sign in using your official organization mailbox address. Your linked personal email can only be used to receive verification codes."
       );
     }
 

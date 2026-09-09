@@ -151,7 +151,7 @@ class AuthService {
         // The linked personal email is strictly for receiving OTP codes and CANNOT be used to log into admin
         const linkedUser = await user_model_js_1.UserModel.findOne({ personalEmail: cleanEmail });
         if (linkedUser && linkedUser.email !== cleanEmail) {
-            throw new Error(`Please sign in using your official company email (${linkedUser.email}). Your linked personal email (${cleanEmail}) can only be used to receive verification codes.`);
+            throw new Error("Please sign in using your official organization email address. Your linked personal email can only be used to receive verification codes.");
         }
         const user = await user_model_js_1.UserModel.findOne({ email: cleanEmail }).select("+passwordHash");
         if (!user) {
@@ -210,7 +210,7 @@ class AuthService {
         // Check if user entered linked personal email instead of mailbox address
         const linkedUser = await user_model_js_1.UserModel.findOne({ personalEmail: cleanEmail });
         if (linkedUser && linkedUser.email !== cleanEmail) {
-            throw new Error(`Please sign in using your official mailbox address (${linkedUser.email}). Your linked personal email (${cleanEmail}) can only be used to receive verification codes.`);
+            throw new Error("Please sign in using your official organization mailbox address. Your linked personal email can only be used to receive verification codes.");
         }
         const user = await user_model_js_1.UserModel.findOne({ email: cleanEmail }).select("+passwordHash");
         if (!user) {
