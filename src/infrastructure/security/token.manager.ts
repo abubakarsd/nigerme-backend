@@ -5,6 +5,7 @@ import { env } from "../../config/env.js";
 export interface TokenPayload extends JwtPayload {
   userId: string;
   email: string;
+  name?: string;
   role: "superadmin" | "admin" | "user" | "support" | "owner" | string;
   userType: "saas_admin" | "email_user";
   organizationId?: string;
