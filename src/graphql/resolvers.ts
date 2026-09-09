@@ -1931,10 +1931,12 @@ export const resolvers = {
             status: "ACTIVE",
             bvnVerified: true,
             bvnMasked: maskIdentifier(cleanBvn),
+            dedicatedVirtualAccount: org.dedicatedVirtualAccount as any,
           });
         } else {
           wallet.bvnVerified = true;
           wallet.bvnMasked = maskIdentifier(cleanBvn);
+          wallet.dedicatedVirtualAccount = org.dedicatedVirtualAccount as any;
           await wallet.save();
         }
       } catch (wErr) {

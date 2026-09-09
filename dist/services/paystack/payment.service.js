@@ -63,10 +63,10 @@ const httpClient = {
 };
 class PaymentService {
     static getSecretKey() {
-        return env_js_1.ENV.PAYSTACK_SECRET_KEY || "";
+        return process.env.PAYSTACK_SECRET_KEY || env_js_1.ENV.PAYSTACK_SECRET_KEY || "";
     }
     static getBaseUrl() {
-        return (env_js_1.ENV.PAYSTACK_BASE_URL || "https://api.paystack.co").replace(/\/$/, "");
+        return (process.env.PAYSTACK_BASE_URL || env_js_1.ENV.PAYSTACK_BASE_URL || "https://api.paystack.co").replace(/\/$/, "");
     }
     static getHeaders() {
         return {
@@ -161,21 +161,38 @@ class PaymentService {
                     customerId = fetchCust.data.data.id;
                 }
             }
-            catch {
-                console.warn("[Paystack] Customer check fallback for:", customerEmail);
+            catch (fetchErr) {
+                const errMsg = fetchErr.response?.data?.message ||
+                    custErr.response?.data?.message ||
+                    "Failed to create or find Paystack customer";
+                throw new Error(`Paystack customer error: ${errMsg}`);
             }
         }
-        // Step 2: Attempt Paystack dedicated virtual account creation
-        try {
-            let resData = null;
-            if (customerCode) {
-                const res = await httpClient.post(`${this.getBaseUrl()}/dedicated_account`, {
-                    customer: customerCode,
-                    preferred_bank: "wema-bank",
+        if (!customerCode) {
+            throw new Error("Could not obtain Paystack customer code");
+        }
+        // Step 2: Validate customer identity with BVN if provided
+        if (bvn) {
+            try {
+                await httpClient.post(`${this.getBaseUrl()}/customer/${encodeURIComponent(customerCode)}/identification`, {
+                    country: "NG",
+                    type: "bvn",
+                    value: bvn,
+                    first_name: firstName,
+                    last_name: lastName,
                 }, { headers: this.getHeaders() });
-                resData = res.data?.data;
             }
-            else {
+            catch (identErr) {
+                const identMsg = identErr.response?.data?.message;
+                console.warn("[Paystack] Customer identification response:", identMsg);
+            }
+        }
+        // Step 3: Attempt real Dedicated Virtual Account creation
+        let resData = null;
+        let lastError = "";
+        // Attempt A: Direct assign with BVN
+        if (bvn) {
+            try {
                 const res = await httpClient.post(`${this.getBaseUrl()}/dedicated_account/assign`, {
                     email: customerEmail,
                     first_name: firstName,
@@ -187,39 +204,57 @@ class PaymentService {
                 }, { headers: this.getHeaders() });
                 resData = res.data?.data;
             }
-            if (resData && (resData.account_number || resData.accountNumber)) {
-                const accountNumber = String(resData.account_number || resData.accountNumber);
-                const accountName = resData.account_name || resData.accountName || `Nigerme / ${firstName} ${lastName}`;
-                const bankName = resData.bank?.name || "Wema Bank Plc";
-                return {
-                    accountNumber,
-                    accountName,
-                    bankName,
-                    customerCode: customerCode || resData.customer?.customer_code,
-                    paystackCustomerId: customerId || resData.customer?.id,
-                    paystackDedicatedAccountId: resData.id,
-                    isVerified: true,
-                    assignedAt: new Date(),
-                };
+            catch (err) {
+                lastError = err.response?.data?.message || err.message;
             }
         }
-        catch (dvaErr) {
-            const msg = dvaErr.response?.data?.message || dvaErr.message;
-            console.warn("[Paystack] Dedicated virtual account provider note:", msg);
+        // Attempt B: Create dedicated account for existing customer code across supported banks
+        if (!resData) {
+            for (const bank of ["wema-bank", "titan-paystack", "test-bank"]) {
+                try {
+                    const res = await httpClient.post(`${this.getBaseUrl()}/dedicated_account`, {
+                        customer: customerCode,
+                        preferred_bank: bank,
+                    }, { headers: this.getHeaders() });
+                    if (res.data?.data) {
+                        resData = res.data.data;
+                        break;
+                    }
+                }
+                catch (err) {
+                    lastError = err.response?.data?.message || err.message;
+                }
+            }
         }
-        // Fallback: If Paystack sandbox or provider requires live NIBSS compliance approval,
-        // generate a formatted dedicated NUBAN account for this verified identity
-        const randomSuffix = Math.floor(10000000 + Math.random() * 90000000);
-        return {
-            accountNumber: `02${randomSuffix}`,
-            accountName: `Nigerme / ${firstName} ${lastName}`,
-            bankName: "Wema Bank Plc (Paystack Sovereign Switch)",
-            customerCode: customerCode || `CUS_${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-            paystackCustomerId: customerId || Date.now(),
-            paystackDedicatedAccountId: Date.now(),
-            isVerified: true,
-            assignedAt: new Date(),
-        };
+        // Attempt C: Create dedicated account without specifying bank preference
+        if (!resData) {
+            try {
+                const res = await httpClient.post(`${this.getBaseUrl()}/dedicated_account`, {
+                    customer: customerCode,
+                }, { headers: this.getHeaders() });
+                resData = res.data?.data;
+            }
+            catch (err) {
+                lastError = err.response?.data?.message || err.message;
+            }
+        }
+        if (resData && (resData.account_number || resData.accountNumber)) {
+            const accountNumber = String(resData.account_number || resData.accountNumber);
+            const accountName = resData.account_name || resData.accountName || `Nigerme / ${firstName} ${lastName}`;
+            const bankName = resData.bank?.name || resData.bankName || "Wema Bank Plc";
+            return {
+                accountNumber,
+                accountName,
+                bankName,
+                customerCode: customerCode || resData.customer?.customer_code,
+                paystackCustomerId: customerId || resData.customer?.id,
+                paystackDedicatedAccountId: resData.id,
+                isVerified: true,
+                assignedAt: new Date(),
+            };
+        }
+        // Surface the actual Paystack response instead of falling back to fake numbers
+        throw new Error(`Paystack Dedicated Account creation failed: ${lastError || "No response received from Paystack API"}`);
     }
     /**
      * Fetches list of supported Nigerian banks

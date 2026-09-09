@@ -1682,11 +1682,13 @@ exports.resolvers = {
                         status: "ACTIVE",
                         bvnVerified: true,
                         bvnMasked: (0, encryption_js_1.maskIdentifier)(cleanBvn),
+                        dedicatedVirtualAccount: org.dedicatedVirtualAccount,
                     });
                 }
                 else {
                     wallet.bvnVerified = true;
                     wallet.bvnMasked = (0, encryption_js_1.maskIdentifier)(cleanBvn);
+                    wallet.dedicatedVirtualAccount = org.dedicatedVirtualAccount;
                     await wallet.save();
                 }
             }
