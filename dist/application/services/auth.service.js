@@ -148,12 +148,12 @@ class AuthService {
      */
     static async login(dto) {
         const cleanEmail = dto.email.toLowerCase().trim();
-        const user = await user_model_js_1.UserModel.findOne({
-            $or: [
-                { email: cleanEmail },
-                { personalEmail: cleanEmail }
-            ]
-        }).select("+passwordHash");
+        // The linked personal email is strictly for receiving OTP codes and CANNOT be used to log into admin
+        const linkedUser = await user_model_js_1.UserModel.findOne({ personalEmail: cleanEmail });
+        if (linkedUser && linkedUser.email !== cleanEmail) {
+            throw new Error(`Please sign in using your official company email (${linkedUser.email}). Your linked personal email (${cleanEmail}) can only be used to receive verification codes.`);
+        }
+        const user = await user_model_js_1.UserModel.findOne({ email: cleanEmail }).select("+passwordHash");
         if (!user) {
             throw new Error("Invalid email or password.");
         }
@@ -181,20 +181,24 @@ class AuthService {
         // Check if user has registered a passkey in Settings
         const passkeyCount = await passkey_model_js_1.PasskeyModel.countDocuments({ userId: user._id });
         if (passkeyCount > 0) {
+            const targetEmail = (user.personalEmail || user.email).toLowerCase().trim();
             return {
                 requiresTwoFactor: true,
                 twoFactorType: "PASSKEY",
-                phone: user.email,
+                phone: targetEmail,
+                personalEmail: targetEmail,
                 message: "Your account is protected with a passkey or security key for multi-factor authentication (MFA). To finish signing in, follow the instructions from your browser.",
             };
         }
-        // Security: Otherwise dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
-        await otp_service_js_1.OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) => console.warn("⚠️ 2FA dispatch warning:", err));
+        // Security: Dispatch 2FA OTP code ONLY to the single linked personal email (never to both)
+        const destinationEmail = (user.personalEmail || user.email).toLowerCase().trim();
+        await otp_service_js_1.OtpService.sendPersonalEmail2faOtp(destinationEmail, user.name, user.email).catch((err) => console.warn("⚠️ 2FA dispatch warning:", err));
         return {
             requiresTwoFactor: true,
             twoFactorType: "OTP",
-            phone: user.email,
-            message: `A 6-digit 2FA verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
+            phone: destinationEmail,
+            personalEmail: destinationEmail,
+            message: `A 6-digit 2FA verification code has been dispatched to your linked email (${(0, otp_service_js_1.maskEmail)(destinationEmail)}).`,
         };
     }
     /**
@@ -203,12 +207,12 @@ class AuthService {
      */
     static async mailLogin(dto) {
         const cleanEmail = dto.email.toLowerCase().trim();
-        const user = await user_model_js_1.UserModel.findOne({
-            $or: [
-                { email: cleanEmail },
-                { personalEmail: cleanEmail }
-            ]
-        }).select("+passwordHash");
+        // Check if user entered linked personal email instead of mailbox address
+        const linkedUser = await user_model_js_1.UserModel.findOne({ personalEmail: cleanEmail });
+        if (linkedUser && linkedUser.email !== cleanEmail) {
+            throw new Error(`Please sign in using your official mailbox address (${linkedUser.email}). Your linked personal email (${cleanEmail}) can only be used to receive verification codes.`);
+        }
+        const user = await user_model_js_1.UserModel.findOne({ email: cleanEmail }).select("+passwordHash");
         if (!user) {
             throw new Error("Mailbox account not found. Please contact your organization administrator to add your email address.");
         }
@@ -346,8 +350,13 @@ class AuthService {
             throw new Error("Invalid verification code. Please try again.");
         }
         const user = isEmail
-            ? await user_model_js_1.UserModel.findOne({ email: cleanId.toLowerCase() })
-            : (await user_model_js_1.UserModel.findOne({ phone: cleanId })) || (await user_model_js_1.UserModel.findOne({ email: cleanId.toLowerCase() }));
+            ? await user_model_js_1.UserModel.findOne({
+                $or: [{ email: cleanId.toLowerCase() }, { personalEmail: cleanId.toLowerCase() }],
+            })
+            : (await user_model_js_1.UserModel.findOne({ phone: cleanId })) ||
+                (await user_model_js_1.UserModel.findOne({
+                    $or: [{ email: cleanId.toLowerCase() }, { personalEmail: cleanId.toLowerCase() }],
+                }));
         if (!user) {
             throw new Error("User associated with this account not found.");
         }

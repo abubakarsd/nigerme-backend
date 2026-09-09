@@ -226,15 +226,19 @@ export class AuthService {
    */
   static async login(dto: LoginDto): Promise<
     | { requiresTwoFactor: false; tokens: AuthTokens }
-    | { requiresTwoFactor: true; twoFactorType?: string; phone: string; message: string }
+    | { requiresTwoFactor: true; twoFactorType?: string; phone: string; personalEmail?: string; message: string }
   > {
     const cleanEmail = dto.email.toLowerCase().trim();
-    const user = await UserModel.findOne({
-      $or: [
-        { email: cleanEmail },
-        { personalEmail: cleanEmail }
-      ]
-    }).select("+passwordHash");
+
+    // The linked personal email is strictly for receiving OTP codes and CANNOT be used to log into admin
+    const linkedUser = await UserModel.findOne({ personalEmail: cleanEmail });
+    if (linkedUser && linkedUser.email !== cleanEmail) {
+      throw new Error(
+        `Please sign in using your official company email (${linkedUser.email}). Your linked personal email (${cleanEmail}) can only be used to receive verification codes.`
+      );
+    }
+
+    const user = await UserModel.findOne({ email: cleanEmail }).select("+passwordHash");
     if (!user) {
       throw new Error("Invalid email or password.");
     }
@@ -269,25 +273,33 @@ export class AuthService {
     // Check if user has registered a passkey in Settings
     const passkeyCount = await PasskeyModel.countDocuments({ userId: user._id });
     if (passkeyCount > 0) {
+      const targetEmail = (user.personalEmail || user.email).toLowerCase().trim();
       return {
         requiresTwoFactor: true,
         twoFactorType: "PASSKEY",
-        phone: user.email,
+        phone: targetEmail,
+        personalEmail: targetEmail,
         message:
           "Your account is protected with a passkey or security key for multi-factor authentication (MFA). To finish signing in, follow the instructions from your browser.",
       } as any;
     }
 
-    // Security: Otherwise dispatch a unified 2FA OTP verification code to Phone and Email simultaneously
-    await OtpService.sendUnified2faOtp(user.email, user.name, user.phone).catch((err) =>
+    // Security: Dispatch 2FA OTP code ONLY to the single linked personal email (never to both)
+    const destinationEmail = (user.personalEmail || user.email).toLowerCase().trim();
+    await OtpService.sendPersonalEmail2faOtp(
+      destinationEmail,
+      user.name,
+      user.email
+    ).catch((err) =>
       console.warn("⚠️ 2FA dispatch warning:", err)
     );
 
     return {
       requiresTwoFactor: true,
       twoFactorType: "OTP",
-      phone: user.email,
-      message: `A 6-digit 2FA verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
+      phone: destinationEmail,
+      personalEmail: destinationEmail,
+      message: `A 6-digit 2FA verification code has been dispatched to your linked email (${maskEmail(destinationEmail)}).`,
     };
   }
 
@@ -300,12 +312,16 @@ export class AuthService {
     | { requiresTwoFactor: true; twoFactorType?: string; mustChangePassword?: boolean; phone: string; personalEmail?: string; message: string }
   > {
     const cleanEmail = dto.email.toLowerCase().trim();
-    const user = await UserModel.findOne({
-      $or: [
-        { email: cleanEmail },
-        { personalEmail: cleanEmail }
-      ]
-    }).select("+passwordHash");
+
+    // Check if user entered linked personal email instead of mailbox address
+    const linkedUser = await UserModel.findOne({ personalEmail: cleanEmail });
+    if (linkedUser && linkedUser.email !== cleanEmail) {
+      throw new Error(
+        `Please sign in using your official mailbox address (${linkedUser.email}). Your linked personal email (${cleanEmail}) can only be used to receive verification codes.`
+      );
+    }
+
+    const user = await UserModel.findOne({ email: cleanEmail }).select("+passwordHash");
     if (!user) {
       throw new Error(
         "Mailbox account not found. Please contact your organization administrator to add your email address."
@@ -465,8 +481,13 @@ export class AuthService {
     }
 
     const user = isEmail
-      ? await UserModel.findOne({ email: cleanId.toLowerCase() })
-      : (await UserModel.findOne({ phone: cleanId })) || (await UserModel.findOne({ email: cleanId.toLowerCase() }));
+      ? await UserModel.findOne({
+          $or: [{ email: cleanId.toLowerCase() }, { personalEmail: cleanId.toLowerCase() }],
+        })
+      : (await UserModel.findOne({ phone: cleanId })) ||
+        (await UserModel.findOne({
+          $or: [{ email: cleanId.toLowerCase() }, { personalEmail: cleanId.toLowerCase() }],
+        }));
 
     if (!user) {
       throw new Error("User associated with this account not found.");

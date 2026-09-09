@@ -11,7 +11,7 @@ import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
 import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, DepartmentModel, EmailModel, CalendarEventModel, PasskeyModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
-import { OtpService } from "../application/services/otp.service.js";
+import { OtpService, maskEmail } from "../application/services/otp.service.js";
 import { PasskeyService } from "../application/services/passkey.service.js";
 import { INITIAL_PACKAGES } from "../infrastructure/database/seeds/package.seed.js";
 import { seedPermissions } from "../infrastructure/database/seeds/permission.seed.js";
@@ -712,6 +712,7 @@ export const resolvers = {
           twoFactorType: (result as any).twoFactorType || "OTP",
           mustChangePassword: false,
           phone: result.phone,
+          personalEmail: (result as any).personalEmail,
           message: result.message,
           tokens: null,
         };
@@ -719,6 +720,7 @@ export const resolvers = {
       return {
         requiresTwoFactor: false,
         mustChangePassword: false,
+        personalEmail: (result as any).personalEmail,
         tokens: result.tokens,
       };
     },
@@ -770,11 +772,15 @@ export const resolvers = {
     },
 
     requestPasskeyOtpFallback: async (_: any, { email }: { email: string }) => {
-      const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
+      const cleanEmail = email.toLowerCase().trim();
+      const user = await UserModel.findOne({
+        $or: [{ email: cleanEmail }, { personalEmail: cleanEmail }],
+      });
       if (!user) throw new Error("User account not found");
-      await OtpService.sendUnified2faOtp(user.email, user.name, user.phone);
+      const destinationEmail = (user.personalEmail || user.email).toLowerCase().trim();
+      await OtpService.sendPersonalEmail2faOtp(destinationEmail, user.name, user.email);
       return {
-        message: `A 6-digit verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
+        message: `A 6-digit verification code has been dispatched to your linked email (${maskEmail(destinationEmail)}).`,
         expiresInMinutes: 10,
       };
     },

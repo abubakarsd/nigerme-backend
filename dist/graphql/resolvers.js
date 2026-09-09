@@ -642,6 +642,7 @@ exports.resolvers = {
                     twoFactorType: result.twoFactorType || "OTP",
                     mustChangePassword: false,
                     phone: result.phone,
+                    personalEmail: result.personalEmail,
                     message: result.message,
                     tokens: null,
                 };
@@ -649,6 +650,7 @@ exports.resolvers = {
             return {
                 requiresTwoFactor: false,
                 mustChangePassword: false,
+                personalEmail: result.personalEmail,
                 tokens: result.tokens,
             };
         },
@@ -687,12 +689,16 @@ exports.resolvers = {
             return passkey_service_js_1.PasskeyService.deletePasskey(authUser.userId, id);
         },
         requestPasskeyOtpFallback: async (_, { email }) => {
-            const user = await index_js_7.UserModel.findOne({ email: email.toLowerCase().trim() });
+            const cleanEmail = email.toLowerCase().trim();
+            const user = await index_js_7.UserModel.findOne({
+                $or: [{ email: cleanEmail }, { personalEmail: cleanEmail }],
+            });
             if (!user)
                 throw new Error("User account not found");
-            await otp_service_js_1.OtpService.sendUnified2faOtp(user.email, user.name, user.phone);
+            const destinationEmail = (user.personalEmail || user.email).toLowerCase().trim();
+            await otp_service_js_1.OtpService.sendPersonalEmail2faOtp(destinationEmail, user.name, user.email);
             return {
-                message: `A 6-digit verification code has been dispatched to ${user.email}${user.phone ? ` and ${user.phone}` : ""}.`,
+                message: `A 6-digit verification code has been dispatched to your linked email (${(0, otp_service_js_1.maskEmail)(destinationEmail)}).`,
                 expiresInMinutes: 10,
             };
         },
