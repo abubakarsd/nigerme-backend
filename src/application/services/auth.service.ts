@@ -351,7 +351,7 @@ export class AuthService {
       requiresTwoFactor: true,
       twoFactorType: "OTP",
       mustChangePassword: false,
-      phone: targetPersonalEmail,
+      phone: user.email,
       personalEmail: otpRes.personalEmailMasked || maskEmail(targetPersonalEmail),
       message: otpRes.message || `A 6-digit verification code has been dispatched to your personal email (${maskEmail(targetPersonalEmail)}).`,
     };

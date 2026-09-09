@@ -243,7 +243,7 @@ class AuthService {
             requiresTwoFactor: true,
             twoFactorType: "OTP",
             mustChangePassword: false,
-            phone: targetPersonalEmail,
+            phone: user.email,
             personalEmail: otpRes.personalEmailMasked || (0, otp_service_js_1.maskEmail)(targetPersonalEmail),
             message: otpRes.message || `A 6-digit verification code has been dispatched to your personal email (${(0, otp_service_js_1.maskEmail)(targetPersonalEmail)}).`,
         };
