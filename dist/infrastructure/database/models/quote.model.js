@@ -33,70 +33,86 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RoleModel = void 0;
+exports.QuoteModel = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const RolePermissionsSchema = new mongoose_1.Schema({
-    canAccessEmail: { type: Boolean, default: true },
-    canAccessPayroll: { type: Boolean, default: false },
-    canAccessPos: { type: Boolean, default: false },
-    canAccessLogistics: { type: Boolean, default: false },
-    canAccessHotel: { type: Boolean, default: false },
-    canAccessCrm: { type: Boolean, default: false },
-    canManageCrmCustomers: { type: Boolean, default: false },
-    canManageCrmTickets: { type: Boolean, default: false },
-    canManageCrmDeals: { type: Boolean, default: false },
-    canManageCrmQuotes: { type: Boolean, default: false },
-    canAccessAdminConsole: { type: Boolean, default: false },
-    canManageBilling: { type: Boolean, default: false },
-    canManageUsers: { type: Boolean, default: false },
-    canManageDomains: { type: Boolean, default: false },
+const QuoteItemSchema = new mongoose_1.Schema({
+    description: { type: String, required: true },
+    quantity: { type: Number, required: true, default: 1 },
+    unitPrice: { type: Number, required: true, default: 0 },
+    total: { type: Number, required: true, default: 0 },
 }, { _id: false });
-const RoleSchema = new mongoose_1.Schema({
+const QuoteSchema = new mongoose_1.Schema({
+    quoteNumber: {
+        type: String,
+        required: true,
+        index: true,
+    },
     organizationId: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: "Organization",
         required: true,
         index: true,
     },
-    name: {
+    customerId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "Customer",
+        required: true,
+        index: true,
+    },
+    customerName: {
         type: String,
         required: true,
-        trim: true,
     },
-    slug: {
+    customerEmail: {
         type: String,
-        trim: true,
+        required: true,
         lowercase: true,
     },
-    description: {
-        type: String,
-        default: "",
+    items: {
+        type: [QuoteItemSchema],
+        default: [],
     },
-    isSystem: {
-        type: Boolean,
-        default: false,
-    },
-    memberCount: {
+    subtotal: {
         type: Number,
+        required: true,
         default: 0,
     },
-    permissions: {
-        type: RolePermissionsSchema,
+    taxAmount: {
+        type: Number,
         required: true,
-        default: () => ({
-            canAccessEmail: true,
-            canAccessPayroll: false,
-            canAccessPos: false,
-            canAccessLogistics: false,
-            canAccessHotel: false,
-            canAccessAdminConsole: false,
-            canManageBilling: false,
-            canManageUsers: false,
-            canManageDomains: false,
-        }),
+        default: 0,
+    },
+    discountAmount: {
+        type: Number,
+        required: true,
+        default: 0,
+    },
+    totalAmount: {
+        type: Number,
+        required: true,
+        default: 0,
+    },
+    currency: {
+        type: String,
+        default: "NGN",
+    },
+    status: {
+        type: String,
+        enum: ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "CONVERTED_TO_INVOICE"],
+        default: "DRAFT",
+        index: true,
+    },
+    validUntil: {
+        type: Date,
+    },
+    notes: {
+        type: String,
+    },
+    convertedInvoiceId: {
+        type: String,
     },
 }, {
     timestamps: true,
 });
-RoleSchema.index({ organizationId: 1, name: 1 }, { unique: true });
-exports.RoleModel = mongoose_1.default.model("Role", RoleSchema);
+QuoteSchema.index({ organizationId: 1, status: 1 });
+exports.QuoteModel = mongoose_1.default.model("Quote", QuoteSchema);

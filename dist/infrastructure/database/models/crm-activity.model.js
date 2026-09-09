@@ -33,70 +33,63 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RoleModel = void 0;
+exports.CRMActivityModel = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const RolePermissionsSchema = new mongoose_1.Schema({
-    canAccessEmail: { type: Boolean, default: true },
-    canAccessPayroll: { type: Boolean, default: false },
-    canAccessPos: { type: Boolean, default: false },
-    canAccessLogistics: { type: Boolean, default: false },
-    canAccessHotel: { type: Boolean, default: false },
-    canAccessCrm: { type: Boolean, default: false },
-    canManageCrmCustomers: { type: Boolean, default: false },
-    canManageCrmTickets: { type: Boolean, default: false },
-    canManageCrmDeals: { type: Boolean, default: false },
-    canManageCrmQuotes: { type: Boolean, default: false },
-    canAccessAdminConsole: { type: Boolean, default: false },
-    canManageBilling: { type: Boolean, default: false },
-    canManageUsers: { type: Boolean, default: false },
-    canManageDomains: { type: Boolean, default: false },
-}, { _id: false });
-const RoleSchema = new mongoose_1.Schema({
+const CRMActivitySchema = new mongoose_1.Schema({
     organizationId: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: "Organization",
         required: true,
         index: true,
     },
-    name: {
+    customerId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "Customer",
+        required: true,
+        index: true,
+    },
+    type: {
+        type: String,
+        enum: [
+            "EMAIL_SENT",
+            "EMAIL_RECEIVED",
+            "TICKET_OPENED",
+            "TICKET_REPLIED",
+            "TICKET_RESOLVED",
+            "TASK_CREATED",
+            "CALENDAR_FOLLOWUP_SCHEDULED",
+            "DEAL_CREATED",
+            "DEAL_STAGE_CHANGED",
+            "QUOTE_CREATED",
+            "QUOTE_ACCEPTED",
+            "INVOICE_GENERATED",
+            "NOTE_ADDED",
+            "CALL_LOGGED",
+        ],
+        required: true,
+        index: true,
+    },
+    title: {
         type: String,
         required: true,
-        trim: true,
-    },
-    slug: {
-        type: String,
-        trim: true,
-        lowercase: true,
     },
     description: {
         type: String,
-        default: "",
     },
-    isSystem: {
-        type: Boolean,
-        default: false,
+    metadata: {
+        type: mongoose_1.Schema.Types.Mixed,
+        default: {},
     },
-    memberCount: {
-        type: Number,
-        default: 0,
-    },
-    permissions: {
-        type: RolePermissionsSchema,
+    actorName: {
+        type: String,
         required: true,
-        default: () => ({
-            canAccessEmail: true,
-            canAccessPayroll: false,
-            canAccessPos: false,
-            canAccessLogistics: false,
-            canAccessHotel: false,
-            canAccessAdminConsole: false,
-            canManageBilling: false,
-            canManageUsers: false,
-            canManageDomains: false,
-        }),
+    },
+    actorEmail: {
+        type: String,
+        required: true,
     },
 }, {
     timestamps: true,
 });
-RoleSchema.index({ organizationId: 1, name: 1 }, { unique: true });
-exports.RoleModel = mongoose_1.default.model("Role", RoleSchema);
+CRMActivitySchema.index({ customerId: 1, createdAt: -1 });
+exports.CRMActivityModel = mongoose_1.default.model("CRMActivity", CRMActivitySchema);

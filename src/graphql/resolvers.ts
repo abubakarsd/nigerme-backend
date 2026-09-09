@@ -1676,18 +1676,20 @@ export const resolvers = {
       context: GraphQLContext
     ) => {
       const authUser = requireAuth(context);
-      const email = await EmailModel.findOne({
-        _id: id,
-        organizationId: authUser.organizationId,
-      });
+      
+      const updateData: any = {};
+      if (folder) updateData.folder = folder;
+      if (typeof isRead === "boolean") updateData.isRead = isRead;
+      if (typeof isStarred === "boolean") updateData.isStarred = isStarred;
+      if (typeof isImportant === "boolean") updateData.isImportant = isImportant;
+
+      const email = await EmailModel.findOneAndUpdate(
+        { _id: id, organizationId: authUser.organizationId },
+        { $set: updateData },
+        { new: true }
+      );
+
       if (!email) throw new Error("Email not found");
-
-      if (folder) email.folder = folder;
-      if (typeof isRead === "boolean") email.isRead = isRead;
-      if (typeof isStarred === "boolean") email.isStarred = isStarred;
-      if (typeof isImportant === "boolean") email.isImportant = isImportant;
-
-      await email.save();
 
       return {
         id: email._id.toString(),

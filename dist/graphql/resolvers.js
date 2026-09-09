@@ -35,6 +35,7 @@ async function formatUserWithPermissions(userDoc) {
     let canManageBilling = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
     let canManageUsers = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
     let canManageDomains = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
+    let canAccessCrm = false;
     let accessiblePackages = ["org-email"];
     // 1. If SaaS Admin or Org Owner
     if (user.userType === "saas_admin" || user.role === "admin" || user.role === "owner" || user.role === "superadmin") {
@@ -42,11 +43,12 @@ async function formatUserWithPermissions(userDoc) {
         canAccessPos = true;
         canAccessLogistics = true;
         canAccessHotel = true;
+        canAccessCrm = true;
         canAccessAdminConsole = true;
         canManageBilling = true;
         canManageUsers = true;
         canManageDomains = true;
-        accessiblePackages = ["org-email", "org-pos", "org-payroll", "org-logistics", "org-hotel"];
+        accessiblePackages = ["org-email", "org-pos", "org-payroll", "org-logistics", "org-hotel", "org-crm"];
     }
     else {
         // 2. Lookup assigned RoleModel if roleId or slug exists
@@ -98,6 +100,7 @@ async function formatUserWithPermissions(userDoc) {
         canAccessPos,
         canAccessLogistics,
         canAccessHotel,
+        canAccessCrm,
         canAccessAdminConsole,
         canManageBilling,
         canManageUsers,
@@ -1428,21 +1431,18 @@ exports.resolvers = {
         },
         updateEmailStatus: async (_, { id, folder, isRead, isStarred, isImportant }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
-            const email = await index_js_7.EmailModel.findOne({
-                _id: id,
-                organizationId: authUser.organizationId,
-            });
+            const updateData = {};
+            if (folder)
+                updateData.folder = folder;
+            if (typeof isRead === "boolean")
+                updateData.isRead = isRead;
+            if (typeof isStarred === "boolean")
+                updateData.isStarred = isStarred;
+            if (typeof isImportant === "boolean")
+                updateData.isImportant = isImportant;
+            const email = await index_js_7.EmailModel.findOneAndUpdate({ _id: id, organizationId: authUser.organizationId }, { $set: updateData }, { new: true });
             if (!email)
                 throw new Error("Email not found");
-            if (folder)
-                email.folder = folder;
-            if (typeof isRead === "boolean")
-                email.isRead = isRead;
-            if (typeof isStarred === "boolean")
-                email.isStarred = isStarred;
-            if (typeof isImportant === "boolean")
-                email.isImportant = isImportant;
-            await email.save();
             return {
                 id: email._id.toString(),
                 threadId: email.threadId,

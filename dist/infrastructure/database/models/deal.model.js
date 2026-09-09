@@ -33,70 +33,69 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RoleModel = void 0;
+exports.DealModel = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const RolePermissionsSchema = new mongoose_1.Schema({
-    canAccessEmail: { type: Boolean, default: true },
-    canAccessPayroll: { type: Boolean, default: false },
-    canAccessPos: { type: Boolean, default: false },
-    canAccessLogistics: { type: Boolean, default: false },
-    canAccessHotel: { type: Boolean, default: false },
-    canAccessCrm: { type: Boolean, default: false },
-    canManageCrmCustomers: { type: Boolean, default: false },
-    canManageCrmTickets: { type: Boolean, default: false },
-    canManageCrmDeals: { type: Boolean, default: false },
-    canManageCrmQuotes: { type: Boolean, default: false },
-    canAccessAdminConsole: { type: Boolean, default: false },
-    canManageBilling: { type: Boolean, default: false },
-    canManageUsers: { type: Boolean, default: false },
-    canManageDomains: { type: Boolean, default: false },
-}, { _id: false });
-const RoleSchema = new mongoose_1.Schema({
+const DealSchema = new mongoose_1.Schema({
     organizationId: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: "Organization",
         required: true,
         index: true,
     },
-    name: {
+    title: {
         type: String,
         required: true,
         trim: true,
     },
-    slug: {
+    customerId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "Customer",
+        required: true,
+        index: true,
+    },
+    customerName: {
         type: String,
-        trim: true,
-        lowercase: true,
+        required: true,
     },
-    description: {
+    companyName: {
         type: String,
-        default: "",
     },
-    isSystem: {
-        type: Boolean,
-        default: false,
-    },
-    memberCount: {
+    amount: {
         type: Number,
+        required: true,
         default: 0,
     },
-    permissions: {
-        type: RolePermissionsSchema,
-        required: true,
-        default: () => ({
-            canAccessEmail: true,
-            canAccessPayroll: false,
-            canAccessPos: false,
-            canAccessLogistics: false,
-            canAccessHotel: false,
-            canAccessAdminConsole: false,
-            canManageBilling: false,
-            canManageUsers: false,
-            canManageDomains: false,
-        }),
+    currency: {
+        type: String,
+        default: "NGN",
+    },
+    stage: {
+        type: String,
+        enum: ["LEAD", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"],
+        default: "LEAD",
+        index: true,
+    },
+    probability: {
+        type: Number,
+        default: 10,
+        min: 0,
+        max: 100,
+    },
+    expectedClosingDate: {
+        type: Date,
+    },
+    assignedAgentId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "User",
+    },
+    assignedAgentName: {
+        type: String,
+    },
+    notes: {
+        type: String,
     },
 }, {
     timestamps: true,
 });
-RoleSchema.index({ organizationId: 1, name: 1 }, { unique: true });
-exports.RoleModel = mongoose_1.default.model("Role", RoleSchema);
+DealSchema.index({ organizationId: 1, stage: 1 });
+exports.DealModel = mongoose_1.default.model("Deal", DealSchema);

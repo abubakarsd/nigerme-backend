@@ -30,6 +30,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     canAccessPos: Boolean
     canAccessLogistics: Boolean
     canAccessHotel: Boolean
+    canAccessCrm: Boolean
     canAccessAdminConsole: Boolean
     accessiblePackages: [String!]
     avatarUrl: String
@@ -103,6 +104,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     canAccessPos: Boolean!
     canAccessLogistics: Boolean!
     canAccessHotel: Boolean!
+    canAccessCrm: Boolean!
     canAccessAdminConsole: Boolean!
     canManageBilling: Boolean!
     canManageUsers: Boolean!
@@ -700,6 +702,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     canAccessPos: Boolean
     canAccessLogistics: Boolean
     canAccessHotel: Boolean
+    canAccessCrm: Boolean
     canAccessAdminConsole: Boolean
     canManageBilling: Boolean
     canManageUsers: Boolean
