@@ -31,6 +31,11 @@ export interface IOrganization extends Document {
     accountName: string;
     bankName: string;
     assignedAt: Date;
+    isVerified?: boolean;
+    bvnMasked?: string;
+    customerCode?: string;
+    paystackCustomerId?: string | number;
+    paystackDedicatedAccountId?: string | number;
   };
   dnsVerification: {
     spfStatus: "pending" | "verified" | "failed" | "not_started";
@@ -107,6 +112,11 @@ const OrganizationSchema = new Schema<IOrganization>(
       accountName: String,
       bankName: String,
       assignedAt: Date,
+      isVerified: { type: Boolean, default: false },
+      bvnMasked: String,
+      customerCode: String,
+      paystackCustomerId: Schema.Types.Mixed,
+      paystackDedicatedAccountId: Schema.Types.Mixed,
     },
     dnsVerification: {
       spfStatus: { type: String, default: "not_started" },

@@ -96,6 +96,15 @@ export const typeDefs = gql`
     accountName: String!
     bankName: String!
     assignedAt: String
+    isVerified: Boolean
+    bvnMasked: String
+  }
+
+  type CreateDedicatedVirtualAccountPayload {
+    success: Boolean!
+    message: String!
+    dedicatedVirtualAccount: DedicatedVirtualAccount
+    organization: Organization
   }
 
   type RolePermissions {
@@ -533,6 +542,7 @@ export const typeDefs = gql`
     # ── Payments (Paystack & Direct Funding) ──
     initializeWalletFunding(input: FundWalletInput!): PaymentInitPayload!
     fundWalletDirect(amountInNaira: Float!, channel: String, description: String): Transaction!
+    createDedicatedVirtualAccount(bvn: String!): CreateDedicatedVirtualAccountPayload!
 
     # ── Webmail Client Dispatch & Management ──
     sendMail(input: SendMailInput!): WebmailMessage!

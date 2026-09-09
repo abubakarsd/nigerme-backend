@@ -21,6 +21,7 @@ const otp_service_js_1 = require("../application/services/otp.service.js");
 const passkey_service_js_1 = require("../application/services/passkey.service.js");
 const package_seed_js_1 = require("../infrastructure/database/seeds/package.seed.js");
 const role_seed_js_1 = require("../infrastructure/database/seeds/role.seed.js");
+const encryption_js_1 = require("../infrastructure/security/encryption.js");
 const mongoose_1 = __importDefault(require("mongoose"));
 async function formatUserWithPermissions(userDoc) {
     if (!userDoc)
@@ -125,13 +126,9 @@ exports.resolvers = {
             let org = await organization_service_js_1.OrganizationService.getById(authUser.organizationId);
             if (!org)
                 return null;
-            if (!org.dedicatedVirtualAccount || !org.dedicatedVirtualAccount.accountNumber) {
-                org.dedicatedVirtualAccount = {
-                    accountNumber: "0294819284",
-                    accountName: `Nigerme / ${org.name}`,
-                    bankName: "Wema Bank Plc (Sovereign NIBSS)",
-                    assignedAt: new Date(),
-                };
+            // Clean up legacy placeholder if present and not verified
+            if (org.dedicatedVirtualAccount && !org.dedicatedVirtualAccount.isVerified && org.dedicatedVirtualAccount.accountNumber === "0294819284") {
+                org.dedicatedVirtualAccount = undefined;
                 await org.save();
             }
             let needsSave = false;
@@ -1504,6 +1501,93 @@ exports.resolvers = {
                 currency: txn.currency,
                 paidAt: txn.paidAt?.toISOString(),
                 createdAt: txn.createdAt.toISOString(),
+            };
+        },
+        createDedicatedVirtualAccount: async (_, { bvn }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const cleanBvn = (bvn || "").replace(/\D/g, "").trim();
+            if (!/^\d{11}$/.test(cleanBvn)) {
+                throw new Error("Invalid BVN. Bank Verification Number must be exactly 11 digits.");
+            }
+            const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            if (!org)
+                throw new Error("Organization not found");
+            const user = await index_js_7.UserModel.findById(authUser.userId);
+            // Step 1: Verify BVN with Provn Verification Service
+            console.log(`[Provn] Verifying BVN for organization '${org.name}'`);
+            let bvnResponse;
+            try {
+                bvnResponse = await index_js_3.ProvnKycService.verifyBVN(cleanBvn);
+            }
+            catch (err) {
+                throw new Error(`Provn BVN Verification failed: ${err.message || "Invalid or unreachable BVN"}`);
+            }
+            if (!bvnResponse || !bvnResponse.data) {
+                throw new Error("Provn BVN verification returned invalid data.");
+            }
+            const userParts = (user?.name || "").trim().split(" ");
+            const fallbackFirst = userParts[0] || "Sovereign";
+            const fallbackLast = userParts.slice(1).join(" ") || "Admin";
+            const verifiedFirstName = bvnResponse.data.first_name || fallbackFirst;
+            const verifiedLastName = bvnResponse.data.last_name || fallbackLast;
+            const verifiedPhone = bvnResponse.data.phone_number || user?.phone || "08012345678";
+            const customerEmail = user?.email || (org.domain ? `billing@${org.domain}` : "billing@nigerme.com");
+            // Record KYC snapshot in database
+            try {
+                const encryptedId = (0, encryption_js_1.encryptData)(cleanBvn);
+                const maskedBvn = (0, encryption_js_1.maskIdentifier)(cleanBvn);
+                await index_js_7.KycRecordModel.create({
+                    userId: authUser.userId,
+                    organizationId: org._id,
+                    idType: "bvn",
+                    encryptedIdNumber: encryptedId,
+                    maskedIdNumber: maskedBvn,
+                    verificationStatus: "verified",
+                    provnReferenceId: `PRV-BVN-${Date.now()}`,
+                    provnPayloadSnapshot: bvnResponse.data,
+                    verifiedAt: new Date(),
+                });
+            }
+            catch (snapshotErr) {
+                console.warn("[KycRecord] Snapshot save notice:", snapshotErr);
+            }
+            // Step 2: Create Paystack Dedicated Virtual Account using verified details
+            console.log(`[Paystack] Creating Dedicated Virtual Account for ${customerEmail} (${verifiedFirstName} ${verifiedLastName})`);
+            const dvaResult = await index_js_5.PaystackService.createDedicatedVirtualAccount({
+                customerEmail,
+                firstName: verifiedFirstName,
+                lastName: verifiedLastName,
+                phone: verifiedPhone,
+                bvn: cleanBvn,
+            });
+            // Step 3: Update organization with verified dedicated virtual account
+            org.dedicatedVirtualAccount = {
+                accountNumber: dvaResult.accountNumber,
+                accountName: dvaResult.accountName,
+                bankName: dvaResult.bankName,
+                assignedAt: dvaResult.assignedAt || new Date(),
+                isVerified: true,
+                bvnMasked: (0, encryption_js_1.maskIdentifier)(cleanBvn),
+                customerCode: dvaResult.customerCode,
+                paystackCustomerId: dvaResult.paystackCustomerId,
+                paystackDedicatedAccountId: dvaResult.paystackDedicatedAccountId,
+            };
+            org.kycStatus = "verified";
+            await org.save();
+            return {
+                success: true,
+                message: "Dedicated Virtual Account generated successfully via Provn & Paystack.",
+                dedicatedVirtualAccount: {
+                    accountNumber: org.dedicatedVirtualAccount.accountNumber,
+                    accountName: org.dedicatedVirtualAccount.accountName,
+                    bankName: org.dedicatedVirtualAccount.bankName,
+                    assignedAt: org.dedicatedVirtualAccount.assignedAt?.toISOString(),
+                    isVerified: true,
+                    bvnMasked: org.dedicatedVirtualAccount.bvnMasked,
+                },
+                organization: org,
             };
         },
         // ─── Webmail Dispatch & Management Mutations ───

@@ -16,12 +16,13 @@ import { PasskeyService } from "../application/services/passkey.service.js";
 import { INITIAL_PACKAGES } from "../infrastructure/database/seeds/package.seed.js";
 import { seedPermissions } from "../infrastructure/database/seeds/permission.seed.js";
 import { seedOrganizationDefaultRoles, seedOrganizationDefaultDepartments } from "../infrastructure/database/seeds/role.seed.js";
+import { encryptData, maskIdentifier } from "../infrastructure/security/encryption.js";
 import mongoose from "mongoose";
 
 async function formatUserWithPermissions(userDoc: any) {
   if (!userDoc) return null;
   const user = userDoc.toObject ? userDoc.toObject() : userDoc;
-  
+
   let roleName = user.role || "Standard Team Member";
   let canAccessPayroll = false;
   let canAccessPos = false;
@@ -120,13 +121,9 @@ export const resolvers = {
       let org = await OrganizationService.getById(authUser.organizationId);
       if (!org) return null;
 
-      if (!org.dedicatedVirtualAccount || !org.dedicatedVirtualAccount.accountNumber) {
-        org.dedicatedVirtualAccount = {
-          accountNumber: "0294819284",
-          accountName: `Nigerme / ${org.name}`,
-          bankName: "Wema Bank Plc (Sovereign NIBSS)",
-          assignedAt: new Date(),
-        };
+      // Clean up legacy placeholder if present and not verified
+      if (org.dedicatedVirtualAccount && !org.dedicatedVirtualAccount.isVerified && org.dedicatedVirtualAccount.accountNumber === "0294819284") {
+        org.dedicatedVirtualAccount = undefined;
         await org.save();
       }
 
@@ -292,7 +289,7 @@ export const resolvers = {
       return depts.map((d) => {
         const matchingUsers = usersInOrg.filter(
           (u) => (u.departmentId && u.departmentId.toString() === d._id.toString()) ||
-                 (u.department && u.department.toLowerCase() === d.name.toLowerCase())
+            (u.department && u.department.toLowerCase() === d.name.toLowerCase())
         );
         return {
           id: d._id.toString(),
@@ -367,7 +364,7 @@ export const resolvers = {
       return roles.map((r) => {
         const count = usersInOrg.filter(
           (u) => (u.roleId && u.roleId.toString() === r._id.toString()) ||
-                 (u.role && (u.role.toLowerCase() === r.name.toLowerCase() || u.role.toLowerCase() === r.slug?.toLowerCase()))
+            (u.role && (u.role.toLowerCase() === r.name.toLowerCase() || u.role.toLowerCase() === r.slug?.toLowerCase()))
         ).length;
 
         return {
@@ -1744,6 +1741,105 @@ export const resolvers = {
       };
     },
 
+    createDedicatedVirtualAccount: async (
+      _: any,
+      { bvn }: { bvn: string },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+
+      const cleanBvn = (bvn || "").replace(/\D/g, "").trim();
+      if (!/^\d{11}$/.test(cleanBvn)) {
+        throw new Error("Invalid BVN. Bank Verification Number must be exactly 11 digits.");
+      }
+
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      const user = await UserModel.findById(authUser.userId);
+
+      // Step 1: Verify BVN with Provn Verification Service
+      console.log(`[Provn] Verifying BVN for organization '${org.name}'`);
+      let bvnResponse: any;
+      try {
+        bvnResponse = await ProvnKycService.verifyBVN(cleanBvn);
+      } catch (err: any) {
+        throw new Error(`Provn BVN Verification failed: ${err.message || "Invalid or unreachable BVN"}`);
+      }
+
+      if (!bvnResponse || !bvnResponse.data) {
+        throw new Error("Provn BVN verification returned invalid data.");
+      }
+
+      const userParts = (user?.name || "").trim().split(" ");
+      const fallbackFirst = userParts[0] || "Sovereign";
+      const fallbackLast = userParts.slice(1).join(" ") || "Admin";
+
+      const verifiedFirstName = bvnResponse.data.first_name || fallbackFirst;
+      const verifiedLastName = bvnResponse.data.last_name || fallbackLast;
+      const verifiedPhone = bvnResponse.data.phone_number || user?.phone;
+      const customerEmail = user?.email || (org.domain ? `billing@${org.domain}` : "billing@nigerme.com");
+
+      // Record KYC snapshot in database
+      try {
+        const encryptedId = encryptData(cleanBvn);
+        const maskedBvn = maskIdentifier(cleanBvn);
+        await KycRecordModel.create({
+          userId: authUser.userId as any,
+          organizationId: org._id as any,
+          idType: "bvn",
+          encryptedIdNumber: encryptedId,
+          maskedIdNumber: maskedBvn,
+          verificationStatus: "verified",
+          provnReferenceId: `PRV-BVN-${Date.now()}`,
+          provnPayloadSnapshot: bvnResponse.data,
+          verifiedAt: new Date(),
+        });
+      } catch (snapshotErr) {
+        console.warn("[KycRecord] Snapshot save notice:", snapshotErr);
+      }
+
+      // Step 2: Create Paystack Dedicated Virtual Account using verified details
+      console.log(`[Paystack] Creating Dedicated Virtual Account for ${customerEmail} (${verifiedFirstName} ${verifiedLastName})`);
+      const dvaResult = await PaystackService.createDedicatedVirtualAccount({
+        customerEmail,
+        firstName: verifiedFirstName,
+        lastName: verifiedLastName,
+        phone: verifiedPhone,
+        bvn: cleanBvn,
+      });
+
+      // Step 3: Update organization with verified dedicated virtual account
+      org.dedicatedVirtualAccount = {
+        accountNumber: dvaResult.accountNumber,
+        accountName: dvaResult.accountName,
+        bankName: dvaResult.bankName,
+        assignedAt: dvaResult.assignedAt || new Date(),
+        isVerified: true,
+        bvnMasked: maskIdentifier(cleanBvn),
+        customerCode: dvaResult.customerCode,
+        paystackCustomerId: dvaResult.paystackCustomerId,
+        paystackDedicatedAccountId: dvaResult.paystackDedicatedAccountId,
+      };
+      org.kycStatus = "verified";
+      await org.save();
+
+      return {
+        success: true,
+        message: "Dedicated Virtual Account generated successfully via Provn & Paystack.",
+        dedicatedVirtualAccount: {
+          accountNumber: org.dedicatedVirtualAccount.accountNumber,
+          accountName: org.dedicatedVirtualAccount.accountName,
+          bankName: org.dedicatedVirtualAccount.bankName,
+          assignedAt: org.dedicatedVirtualAccount.assignedAt?.toISOString(),
+          isVerified: true,
+          bvnMasked: org.dedicatedVirtualAccount.bvnMasked,
+        },
+        organization: org,
+      };
+    },
+
     // ─── Webmail Dispatch & Management Mutations ───
     sendMail: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
@@ -1917,7 +2013,7 @@ export const resolvers = {
       context: GraphQLContext
     ) => {
       const authUser = requireAuth(context);
-      
+
       const updateData: any = {};
       if (folder) updateData.folder = folder;
       if (typeof isRead === "boolean") updateData.isRead = isRead;
@@ -2138,10 +2234,10 @@ function computePackageSubscriptions(org: any) {
     const trialStartsAt = found?.trialStartsAt
       ? new Date(found.trialStartsAt)
       : org.trialStartsAt
-      ? new Date(org.trialStartsAt)
-      : org.createdAt
-      ? new Date(org.createdAt)
-      : now;
+        ? new Date(org.trialStartsAt)
+        : org.createdAt
+          ? new Date(org.createdAt)
+          : now;
     const trialEndsAt = found?.trialEndsAt
       ? new Date(found.trialEndsAt)
       : new Date(trialStartsAt.getTime() + 7 * 24 * 60 * 60 * 1000);

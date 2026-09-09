@@ -70,6 +70,11 @@ const OrganizationSchema = new mongoose_1.Schema({
         accountName: String,
         bankName: String,
         assignedAt: Date,
+        isVerified: { type: Boolean, default: false },
+        bvnMasked: String,
+        customerCode: String,
+        paystackCustomerId: mongoose_1.Schema.Types.Mixed,
+        paystackDedicatedAccountId: mongoose_1.Schema.Types.Mixed,
     },
     dnsVerification: {
         spfStatus: { type: String, default: "not_started" },
