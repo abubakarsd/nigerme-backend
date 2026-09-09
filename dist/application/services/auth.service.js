@@ -79,6 +79,15 @@ class AuthService {
             dailySendingLimit: 1000,
             phone: dto.phone || user.phone || "",
             subscribedPackages: ["org-email"],
+            packageSubscriptions: [
+                {
+                    packageId: "org-email",
+                    status: "TRIAL",
+                    trialStartsAt,
+                    trialEndsAt,
+                    activatedAt: trialStartsAt,
+                },
+            ],
             totalSeats: 1,
             usedSeats: 1,
             subscriptionStatus: "TRIAL",

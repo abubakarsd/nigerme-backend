@@ -166,6 +166,7 @@ export const typeDefs = gql`
     capabilities: DomainCapabilities
     dedicatedVirtualAccount: DedicatedVirtualAccount
     subscribedPackages: [String!]
+    packageSubscriptions: [PackageSubscription!]
     billingCycle: String
     autoDebitWallet: Boolean
     totalSeats: Int
@@ -185,6 +186,16 @@ export const typeDefs = gql`
     departments: [Department!]!
     roles: [WorkspaceRole!]!
     createdAt: String!
+  }
+
+  type PackageSubscription {
+    packageId: String!
+    status: String!
+    trialStartsAt: String
+    trialEndsAt: String
+    daysRemaining: Int!
+    isTrial: Boolean!
+    activatedAt: String!
   }
 
   type AuthPayload {

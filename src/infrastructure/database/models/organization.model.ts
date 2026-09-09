@@ -10,11 +10,21 @@ export interface IResendDnsRecord {
   priority?: number;
 }
 
+export interface IPackageSubscription {
+  packageId: string;
+  status: "TRIAL" | "ACTIVE" | "CANCELLED";
+  trialStartsAt: Date;
+  trialEndsAt: Date;
+  activatedAt: Date;
+  currentPeriodStartsAt?: Date;
+  currentPeriodEndsAt?: Date;
+}
+
 export interface IOrganization extends Document {
   name: string;
   domain: string;
   ownerId: mongoose.Types.ObjectId;
-  plan: "tier1" | "tier2" | "tier3" | "enterprise";
+  plan: "starter" | "pro" | "enterprise" | "tier1" | "tier2" | "tier3";
   walletBalance: number; // in Kobo (e.g. 500000 = 5,000 NGN)
   dedicatedVirtualAccount?: {
     accountNumber: string;
@@ -23,10 +33,10 @@ export interface IOrganization extends Document {
     assignedAt: Date;
   };
   dnsVerification: {
-    spfStatus: string;
-    dkimStatus: string;
-    dmarcStatus: string;
-    mxStatus: string;
+    spfStatus: "pending" | "verified" | "failed" | "not_started";
+    dkimStatus: "pending" | "verified" | "failed" | "not_started";
+    dmarcStatus: "pending" | "verified" | "failed" | "not_started";
+    mxStatus: "pending" | "verified" | "failed" | "not_started";
     lastCheckedAt?: Date;
   };
   resendDomainId?: string;
@@ -38,6 +48,7 @@ export interface IOrganization extends Document {
   dailySendingLimit: number;
   emailsSentToday: number;
   subscribedPackages?: string[];
+  packageSubscriptions?: IPackageSubscription[];
   billingCycle?: "MONTHLY" | "ANNUAL";
   autoDebitWallet?: boolean;
   totalSeats?: number;
@@ -83,8 +94,8 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     plan: {
       type: String,
-      enum: ["tier1", "tier2", "tier3", "enterprise"],
-      default: "tier1",
+      enum: ["starter", "pro", "enterprise", "tier1", "tier2", "tier3"],
+      default: "starter",
     },
     walletBalance: {
       type: Number,
@@ -150,6 +161,17 @@ const OrganizationSchema = new Schema<IOrganization>(
       type: [String],
       default: ["org-email"],
     },
+    packageSubscriptions: [
+      {
+        packageId: { type: String, required: true },
+        status: { type: String, enum: ["TRIAL", "ACTIVE", "CANCELLED"], default: "TRIAL" },
+        trialStartsAt: { type: Date, default: Date.now },
+        trialEndsAt: { type: Date, required: true },
+        activatedAt: { type: Date, default: Date.now },
+        currentPeriodStartsAt: Date,
+        currentPeriodEndsAt: Date,
+      },
+    ],
     billingCycle: {
       type: String,
       enum: ["MONTHLY", "ANNUAL"],

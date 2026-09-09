@@ -57,8 +57,8 @@ const OrganizationSchema = new mongoose_1.Schema({
     },
     plan: {
         type: String,
-        enum: ["tier1", "tier2", "tier3", "enterprise"],
-        default: "tier1",
+        enum: ["starter", "pro", "enterprise", "tier1", "tier2", "tier3"],
+        default: "starter",
     },
     walletBalance: {
         type: Number,
@@ -124,6 +124,17 @@ const OrganizationSchema = new mongoose_1.Schema({
         type: [String],
         default: ["org-email"],
     },
+    packageSubscriptions: [
+        {
+            packageId: { type: String, required: true },
+            status: { type: String, enum: ["TRIAL", "ACTIVE", "CANCELLED"], default: "TRIAL" },
+            trialStartsAt: { type: Date, default: Date.now },
+            trialEndsAt: { type: Date, required: true },
+            activatedAt: { type: Date, default: Date.now },
+            currentPeriodStartsAt: Date,
+            currentPeriodEndsAt: Date,
+        },
+    ],
     billingCycle: {
         type: String,
         enum: ["MONTHLY", "ANNUAL"],

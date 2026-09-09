@@ -772,10 +772,47 @@ exports.resolvers = {
             if (!subscribed.includes(packageId)) {
                 subscribed.push(packageId);
                 org.subscribedPackages = subscribed;
+                const now = new Date();
+                const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                const pkgSubs = org.packageSubscriptions ? [...org.packageSubscriptions] : [];
+                const existingIdx = pkgSubs.findIndex((s) => s.packageId === packageId);
+                if (existingIdx >= 0) {
+                    pkgSubs[existingIdx].status = "TRIAL";
+                    pkgSubs[existingIdx].trialStartsAt = now;
+                    pkgSubs[existingIdx].trialEndsAt = trialEndsAt;
+                    pkgSubs[existingIdx].activatedAt = now;
+                }
+                else {
+                    pkgSubs.push({
+                        packageId,
+                        status: "TRIAL",
+                        trialStartsAt: now,
+                        trialEndsAt,
+                        activatedAt: now,
+                    });
+                }
+                org.packageSubscriptions = pkgSubs;
                 await org.save();
                 const user = await index_js_7.UserModel.findById(authUser.userId);
                 const pkg = package_seed_js_1.INITIAL_PACKAGES.find((p) => p.packageId === packageId);
                 const pkgName = pkg ? pkg.name : packageId;
+                // Record ₦0 transaction for 7-day free trial activation of this package
+                const trialRef = `TRIAL-${packageId}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                await index_js_7.TransactionModel.create({
+                    organizationId: org._id,
+                    userId: authUser.userId,
+                    reference: trialRef,
+                    type: "subscription_charge",
+                    amount: 0,
+                    status: "success",
+                    channel: "wallet",
+                    currency: "NGN",
+                    paidAt: now,
+                    metadata: {
+                        description: `${pkgName} 7-Day Free Trial Activation`,
+                        packageId,
+                    },
+                });
                 if (user && user.email) {
                     index_js_6.ResendEmailService.sendPackageSubscribedReceipt(user.email, user.name || "Administrator", org.name, pkgName, org.billingCycle || "MONTHLY").catch((err) => console.error("⚠️ Failed to send package subscription email:", err));
                 }
@@ -797,6 +834,12 @@ exports.resolvers = {
                 throw new Error("Cannot cancel Sovereign Core Email Suite.");
             }
             org.subscribedPackages = (org.subscribedPackages || ["org-email"]).filter((p) => p !== packageId);
+            if (org.packageSubscriptions) {
+                const pkgIdx = org.packageSubscriptions.findIndex((s) => s.packageId === packageId);
+                if (pkgIdx >= 0) {
+                    org.packageSubscriptions[pkgIdx].status = "CANCELLED";
+                }
+            }
             await org.save();
             const user = await index_js_7.UserModel.findById(authUser.userId);
             const pkg = package_seed_js_1.INITIAL_PACKAGES.find((p) => p.packageId === packageId);
@@ -820,36 +863,65 @@ exports.resolvers = {
             const user = await index_js_7.UserModel.findById(authUser.userId);
             const now = new Date();
             const isAnnual = billingCycle === "ANNUAL";
-            // Calculate total cost
-            let totalCostInNaira = 0;
+            const userCount = await index_js_7.UserModel.countDocuments({ organizationId: org._id });
+            const actualSeats = Math.max(1, totalSeats, userCount, org.usedSeats || 1);
+            // Manage package subscriptions and trial periods
+            const existingPkgSubs = org.packageSubscriptions ? [...org.packageSubscriptions] : [];
+            const newTrialPackages = [];
             for (const pkgId of packageIds) {
-                const pkg = package_seed_js_1.INITIAL_PACKAGES.find((p) => p.packageId === pkgId);
-                if (pkg) {
-                    if (pkg.pricingModel === "PER_SEAT" || pkgId === "org-email" || pkg.isCore) {
-                        totalCostInNaira += (isAnnual ? pkg.priceAnnual : pkg.priceMonthly) * totalSeats;
-                    }
-                    else {
-                        totalCostInNaira += isAnnual ? pkg.priceAnnual : pkg.priceMonthly;
+                const existingIdx = existingPkgSubs.findIndex((s) => s.packageId === pkgId);
+                if (existingIdx === -1) {
+                    // Newly added package -> start 7-Day Free Trial!
+                    const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                    existingPkgSubs.push({
+                        packageId: pkgId,
+                        status: "TRIAL",
+                        trialStartsAt: now,
+                        trialEndsAt,
+                        activatedAt: now,
+                    });
+                    newTrialPackages.push(pkgId);
+                }
+                else {
+                    // Already in records: check trial expiration
+                    const sub = existingPkgSubs[existingIdx];
+                    const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+                    if (trialEnd && now < trialEnd) {
+                        sub.status = "TRIAL";
                     }
                 }
             }
-            // 1. Check if first-time activation on 7-Day Free Trial (₦0 due today)
-            const isFirstTimeTrial = !org.subscriptionStartsAt ||
-                org.subscriptionStatus === "TRIAL" ||
-                !org.subscriptionStatus;
-            const userCount = await index_js_7.UserModel.countDocuments({ organizationId: org._id });
-            const actualSeats = Math.max(1, totalSeats, userCount, org.usedSeats || 1);
-            if (isFirstTimeTrial) {
+            org.packageSubscriptions = existingPkgSubs;
+            // Calculate total cost: only charge for packages whose 7-day trial has elapsed!
+            let totalCostInNaira = 0;
+            for (const pkgId of packageIds) {
+                const sub = existingPkgSubs.find((s) => s.packageId === pkgId);
+                const isInTrial = sub && sub.trialEndsAt && now < new Date(sub.trialEndsAt);
+                if (!isInTrial) {
+                    const pkg = package_seed_js_1.INITIAL_PACKAGES.find((p) => p.packageId === pkgId);
+                    if (pkg) {
+                        if (pkg.pricingModel === "PER_SEAT" || pkgId === "org-email" || pkg.isCore) {
+                            totalCostInNaira += (isAnnual ? pkg.priceAnnual : pkg.priceMonthly) * actualSeats;
+                        }
+                        else {
+                            totalCostInNaira += isAnnual ? pkg.priceAnnual : pkg.priceMonthly;
+                        }
+                    }
+                }
+            }
+            // If all selected packages are on 7-Day Free Trial (₦0 due today)
+            if (totalCostInNaira === 0) {
                 org.subscribedPackages = packageIds;
                 org.billingCycle = billingCycle;
                 org.usedSeats = Math.max(1, userCount, org.usedSeats || 1);
                 org.totalSeats = actualSeats;
-                org.subscriptionStatus = "TRIAL";
-                org.trialStartsAt = now;
-                const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-                org.trialEndsAt = trialEndsAt;
-                org.subscriptionStartsAt = now;
-                org.subscriptionExpiresAt = trialEndsAt;
+                if (!org.subscriptionStatus || org.subscriptionStatus === "TRIAL") {
+                    org.subscriptionStatus = "TRIAL";
+                    org.trialStartsAt = org.trialStartsAt || now;
+                    org.trialEndsAt = org.trialEndsAt || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                    org.subscriptionExpiresAt = org.trialEndsAt;
+                }
+                org.subscriptionStartsAt = org.subscriptionStartsAt || now;
                 org.gracePeriodEndsAt = undefined;
                 org.isSuspended = false;
                 org.lastBillingReminderType = undefined;
@@ -860,25 +932,31 @@ exports.resolvers = {
                     await user.save();
                 }
                 await index_js_7.UserModel.updateMany({ organizationId: org._id }, { $set: { canAccessEmail: true } });
-                const trialRef = `TRIAL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-                // Record ₦0 transaction in ledger for 7-day free trial activation
-                await index_js_7.TransactionModel.create({
-                    organizationId: org._id,
-                    userId: authUser.userId,
-                    reference: trialRef,
-                    type: "subscription_charge",
-                    amount: 0,
-                    status: "success",
-                    channel: "wallet",
-                    currency: "NGN",
-                    paidAt: now,
-                    metadata: {
-                        description: "7-Day Sovereign Free Trial Activation",
-                        packageIds,
-                        seatCount: actualSeats,
-                    },
-                });
+                // Record ₦0 transaction in ledger for 7-day free trial packages
+                const packagesToLog = newTrialPackages.length > 0 ? newTrialPackages : packageIds;
+                for (const trialPkgId of packagesToLog) {
+                    const pkg = package_seed_js_1.INITIAL_PACKAGES.find((p) => p.packageId === trialPkgId);
+                    const pkgName = pkg ? pkg.name : trialPkgId;
+                    const trialRef = `TRIAL-${trialPkgId}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                    await index_js_7.TransactionModel.create({
+                        organizationId: org._id,
+                        userId: authUser.userId,
+                        reference: trialRef,
+                        type: "subscription_charge",
+                        amount: 0,
+                        status: "success",
+                        channel: "wallet",
+                        currency: "NGN",
+                        paidAt: now,
+                        metadata: {
+                            description: `${pkgName} 7-Day Free Trial Activation`,
+                            packageIds: [trialPkgId],
+                            seatCount: actualSeats,
+                        },
+                    });
+                }
                 // Create subscription history record
+                const mainTrialRef = `TRIAL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
                 await index_js_7.SubscriptionModel.create({
                     organizationId: org._id,
                     packageIds,
@@ -886,14 +964,14 @@ exports.resolvers = {
                     seatCount: actualSeats,
                     totalAmount: 0,
                     currency: "NGN",
-                    status: "TRIAL",
+                    status: org.subscriptionStatus,
                     paymentMethod: "FREE_TRIAL",
                     trialStartsAt: now,
-                    trialEndsAt,
+                    trialEndsAt: org.trialEndsAt || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
                     currentPeriodStartsAt: now,
-                    currentPeriodEndsAt: trialEndsAt,
+                    currentPeriodEndsAt: org.trialEndsAt || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
                     autoDebit: org.autoDebitWallet ?? true,
-                    lastPaymentReference: trialRef,
+                    lastPaymentReference: mainTrialRef,
                 });
                 return {
                     ...org.toObject(),
@@ -901,7 +979,7 @@ exports.resolvers = {
                     walletBalance: org.walletBalance / 100,
                 };
             }
-            // 2. Paid activation / upgrade after trial
+            // Paid activation / upgrade after trial for non-trial packages
             const costInKobo = Math.round(totalCostInNaira * 100);
             if ((org.walletBalance || 0) < costInKobo) {
                 throw new Error(`Insufficient wallet balance. Total required is ₦${totalCostInNaira.toLocaleString()}, but available wallet balance is ₦${((org.walletBalance || 0) / 100).toLocaleString()}. Please fund your wallet or pay via Card to activate.`);
@@ -913,7 +991,7 @@ exports.resolvers = {
             org.usedSeats = Math.max(1, userCount, org.usedSeats || 1);
             org.totalSeats = actualSeats;
             org.subscriptionStatus = "ACTIVE";
-            org.subscriptionStartsAt = now;
+            org.subscriptionStartsAt = org.subscriptionStartsAt || now;
             const periodDays = isAnnual ? 365 : 30;
             const nextDue = new Date(now.getTime() + periodDays * 24 * 60 * 60 * 1000);
             org.subscriptionExpiresAt = nextDue;
@@ -927,8 +1005,8 @@ exports.resolvers = {
                 await user.save();
             }
             await index_js_7.UserModel.updateMany({ organizationId: org._id }, { $set: { canAccessEmail: true } });
+            // Record paid subscription transaction
             const subRef = `SUB-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-            // Record transaction
             await index_js_7.TransactionModel.create({
                 organizationId: org._id,
                 userId: authUser.userId,
@@ -941,6 +1019,28 @@ exports.resolvers = {
                 paidAt: now,
                 metadata: { description: `Subscription Activation (${packageIds.join(", ")})` },
             });
+            // Record any newly added trial packages in this batch as ₦0 transactions
+            for (const trialPkgId of newTrialPackages) {
+                const pkg = package_seed_js_1.INITIAL_PACKAGES.find((p) => p.packageId === trialPkgId);
+                const pkgName = pkg ? pkg.name : trialPkgId;
+                const trialRef = `TRIAL-${trialPkgId}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                await index_js_7.TransactionModel.create({
+                    organizationId: org._id,
+                    userId: authUser.userId,
+                    reference: trialRef,
+                    type: "subscription_charge",
+                    amount: 0,
+                    status: "success",
+                    channel: "wallet",
+                    currency: "NGN",
+                    paidAt: now,
+                    metadata: {
+                        description: `${pkgName} 7-Day Free Trial Activation`,
+                        packageIds: [trialPkgId],
+                        seatCount: actualSeats,
+                    },
+                });
+            }
             // Record subscription history record
             await index_js_7.SubscriptionModel.create({
                 organizationId: org._id,
@@ -1734,8 +1834,45 @@ exports.resolvers = {
                 receiving: hasReceiving ? "enabled" : "disabled",
             };
         },
+        packageSubscriptions: (parent) => {
+            return computePackageSubscriptions(parent);
+        },
     },
 };
+function computePackageSubscriptions(org) {
+    const now = new Date();
+    const subscribed = org.subscribedPackages && org.subscribedPackages.length > 0
+        ? org.subscribedPackages
+        : ["org-email"];
+    const existingPkgSubs = org.packageSubscriptions || [];
+    return subscribed.map((pkgId) => {
+        const found = existingPkgSubs.find((s) => s.packageId === pkgId);
+        const trialStartsAt = found?.trialStartsAt
+            ? new Date(found.trialStartsAt)
+            : org.trialStartsAt
+                ? new Date(org.trialStartsAt)
+                : org.createdAt
+                    ? new Date(org.createdAt)
+                    : now;
+        const trialEndsAt = found?.trialEndsAt
+            ? new Date(found.trialEndsAt)
+            : new Date(trialStartsAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const activatedAt = found?.activatedAt ? new Date(found.activatedAt) : trialStartsAt;
+        const isTrial = now < trialEndsAt;
+        const diffMs = trialEndsAt.getTime() - now.getTime();
+        const daysRemaining = isTrial ? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24))) : 0;
+        const status = isTrial ? "TRIAL" : (found?.status === "CANCELLED" ? "CANCELLED" : "ACTIVE");
+        return {
+            packageId: pkgId,
+            status,
+            trialStartsAt: trialStartsAt.toISOString(),
+            trialEndsAt: trialEndsAt.toISOString(),
+            daysRemaining,
+            isTrial,
+            activatedAt: activatedAt.toISOString(),
+        };
+    });
+}
 function formatCalendarEvent(doc) {
     if (!doc)
         return null;
