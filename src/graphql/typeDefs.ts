@@ -92,9 +92,9 @@ export const typeDefs = gql`
   }
 
   type DedicatedVirtualAccount {
-    accountNumber: String!
-    accountName: String!
-    bankName: String!
+    accountNumber: String
+    accountName: String
+    bankName: String
     assignedAt: String
     isVerified: Boolean
     bvnMasked: String

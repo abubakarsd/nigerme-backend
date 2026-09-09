@@ -1930,6 +1930,19 @@ exports.resolvers = {
         packageSubscriptions: (parent) => {
             return computePackageSubscriptions(parent);
         },
+        dedicatedVirtualAccount: (parent) => {
+            const dva = parent.dedicatedVirtualAccount;
+            if (!dva || !dva.accountNumber)
+                return null;
+            return {
+                accountNumber: dva.accountNumber,
+                accountName: dva.accountName || `Nigerme / ${parent.name || "Enterprise"}`,
+                bankName: dva.bankName || "Wema Bank Plc",
+                assignedAt: dva.assignedAt ? new Date(dva.assignedAt).toISOString() : null,
+                isVerified: !!dva.isVerified,
+                bvnMasked: dva.bvnMasked || null,
+            };
+        },
     },
 };
 function computePackageSubscriptions(org) {
