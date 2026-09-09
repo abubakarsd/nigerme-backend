@@ -32,10 +32,10 @@ export class ResendEmailService {
     if (customFrom) return customFrom;
     const configured = env.EMAIL_SENDER || process.env.EMAIL_SENDER;
     if (configured) {
-      // If configured doesn't contain a display name, add Nigerme branding
-      return configured.includes("<") ? configured : `Nigerme Workspace <${configured.replace(/['"]/g, "")}>`;
+      // If configured doesn't contain a display name, add Busmailer branding
+      return configured.includes("<") ? configured : `Busmailer Workspace <${configured.replace(/['"]/g, "")}>`;
     }
-    return "Nigerme Workspace <no-reply@vynxtechnology.com>";
+    return "Busmailer Workspace <no-reply@vynxtechnology.com>";
   }
 
   /**

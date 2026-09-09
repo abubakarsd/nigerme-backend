@@ -6,6 +6,11 @@ export interface IRolePermissions {
   canAccessPos: boolean;
   canAccessLogistics: boolean;
   canAccessHotel: boolean;
+  canAccessCrm: boolean;
+  canManageCrmCustomers: boolean;
+  canManageCrmTickets: boolean;
+  canManageCrmDeals: boolean;
+  canManageCrmQuotes: boolean;
   canAccessAdminConsole: boolean;
   canManageBilling: boolean;
   canManageUsers: boolean;
@@ -31,6 +36,11 @@ const RolePermissionsSchema = new Schema<IRolePermissions>(
     canAccessPos: { type: Boolean, default: false },
     canAccessLogistics: { type: Boolean, default: false },
     canAccessHotel: { type: Boolean, default: false },
+    canAccessCrm: { type: Boolean, default: false },
+    canManageCrmCustomers: { type: Boolean, default: false },
+    canManageCrmTickets: { type: Boolean, default: false },
+    canManageCrmDeals: { type: Boolean, default: false },
+    canManageCrmQuotes: { type: Boolean, default: false },
     canAccessAdminConsole: { type: Boolean, default: false },
     canManageBilling: { type: Boolean, default: false },
     canManageUsers: { type: Boolean, default: false },

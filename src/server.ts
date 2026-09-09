@@ -139,7 +139,7 @@ app.get("/favicon.ico", (_req, res) => {
 // ─── 7. Root Route — API Info ───
 app.get("/", (_req, res) => {
   res.status(200).json({
-    service: "Nigerme Enterprise GraphQL API",
+    service: "Busmailer Enterprise GraphQL API",
     version: "1.0.0",
     status: "operational",
     endpoints: {
@@ -157,7 +157,7 @@ app.get("/", (_req, res) => {
 app.get("/health", (_req, res) => {
   res.status(200).json({
     status: "healthy",
-    service: "nigerme-enterprise-graphql-backend",
+    service: "busmailer-enterprise-graphql-backend",
     timestamp: new Date().toISOString(),
   });
 });
@@ -165,7 +165,7 @@ app.get("/health", (_req, res) => {
 // ─── 8. Initialize Apollo Server & Bootstrap ───
 async function bootstrap() {
   try {
-    console.log("🚀 Starting Nigerme Enterprise GraphQL Backend...");
+    console.log("🚀 Starting Busmailer Enterprise GraphQL Backend...");
 
     // Connect to MongoDB
     await connectDatabase();

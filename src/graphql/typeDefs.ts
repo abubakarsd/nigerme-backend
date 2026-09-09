@@ -25,6 +25,7 @@ export const typeDefs = gql`
     canAccessPos: Boolean
     canAccessLogistics: Boolean
     canAccessHotel: Boolean
+    canAccessCrm: Boolean
     canAccessAdminConsole: Boolean
     accessiblePackages: [String!]
     avatarUrl: String
@@ -98,6 +99,7 @@ export const typeDefs = gql`
     canAccessPos: Boolean!
     canAccessLogistics: Boolean!
     canAccessHotel: Boolean!
+    canAccessCrm: Boolean!
     canAccessAdminConsole: Boolean!
     canManageBilling: Boolean!
     canManageUsers: Boolean!
@@ -695,6 +697,7 @@ export const typeDefs = gql`
     canAccessPos: Boolean
     canAccessLogistics: Boolean
     canAccessHotel: Boolean
+    canAccessCrm: Boolean
     canAccessAdminConsole: Boolean
     canManageBilling: Boolean
     canManageUsers: Boolean

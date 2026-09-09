@@ -31,6 +31,7 @@ async function formatUserWithPermissions(userDoc: any) {
   let canManageBilling = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
   let canManageUsers = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
   let canManageDomains = user.role === "admin" || user.userType === "saas_admin" || user.role === "owner" || user.role === "superadmin";
+  let canAccessCrm = false;
   let accessiblePackages = ["org-email"];
 
   // 1. If SaaS Admin or Org Owner
@@ -39,11 +40,12 @@ async function formatUserWithPermissions(userDoc: any) {
     canAccessPos = true;
     canAccessLogistics = true;
     canAccessHotel = true;
+    canAccessCrm = true;
     canAccessAdminConsole = true;
     canManageBilling = true;
     canManageUsers = true;
     canManageDomains = true;
-    accessiblePackages = ["org-email", "org-pos", "org-payroll", "org-logistics", "org-hotel"];
+    accessiblePackages = ["org-email", "org-pos", "org-payroll", "org-logistics", "org-hotel", "org-crm"];
   } else {
     // 2. Lookup assigned RoleModel if roleId or slug exists
     let role = null;
@@ -92,6 +94,7 @@ async function formatUserWithPermissions(userDoc: any) {
     canAccessPos,
     canAccessLogistics,
     canAccessHotel,
+    canAccessCrm,
     canAccessAdminConsole,
     canManageBilling,
     canManageUsers,
