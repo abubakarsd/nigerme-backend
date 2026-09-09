@@ -52,6 +52,11 @@ export const typeDefs = gql`
     priority: Int
   }
 
+  type DomainCapabilities {
+    sending: String
+    receiving: String
+  }
+
   type EmailMetricTotals {
     sent: Int!
     delivered: Int!
@@ -158,6 +163,7 @@ export const typeDefs = gql`
     resendStatus: String
     resendRegion: String
     resendRecords: [ResendDnsRecord!]
+    capabilities: DomainCapabilities
     dedicatedVirtualAccount: DedicatedVirtualAccount
     subscribedPackages: [String!]
     billingCycle: String
@@ -337,6 +343,7 @@ export const typeDefs = gql`
     phone: String
     organizationName: String
     domain: String
+    enableReceiving: Boolean
   }
 
   input LoginInput {
@@ -480,6 +487,8 @@ export const typeDefs = gql`
 
     # ── Organization & Domain & Users ──
     updateOrganization(input: UpdateOrganizationInput!): Organization!
+    addOrUpdateDomain(domain: String!, enableReceiving: Boolean): Organization!
+    enableDomainReceiving: Organization!
     subscribePackage(packageId: String!): Organization!
     cancelPackageSubscription(packageId: String!): Organization!
     activateSubscriptionFromWallet(packageIds: [String!]!, billingCycle: String!, totalSeats: Int!): Organization!

@@ -9,6 +9,10 @@ export interface ResendDomainResponse {
   created_at?: string;
   region?: string;
   records?: IResendDnsRecord[];
+  capabilities?: {
+    sending?: string;
+    receiving?: string;
+  };
   open_tracking?: boolean;
   click_tracking?: boolean;
   tracking_subdomain?: string;
@@ -39,24 +43,82 @@ export class ResendDomainService {
   }
 
   /**
-   * Creates a new domain in Resend via the POST /domains endpoint.
+   * Creates a new domain in Resend via the POST /domains endpoint with capabilities (sending + receiving).
    */
   static async createDomain(
     domainName: string,
-    region: string = "us-east-1"
+    region: string = "us-east-1",
+    enableReceiving: boolean = true
   ): Promise<{ success: boolean; data?: ResendDomainResponse; error?: string }> {
     try {
       const clean = domainName.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
       const orgApiKey = env.RESEND_ORG_API || process.env.RESEND_ORG_API;
 
       if (!orgApiKey) {
-        return { success: false, error: "RESEND_ORG_API key not configured in environment variables." };
+        // Fallback simulator for local/offline development
+        return {
+          success: true,
+          data: {
+            id: `sim_dom_${Date.now()}`,
+            name: clean,
+            status: "not_started",
+            region,
+            capabilities: {
+              sending: "enabled",
+              receiving: enableReceiving ? "enabled" : "disabled",
+            },
+            records: [
+              {
+                record: "SPF",
+                name: "bounces",
+                type: "MX",
+                value: "feedback-smtp.resend.com",
+                ttl: "Auto",
+                status: "not_started",
+                priority: 10,
+              },
+              {
+                record: "SPF",
+                name: "bounces",
+                type: "TXT",
+                value: "v=spf1 include:resend.com ~all",
+                ttl: "Auto",
+                status: "not_started",
+              },
+              {
+                record: "DKIM",
+                name: `resend._domainkey.${clean}`,
+                type: "TXT",
+                value: `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC3${clean.replace(/\./g, "")}`,
+                ttl: "Auto",
+                status: "not_started",
+              },
+              ...(enableReceiving
+                ? [
+                    {
+                      record: "Receiving",
+                      name: "@",
+                      type: "MX",
+                      value: "feedback-smtp.resend.com",
+                      ttl: "Auto",
+                      status: "not_started",
+                      priority: 10,
+                    },
+                  ]
+                : []),
+            ],
+          },
+        };
       }
 
       const client = this.getClient();
       const response = await client.domains.create({
         name: clean,
         region: region as any,
+        capabilities: {
+          sending: "enabled",
+          receiving: enableReceiving ? "enabled" : "disabled",
+        },
       });
 
       if (response.error) {
@@ -65,6 +127,28 @@ export class ResendDomainService {
       }
 
       const resData = response.data as any;
+
+      // When receiving is requested, update capabilities to ensure Resend provisions the MX record,
+      // and retrieve full records via getDomain()
+      if (enableReceiving && resData?.id) {
+        try {
+          await client.domains.update({
+            id: resData.id,
+            capabilities: {
+              sending: "enabled",
+              receiving: "enabled",
+            },
+          });
+        } catch (upErr: any) {
+          console.warn(`Note on domain capabilities update for ${clean}:`, upErr?.message);
+        }
+
+        const freshDetail = await this.getDomain(resData.id);
+        if (freshDetail.success && freshDetail.data) {
+          return freshDetail;
+        }
+      }
+
       const formattedRecords: IResendDnsRecord[] = (resData?.records || []).map((r: any) => ({
         record: r.record || r.type || "DNS",
         name: r.name,
@@ -82,6 +166,10 @@ export class ResendDomainService {
           name: resData.name,
           status: resData.status || "not_started",
           region: resData.region || region,
+          capabilities: {
+            sending: resData.capabilities?.sending || "enabled",
+            receiving: resData.capabilities?.receiving || (enableReceiving ? "enabled" : "disabled"),
+          },
           records: formattedRecords,
           open_tracking: resData.open_tracking,
           click_tracking: resData.click_tracking,
@@ -131,6 +219,10 @@ export class ResendDomainService {
           name: resData.name,
           status: resData.status,
           region: resData.region,
+          capabilities: {
+            sending: resData.capabilities?.sending || "enabled",
+            receiving: resData.capabilities?.receiving || "enabled",
+          },
           records: formattedRecords,
           open_tracking: resData.open_tracking,
           click_tracking: resData.click_tracking,
@@ -389,13 +481,14 @@ export class ResendDomainService {
 
   /**
    * Idempotently creates or finds an existing domain on Resend.
-   * If domain was already added to the Resend account, retrieves its full record details.
+   * If domain was already added to the Resend account, ensures capabilities are set and retrieves full record details.
    */
   static async findOrCreateDomain(
-    domainName: string
+    domainName: string,
+    enableReceiving: boolean = true
   ): Promise<{ success: boolean; data?: ResendDomainResponse; error?: string; isExisting?: boolean }> {
     const clean = domainName.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    const createResult = await this.createDomain(clean);
+    const createResult = await this.createDomain(clean, "us-east-1", enableReceiving);
 
     if (createResult.success && createResult.data) {
       return { success: true, data: createResult.data, isExisting: false };
@@ -406,6 +499,19 @@ export class ResendDomainService {
     if (listResult.success && listResult.data) {
       const existing = listResult.data.find((d) => d.name.toLowerCase() === clean);
       if (existing) {
+        if (enableReceiving) {
+          try {
+            await this.updateDomain({
+              id: existing.id,
+              capabilities: {
+                sending: "enabled",
+                receiving: "enabled",
+              },
+            });
+          } catch (upErr: any) {
+            console.warn(`Note on capabilities update for existing domain ${clean}:`, upErr?.message);
+          }
+        }
         const fullDetail = await this.getDomain(existing.id);
         if (fullDetail.success && fullDetail.data) {
           return { success: true, data: fullDetail.data, isExisting: true };

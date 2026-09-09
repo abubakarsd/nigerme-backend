@@ -57,6 +57,11 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     priority: Int
   }
 
+  type DomainCapabilities {
+    sending: String
+    receiving: String
+  }
+
   type EmailMetricTotals {
     sent: Int!
     delivered: Int!
@@ -163,6 +168,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     resendStatus: String
     resendRegion: String
     resendRecords: [ResendDnsRecord!]
+    capabilities: DomainCapabilities
     dedicatedVirtualAccount: DedicatedVirtualAccount
     subscribedPackages: [String!]
     billingCycle: String
@@ -342,6 +348,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     phone: String
     organizationName: String
     domain: String
+    enableReceiving: Boolean
   }
 
   input LoginInput {
@@ -485,6 +492,8 @@ exports.typeDefs = (0, graphql_tag_1.default) `
 
     # ── Organization & Domain & Users ──
     updateOrganization(input: UpdateOrganizationInput!): Organization!
+    addOrUpdateDomain(domain: String!, enableReceiving: Boolean): Organization!
+    enableDomainReceiving: Organization!
     subscribePackage(packageId: String!): Organization!
     cancelPackageSubscription(packageId: String!): Organization!
     activateSubscriptionFromWallet(packageIds: [String!]!, billingCycle: String!, totalSeats: Int!): Organization!

@@ -992,6 +992,32 @@ exports.resolvers = {
                 walletBalance: updated.walletBalance / 100,
             };
         },
+        addOrUpdateDomain: async (_, { domain, enableReceiving }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            const updated = await organization_service_js_1.OrganizationService.addOrUpdateDomain(authUser.organizationId, domain, enableReceiving ?? true);
+            if (!updated)
+                throw new Error("Failed to add or update domain");
+            return {
+                ...updated.toObject(),
+                id: updated._id.toString(),
+                walletBalance: updated.walletBalance / 100,
+            };
+        },
+        enableDomainReceiving: async (_, __, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            const updated = await organization_service_js_1.OrganizationService.enableReceiving(authUser.organizationId);
+            if (!updated)
+                throw new Error("Failed to enable receiving on domain");
+            return {
+                ...updated.toObject(),
+                id: updated._id.toString(),
+                walletBalance: updated.walletBalance / 100,
+            };
+        },
         inviteMember: async (_, { input }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             if (!authUser.organizationId)
@@ -1616,6 +1642,16 @@ exports.resolvers = {
             }
             await index_js_7.CalendarEventModel.deleteOne({ _id: id });
             return true;
+        },
+    },
+    Organization: {
+        capabilities: (parent) => {
+            const records = parent.resendRecords || [];
+            const hasReceiving = records.some((r) => r.record === "Receiving" || (r.type === "MX" && (!r.name || r.name === "@")));
+            return {
+                sending: "enabled",
+                receiving: hasReceiving ? "enabled" : "disabled",
+            };
         },
     },
 };

@@ -150,9 +150,9 @@ export class OrganizationService {
 
     const prevStatus = org.resendStatus;
 
-    // 1. If domain is not yet on Resend, provision it
+    // 1. If domain is not yet on Resend, provision it with receiving enabled
     if (!org.resendDomainId) {
-      const domResult = await ResendDomainService.findOrCreateDomain(org.domain);
+      const domResult = await ResendDomainService.findOrCreateDomain(org.domain, true);
       if (domResult.success && domResult.data) {
         org.resendDomainId = domResult.data.id;
         org.resendStatus = domResult.data.status;
@@ -161,8 +161,17 @@ export class OrganizationService {
       }
     }
 
-    // 2. Trigger verification with Resend API
+    // 2. Ensure receiving capability is active and trigger verification with Resend API
     if (org.resendDomainId) {
+      try {
+        await ResendDomainService.updateDomain({
+          id: org.resendDomainId,
+          capabilities: { sending: "enabled", receiving: "enabled" },
+        });
+      } catch (err: any) {
+        console.warn("Note on domain capability sync during verify:", err?.message);
+      }
+
       await ResendDomainService.verifyDomain(org.resendDomainId);
       const updatedDom = await ResendDomainService.getDomain(org.resendDomainId);
 
@@ -177,6 +186,73 @@ export class OrganizationService {
     // 3. Derive DNS verification statuses and send alerts if needed
     await this.syncAndNotifyDnsStatus(org, prevStatus);
 
+    return org.save();
+  }
+
+  /**
+   * Adds or changes an organization's custom domain, enabling receiving capability and fetching DNS records.
+   */
+  static async addOrUpdateDomain(
+    orgId: string,
+    domain: string,
+    enableReceiving: boolean = true
+  ): Promise<IOrganization | null> {
+    const org = await OrganizationModel.findById(orgId);
+    if (!org) throw new Error("Organization not found");
+
+    const clean = domain.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    org.domain = clean;
+
+    const domResult = await ResendDomainService.findOrCreateDomain(clean, enableReceiving);
+    if (domResult.success && domResult.data) {
+      org.resendDomainId = domResult.data.id;
+      org.resendStatus = domResult.data.status;
+      org.resendRegion = domResult.data.region || "us-east-1";
+      org.resendRecords = domResult.data.records || [];
+    }
+
+    await this.syncAndNotifyDnsStatus(org);
+    return org.save();
+  }
+
+  /**
+   * Explicitly enables inbound email receiving capability on Resend and fetches the receiving MX records.
+   */
+  static async enableReceiving(orgId: string): Promise<IOrganization | null> {
+    const org = await OrganizationModel.findById(orgId);
+    if (!org) throw new Error("Organization not found");
+
+    if (!org.resendDomainId && org.domain) {
+      const domResult = await ResendDomainService.findOrCreateDomain(org.domain, true);
+      if (domResult.success && domResult.data) {
+        org.resendDomainId = domResult.data.id;
+        org.resendStatus = domResult.data.status;
+        org.resendRegion = domResult.data.region || "us-east-1";
+        org.resendRecords = domResult.data.records || [];
+      }
+    } else if (org.resendDomainId) {
+      try {
+        await ResendDomainService.updateDomain({
+          id: org.resendDomainId,
+          capabilities: {
+            sending: "enabled",
+            receiving: "enabled",
+          },
+        });
+      } catch (err: any) {
+        console.warn("Note on enableReceiving update:", err?.message);
+      }
+
+      const fresh = await ResendDomainService.getDomain(org.resendDomainId);
+      if (fresh.success && fresh.data) {
+        org.resendStatus = fresh.data.status;
+        if (fresh.data.records && fresh.data.records.length > 0) {
+          org.resendRecords = fresh.data.records;
+        }
+      }
+    }
+
+    await this.syncAndNotifyDnsStatus(org);
     return org.save();
   }
 

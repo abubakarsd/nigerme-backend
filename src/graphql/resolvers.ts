@@ -1142,6 +1142,38 @@ export const resolvers = {
       };
     },
 
+    addOrUpdateDomain: async (
+      _: any,
+      { domain, enableReceiving }: { domain: string; enableReceiving?: boolean },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const updated = await OrganizationService.addOrUpdateDomain(
+        authUser.organizationId,
+        domain,
+        enableReceiving ?? true
+      );
+      if (!updated) throw new Error("Failed to add or update domain");
+      return {
+        ...updated.toObject(),
+        id: updated._id.toString(),
+        walletBalance: updated.walletBalance / 100,
+      };
+    },
+
+    enableDomainReceiving: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const updated = await OrganizationService.enableReceiving(authUser.organizationId);
+      if (!updated) throw new Error("Failed to enable receiving on domain");
+      return {
+        ...updated.toObject(),
+        id: updated._id.toString(),
+        walletBalance: updated.walletBalance / 100,
+      };
+    },
+
     inviteMember: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) throw new Error("No organization found");
@@ -1875,6 +1907,19 @@ export const resolvers = {
 
       await CalendarEventModel.deleteOne({ _id: id });
       return true;
+    },
+  },
+
+  Organization: {
+    capabilities: (parent: any) => {
+      const records = parent.resendRecords || [];
+      const hasReceiving = records.some(
+        (r: any) => r.record === "Receiving" || (r.type === "MX" && (!r.name || r.name === "@"))
+      );
+      return {
+        sending: "enabled",
+        receiving: hasReceiving ? "enabled" : "disabled",
+      };
     },
   },
 };

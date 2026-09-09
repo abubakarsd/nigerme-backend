@@ -55,7 +55,7 @@ class AuthService {
         // Asynchronously or synchronously provision domain in Resend using RESEND_ORG_API
         let resendDomainInfo = null;
         try {
-            const domResult = await index_js_1.ResendDomainService.findOrCreateDomain(domainName);
+            const domResult = await index_js_1.ResendDomainService.findOrCreateDomain(domainName, dto.enableReceiving ?? true);
             if (domResult.success && domResult.data) {
                 resendDomainInfo = domResult.data;
             }

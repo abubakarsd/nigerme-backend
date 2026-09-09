@@ -20,6 +20,7 @@ export interface AdminSignupDto {
   phone?: string;
   organizationName?: string;
   domain?: string;
+  enableReceiving?: boolean;
 }
 
 export interface LoginDto {
@@ -109,7 +110,7 @@ export class AuthService {
     // Asynchronously or synchronously provision domain in Resend using RESEND_ORG_API
     let resendDomainInfo: any = null;
     try {
-      const domResult = await ResendDomainService.findOrCreateDomain(domainName);
+      const domResult = await ResendDomainService.findOrCreateDomain(domainName, dto.enableReceiving ?? true);
       if (domResult.success && domResult.data) {
         resendDomainInfo = domResult.data;
       }
