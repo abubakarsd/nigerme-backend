@@ -206,5 +206,6 @@ const OrganizationSchema = new mongoose_1.Schema({
     },
 }, {
     timestamps: true,
+    versionKey: false,
 });
 exports.OrganizationModel = mongoose_1.default.model("Organization", OrganizationSchema);

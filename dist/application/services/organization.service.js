@@ -77,7 +77,15 @@ class OrganizationService {
                     org.resendRegion = domResult.data.region || "us-east-1";
                     org.resendRecords = domResult.data.records || [];
                     await this.syncAndNotifyDnsStatus(org);
-                    await org.save();
+                    await organization_model_js_1.OrganizationModel.findByIdAndUpdate(org._id, {
+                        $set: {
+                            resendDomainId: org.resendDomainId,
+                            resendStatus: org.resendStatus,
+                            resendRegion: org.resendRegion,
+                            resendRecords: org.resendRecords,
+                            dnsVerification: org.dnsVerification,
+                        },
+                    });
                 }
             }
             catch (err) {
@@ -98,7 +106,13 @@ class OrganizationService {
                             org.resendRecords = liveDom.data.records;
                         }
                         await this.syncAndNotifyDnsStatus(org, prevStatus);
-                        await org.save();
+                        await organization_model_js_1.OrganizationModel.findByIdAndUpdate(org._id, {
+                            $set: {
+                                resendStatus: org.resendStatus,
+                                resendRecords: org.resendRecords,
+                                dnsVerification: org.dnsVerification,
+                            },
+                        });
                     }
                 }
                 catch (err) {

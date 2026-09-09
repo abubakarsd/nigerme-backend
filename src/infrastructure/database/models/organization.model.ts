@@ -249,6 +249,7 @@ const OrganizationSchema = new Schema<IOrganization>(
   },
   {
     timestamps: true,
+    versionKey: false,
   }
 );
 

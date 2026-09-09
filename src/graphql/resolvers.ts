@@ -122,40 +122,43 @@ export const resolvers = {
       if (!org) return null;
 
       // Clean up legacy placeholder if present and not verified
+      const updateFields: any = {};
+      const unsetFields: any = {};
+
       if (org.dedicatedVirtualAccount && !org.dedicatedVirtualAccount.isVerified && org.dedicatedVirtualAccount.accountNumber === "0294819284") {
         org.dedicatedVirtualAccount = undefined;
-        await org.save();
+        unsetFields["dedicatedVirtualAccount"] = 1;
       }
-
-      let needsSave = false;
 
       // Sync mailbox seats with real member count (1 for initial user, never 0, reflects added members)
       const userCount = await UserModel.countDocuments({ organizationId: org._id });
       const actualUsedSeats = Math.max(1, userCount);
       if (org.usedSeats !== actualUsedSeats) {
         org.usedSeats = actualUsedSeats;
-        needsSave = true;
+        updateFields.usedSeats = actualUsedSeats;
       }
       if (!org.totalSeats || org.totalSeats < actualUsedSeats) {
         org.totalSeats = actualUsedSeats;
-        needsSave = true;
+        updateFields.totalSeats = actualUsedSeats;
       }
 
       if (!org.subscribedPackages || org.subscribedPackages.length === 0) {
         org.subscribedPackages = ["org-email"];
-        needsSave = true;
+        updateFields.subscribedPackages = ["org-email"];
       }
       if (!org.subscriptionStatus) {
         org.subscriptionStatus = "TRIAL";
-        needsSave = true;
+        updateFields.subscriptionStatus = "TRIAL";
       }
       if (!org.trialStartsAt) {
-        org.trialStartsAt = org.createdAt || new Date();
-        needsSave = true;
+        const start = org.createdAt || new Date();
+        org.trialStartsAt = start;
+        updateFields.trialStartsAt = start;
       }
       if (!org.trialEndsAt) {
-        org.trialEndsAt = new Date(new Date(org.trialStartsAt).getTime() + 7 * 24 * 60 * 60 * 1000);
-        needsSave = true;
+        const end = new Date(new Date(org.trialStartsAt).getTime() + 7 * 24 * 60 * 60 * 1000);
+        org.trialEndsAt = end;
+        updateFields.trialEndsAt = end;
       }
 
       // Check if 7-day trial period is over -> automatically unsubscribe workspace
@@ -167,11 +170,16 @@ export const resolvers = {
       ) {
         org.subscriptionStatus = "CANCELLED";
         org.isSuspended = true;
-        needsSave = true;
+        updateFields.subscriptionStatus = "CANCELLED";
+        updateFields.isSuspended = true;
       }
 
-      if (needsSave) {
-        await org.save();
+      const updateOp: any = {};
+      if (Object.keys(updateFields).length > 0) updateOp.$set = updateFields;
+      if (Object.keys(unsetFields).length > 0) updateOp.$unset = unsetFields;
+
+      if (Object.keys(updateOp).length > 0) {
+        await OrganizationModel.findByIdAndUpdate(org._id, updateOp);
       }
 
       let cleanPhone = org.phone && org.phone !== "+234 800 NIGERME" ? org.phone : "";
