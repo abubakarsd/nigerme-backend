@@ -14,6 +14,8 @@ import {
 export interface AdminSignupDto {
   name: string;
   email: string;
+  personalEmail?: string;
+  companyEmail?: string;
   password: string;
   phone?: string;
   organizationName?: string;
@@ -37,6 +39,7 @@ export interface AuthTokens {
   user: {
     id: string;
     email: string;
+    personalEmail?: string | null;
     name: string;
     role: string;
     userType: "saas_admin" | "email_user";
@@ -59,7 +62,16 @@ export class AuthService {
    * 1. SaaS Admin Portal: Registers a new SaaS tenant administrator and creates their company organization
    */
   static async signup(dto: AdminSignupDto): Promise<AuthTokens> {
-    const existingUser = await UserModel.findOne({ email: dto.email.toLowerCase() });
+    const primaryCompanyEmail = (dto.companyEmail || dto.email).toLowerCase().trim();
+    const linkedPersonalEmail = (dto.personalEmail || (dto.companyEmail ? dto.email : "")).toLowerCase().trim();
+
+    const existingUser = await UserModel.findOne({
+      $or: [
+        { email: primaryCompanyEmail },
+        ...(linkedPersonalEmail ? [{ email: linkedPersonalEmail }] : []),
+        ...(linkedPersonalEmail ? [{ personalEmail: linkedPersonalEmail }] : [])
+      ]
+    });
     if (existingUser) {
       throw new Error("An account with this email address already exists.");
     }
@@ -78,7 +90,8 @@ export class AuthService {
 
     const user = await UserModel.create({
       name: dto.name,
-      email: dto.email.toLowerCase(),
+      email: primaryCompanyEmail,
+      personalEmail: linkedPersonalEmail || undefined,
       passwordHash,
       phone: dto.phone,
       role: "admin",
@@ -176,7 +189,7 @@ export class AuthService {
     ).catch((err) => console.warn("⚠️ Welcome mailbox provisioning error:", err));
 
     ResendEmailService.sendWelcomeEmail(
-      user.email,
+      user.personalEmail || user.email,
       user.name,
       organization.name,
       organization.domain
@@ -188,6 +201,7 @@ export class AuthService {
       user: {
         id: user._id.toString(),
         email: user.email,
+        personalEmail: user.personalEmail ?? null,
         name: user.name,
         role: user.role,
         userType: user.userType,
@@ -213,7 +227,13 @@ export class AuthService {
     | { requiresTwoFactor: false; tokens: AuthTokens }
     | { requiresTwoFactor: true; twoFactorType?: string; phone: string; message: string }
   > {
-    const user = await UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
+    const cleanEmail = dto.email.toLowerCase().trim();
+    const user = await UserModel.findOne({
+      $or: [
+        { email: cleanEmail },
+        { personalEmail: cleanEmail }
+      ]
+    }).select("+passwordHash");
     if (!user) {
       throw new Error("Invalid email or password.");
     }
@@ -278,7 +298,13 @@ export class AuthService {
     | { requiresTwoFactor: false; mustChangePassword?: boolean; personalEmail?: string; tokens: AuthTokens | null }
     | { requiresTwoFactor: true; twoFactorType?: string; mustChangePassword?: boolean; phone: string; personalEmail?: string; message: string }
   > {
-    const user = await UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
+    const cleanEmail = dto.email.toLowerCase().trim();
+    const user = await UserModel.findOne({
+      $or: [
+        { email: cleanEmail },
+        { personalEmail: cleanEmail }
+      ]
+    }).select("+passwordHash");
     if (!user) {
       throw new Error(
         "Mailbox account not found. Please contact your organization administrator to add your email address."

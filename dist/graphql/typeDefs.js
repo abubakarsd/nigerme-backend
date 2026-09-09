@@ -336,6 +336,8 @@ exports.typeDefs = (0, graphql_tag_1.default) `
   input SignupInput {
     name: String!
     email: String!
+    personalEmail: String
+    companyEmail: String
     password: String!
     phone: String
     organizationName: String

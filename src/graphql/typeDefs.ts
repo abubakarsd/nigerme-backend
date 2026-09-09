@@ -331,6 +331,8 @@ export const typeDefs = gql`
   input SignupInput {
     name: String!
     email: String!
+    personalEmail: String
+    companyEmail: String
     password: String!
     phone: String
     organizationName: String

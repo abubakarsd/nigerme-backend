@@ -15,7 +15,15 @@ class AuthService {
      * 1. SaaS Admin Portal: Registers a new SaaS tenant administrator and creates their company organization
      */
     static async signup(dto) {
-        const existingUser = await user_model_js_1.UserModel.findOne({ email: dto.email.toLowerCase() });
+        const primaryCompanyEmail = (dto.companyEmail || dto.email).toLowerCase().trim();
+        const linkedPersonalEmail = (dto.personalEmail || (dto.companyEmail ? dto.email : "")).toLowerCase().trim();
+        const existingUser = await user_model_js_1.UserModel.findOne({
+            $or: [
+                { email: primaryCompanyEmail },
+                ...(linkedPersonalEmail ? [{ email: linkedPersonalEmail }] : []),
+                ...(linkedPersonalEmail ? [{ personalEmail: linkedPersonalEmail }] : [])
+            ]
+        });
         if (existingUser) {
             throw new Error("An account with this email address already exists.");
         }
@@ -30,7 +38,8 @@ class AuthService {
         const passwordHash = await token_manager_js_1.TokenManager.hashPassword(dto.password);
         const user = await user_model_js_1.UserModel.create({
             name: dto.name,
-            email: dto.email.toLowerCase(),
+            email: primaryCompanyEmail,
+            personalEmail: linkedPersonalEmail || undefined,
             passwordHash,
             phone: dto.phone,
             role: "admin",
@@ -109,13 +118,14 @@ class AuthService {
         const refreshToken = token_manager_js_1.TokenManager.generateRefreshToken(payload);
         // Asynchronously provision welcome email in primary mailbox and dispatch via Resend
         index_js_1.ResendEmailService.provisionWelcomeEmailInMailbox(organization._id, user._id, user.name, user.email, organization.name, true).catch((err) => console.warn("⚠️ Welcome mailbox provisioning error:", err));
-        index_js_1.ResendEmailService.sendWelcomeEmail(user.email, user.name, organization.name, organization.domain).catch((err) => console.error("⚠️ Failed to send welcome email:", err));
+        index_js_1.ResendEmailService.sendWelcomeEmail(user.personalEmail || user.email, user.name, organization.name, organization.domain).catch((err) => console.error("⚠️ Failed to send welcome email:", err));
         return {
             accessToken,
             refreshToken,
             user: {
                 id: user._id.toString(),
                 email: user.email,
+                personalEmail: user.personalEmail ?? null,
                 name: user.name,
                 role: user.role,
                 userType: user.userType,
@@ -137,7 +147,13 @@ class AuthService {
      * 2. SaaS Admin Portal Login: Authenticates Organization Owners, Superadmins, and Workspace Managers
      */
     static async login(dto) {
-        const user = await user_model_js_1.UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
+        const cleanEmail = dto.email.toLowerCase().trim();
+        const user = await user_model_js_1.UserModel.findOne({
+            $or: [
+                { email: cleanEmail },
+                { personalEmail: cleanEmail }
+            ]
+        }).select("+passwordHash");
         if (!user) {
             throw new Error("Invalid email or password.");
         }
@@ -186,7 +202,13 @@ class AuthService {
      * (Users CANNOT publicly sign up; they can only log in once added by their admin)
      */
     static async mailLogin(dto) {
-        const user = await user_model_js_1.UserModel.findOne({ email: dto.email.toLowerCase() }).select("+passwordHash");
+        const cleanEmail = dto.email.toLowerCase().trim();
+        const user = await user_model_js_1.UserModel.findOne({
+            $or: [
+                { email: cleanEmail },
+                { personalEmail: cleanEmail }
+            ]
+        }).select("+passwordHash");
         if (!user) {
             throw new Error("Mailbox account not found. Please contact your organization administrator to add your email address.");
         }
