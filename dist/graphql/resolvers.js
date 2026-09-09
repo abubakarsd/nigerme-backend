@@ -1345,7 +1345,14 @@ exports.resolvers = {
             const ccEmails = (input.cc || []).map((p) => p.email.trim().toLowerCase()).filter(Boolean);
             const bccEmails = (input.bcc || []).map((p) => p.email.trim().toLowerCase()).filter(Boolean);
             const senderName = authUser.name || "Workspace Member";
-            const senderEmail = authUser.email;
+            let senderEmail = authUser.email;
+            const userReplyTo = input.replyTo || authUser.email;
+            // If senderEmail is on a public/unverified provider (e.g. @gmail.com) but org has a configured domain,
+            // route the sender email through the organization's verified domain to satisfy Resend SPF/DKIM
+            if (org.domain && !senderEmail.toLowerCase().endsWith(`@${org.domain.toLowerCase()}`)) {
+                const username = senderEmail.split("@")[0] || "user";
+                senderEmail = `${username}@${org.domain.toLowerCase()}`;
+            }
             const fromFormatted = `${senderName} <${senderEmail}>`;
             // ── 4. Dispatch via Resend ──
             const resendResult = await index_js_6.ResendEmailService.sendUserEmail({
@@ -1353,12 +1360,14 @@ exports.resolvers = {
                 to: toEmails,
                 cc: ccEmails.length > 0 ? ccEmails : undefined,
                 bcc: bccEmails.length > 0 ? bccEmails : undefined,
-                replyTo: input.replyTo || senderEmail,
+                replyTo: userReplyTo,
                 subject: input.subject || "(No subject)",
                 html: input.bodyHtml,
                 text: input.bodyText || input.bodyHtml.replace(/<[^>]*>?/gm, ""),
-                attachments: (input.attachments || []).map((a) => ({
-                    filename: a.name,
+                attachments: (input.attachments || [])
+                    .filter((a) => a && (a.content || a.downloadUrl))
+                    .map((a) => ({
+                    filename: a.name || "attachment",
                     content: a.content,
                     path: a.downloadUrl,
                 })),

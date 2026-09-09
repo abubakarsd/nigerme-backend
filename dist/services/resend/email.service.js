@@ -10,9 +10,14 @@ class ResendEmailService {
     static resendClient = null;
     static getClient() {
         if (!this.resendClient) {
-            const apiKey = env_js_1.env.RESEND_API || env_js_1.env.RESEND_API_KEY || process.env.RESEND_API || process.env.RESEND_API_KEY;
+            const apiKey = env_js_1.env.RESEND_API ||
+                env_js_1.env.RESEND_API_KEY ||
+                env_js_1.env.RESEND_ORG_API ||
+                process.env.RESEND_API ||
+                process.env.RESEND_API_KEY ||
+                process.env.RESEND_ORG_API;
             if (!apiKey) {
-                console.warn("⚠️ RESEND_API key not found in environment variables. Emails will be logged to console in fallback mode.");
+                console.warn("⚠️ RESEND_API / RESEND_ORG_API key not found in environment variables. Emails will be logged to console in fallback mode.");
             }
             this.resendClient = new resend_1.Resend(apiKey || "re_dummy");
         }
@@ -23,10 +28,9 @@ class ResendEmailService {
             return customFrom;
         const configured = env_js_1.env.EMAIL_SENDER || process.env.EMAIL_SENDER;
         if (configured) {
-            // If configured doesn't contain a display name, add Busmailer branding
-            return configured.includes("<") ? configured : `Busmailer Workspace <${configured.replace(/['"]/g, "")}>`;
+            return configured.includes("<") ? configured : `Nigerme Workspace <${configured.replace(/['"]/g, "")}>`;
         }
-        return "Busmailer Workspace <no-reply@vynxtechnology.com>";
+        return "Nigerme Workspace <no-reply@vynxtechnology.com>";
     }
     /**
      * Generic sender using Resend API
@@ -35,19 +39,27 @@ class ResendEmailService {
         try {
             const client = this.getClient();
             const from = this.getFromAddress(options.from);
-            const apiKey = env_js_1.env.RESEND_API || env_js_1.env.RESEND_API_KEY || process.env.RESEND_API;
+            const apiKey = env_js_1.env.RESEND_API ||
+                env_js_1.env.RESEND_API_KEY ||
+                env_js_1.env.RESEND_ORG_API ||
+                process.env.RESEND_API ||
+                process.env.RESEND_API_KEY ||
+                process.env.RESEND_ORG_API;
             if (!apiKey) {
                 console.log(`[Resend Fallback] Email to ${Array.isArray(options.to) ? options.to.join(", ") : options.to} | Subject: "${options.subject}"`);
                 return { success: true, id: "simulated-" + Date.now() };
             }
-            const response = await client.emails.send({
+            const payload = {
                 from,
                 to: options.to,
                 subject: options.subject,
                 html: options.html,
-                text: options.text,
-                replyTo: options.replyTo,
-            });
+            };
+            if (options.text)
+                payload.text = options.text;
+            if (options.replyTo)
+                payload.replyTo = options.replyTo;
+            const response = await client.emails.send(payload);
             if (response.error) {
                 console.error("❌ Resend API Error:", response.error);
                 return { success: false, error: response.error.message };
@@ -828,7 +840,12 @@ class ResendEmailService {
     static async sendUserEmail(options) {
         try {
             const client = this.getClient();
-            const apiKey = env_js_1.env.RESEND_API || env_js_1.env.RESEND_API_KEY || process.env.RESEND_API;
+            const apiKey = env_js_1.env.RESEND_API ||
+                env_js_1.env.RESEND_API_KEY ||
+                env_js_1.env.RESEND_ORG_API ||
+                process.env.RESEND_API ||
+                process.env.RESEND_API_KEY ||
+                process.env.RESEND_ORG_API;
             if (!apiKey) {
                 console.log(`[Resend Fallback Mailer] From: ${options.from} -> To: ${options.to.join(", ")} | Subject: "${options.subject}"`);
                 return { success: true, id: "simulated-mail-" + Date.now() };
@@ -848,7 +865,19 @@ class ResendEmailService {
             if (options.replyTo)
                 payload.replyTo = options.replyTo;
             if (options.attachments && options.attachments.length > 0) {
-                payload.attachments = options.attachments;
+                const validAttachments = options.attachments
+                    .filter((a) => a && (a.content || a.path))
+                    .map((a) => {
+                    const att = { filename: a.filename || "attachment" };
+                    if (a.content)
+                        att.content = a.content;
+                    if (a.path)
+                        att.path = a.path;
+                    return att;
+                });
+                if (validAttachments.length > 0) {
+                    payload.attachments = validAttachments;
+                }
             }
             const response = await client.emails.send(payload);
             if (response.error) {
