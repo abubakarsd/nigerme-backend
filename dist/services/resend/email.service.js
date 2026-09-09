@@ -10,14 +10,14 @@ class ResendEmailService {
     static resendClient = null;
     static getClient() {
         if (!this.resendClient) {
-            const apiKey = env_js_1.env.RESEND_API ||
+            const apiKey = env_js_1.env.RESEND_ORG_API ||
+                process.env.RESEND_ORG_API ||
+                env_js_1.env.RESEND_API ||
                 env_js_1.env.RESEND_API_KEY ||
-                env_js_1.env.RESEND_ORG_API ||
                 process.env.RESEND_API ||
-                process.env.RESEND_API_KEY ||
-                process.env.RESEND_ORG_API;
+                process.env.RESEND_API_KEY;
             if (!apiKey) {
-                console.warn("⚠️ RESEND_API / RESEND_ORG_API key not found in environment variables. Emails will be logged to console in fallback mode.");
+                console.warn("⚠️ RESEND_ORG_API / RESEND_API key not found in environment variables. Emails will be logged to console in fallback mode.");
             }
             this.resendClient = new resend_1.Resend(apiKey || "re_dummy");
         }
@@ -39,12 +39,12 @@ class ResendEmailService {
         try {
             const client = this.getClient();
             const from = this.getFromAddress(options.from);
-            const apiKey = env_js_1.env.RESEND_API ||
+            const apiKey = env_js_1.env.RESEND_ORG_API ||
+                process.env.RESEND_ORG_API ||
+                env_js_1.env.RESEND_API ||
                 env_js_1.env.RESEND_API_KEY ||
-                env_js_1.env.RESEND_ORG_API ||
                 process.env.RESEND_API ||
-                process.env.RESEND_API_KEY ||
-                process.env.RESEND_ORG_API;
+                process.env.RESEND_API_KEY;
             if (!apiKey) {
                 console.log(`[Resend Fallback] Email to ${Array.isArray(options.to) ? options.to.join(", ") : options.to} | Subject: "${options.subject}"`);
                 return { success: true, id: "simulated-" + Date.now() };
@@ -840,12 +840,12 @@ class ResendEmailService {
     static async sendUserEmail(options) {
         try {
             const client = this.getClient();
-            const apiKey = env_js_1.env.RESEND_API ||
+            const apiKey = env_js_1.env.RESEND_ORG_API ||
+                process.env.RESEND_ORG_API ||
+                env_js_1.env.RESEND_API ||
                 env_js_1.env.RESEND_API_KEY ||
-                env_js_1.env.RESEND_ORG_API ||
                 process.env.RESEND_API ||
-                process.env.RESEND_API_KEY ||
-                process.env.RESEND_ORG_API;
+                process.env.RESEND_API_KEY;
             if (!apiKey) {
                 console.log(`[Resend Fallback Mailer] From: ${options.from} -> To: ${options.to.join(", ")} | Subject: "${options.subject}"`);
                 return { success: true, id: "simulated-mail-" + Date.now() };

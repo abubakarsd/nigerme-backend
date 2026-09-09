@@ -20,14 +20,14 @@ export class ResendEmailService {
   private static getClient(): Resend {
     if (!this.resendClient) {
       const apiKey =
+        env.RESEND_ORG_API ||
+        process.env.RESEND_ORG_API ||
         env.RESEND_API ||
         env.RESEND_API_KEY ||
-        env.RESEND_ORG_API ||
         process.env.RESEND_API ||
-        process.env.RESEND_API_KEY ||
-        process.env.RESEND_ORG_API;
+        process.env.RESEND_API_KEY;
       if (!apiKey) {
-        console.warn("⚠️ RESEND_API / RESEND_ORG_API key not found in environment variables. Emails will be logged to console in fallback mode.");
+        console.warn("⚠️ RESEND_ORG_API / RESEND_API key not found in environment variables. Emails will be logged to console in fallback mode.");
       }
       this.resendClient = new Resend(apiKey || "re_dummy");
     }
@@ -52,12 +52,12 @@ export class ResendEmailService {
       const from = this.getFromAddress(options.from);
 
       const apiKey =
+        env.RESEND_ORG_API ||
+        process.env.RESEND_ORG_API ||
         env.RESEND_API ||
         env.RESEND_API_KEY ||
-        env.RESEND_ORG_API ||
         process.env.RESEND_API ||
-        process.env.RESEND_API_KEY ||
-        process.env.RESEND_ORG_API;
+        process.env.RESEND_API_KEY;
 
       if (!apiKey) {
         console.log(`[Resend Fallback] Email to ${Array.isArray(options.to) ? options.to.join(", ") : options.to} | Subject: "${options.subject}"`);
@@ -980,12 +980,12 @@ export class ResendEmailService {
     try {
       const client = this.getClient();
       const apiKey =
+        env.RESEND_ORG_API ||
+        process.env.RESEND_ORG_API ||
         env.RESEND_API ||
         env.RESEND_API_KEY ||
-        env.RESEND_ORG_API ||
         process.env.RESEND_API ||
-        process.env.RESEND_API_KEY ||
-        process.env.RESEND_ORG_API;
+        process.env.RESEND_API_KEY;
 
       if (!apiKey) {
         console.log(`[Resend Fallback Mailer] From: ${options.from} -> To: ${options.to.join(", ")} | Subject: "${options.subject}"`);

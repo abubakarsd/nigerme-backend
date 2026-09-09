@@ -20,7 +20,7 @@ export interface IEmail extends Document {
   userId: mongoose.Types.ObjectId; // Owner of the mailbox view
   threadId: string;
   resendId?: string;
-  folder: "inbox" | "sent" | "drafts" | "starred" | "trash" | "spam" | "archive";
+  folder: "inbox" | "outbox" | "sent" | "drafts" | "starred" | "trash" | "spam" | "archive";
   category: "primary" | "social" | "promotions" | "updates";
   from: IEmailParticipant;
   to: IEmailParticipant[];
@@ -89,7 +89,7 @@ const EmailSchema = new Schema<IEmail>(
     },
     folder: {
       type: String,
-      enum: ["inbox", "sent", "drafts", "starred", "trash", "spam", "archive"],
+      enum: ["inbox", "outbox", "sent", "drafts", "starred", "trash", "spam", "archive"],
       default: "inbox",
       index: true,
     },
