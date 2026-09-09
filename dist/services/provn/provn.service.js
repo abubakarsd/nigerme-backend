@@ -10,12 +10,15 @@ class ProvnVerificationService {
     static accessKey = env_js_1.ENV.PROVN_ACCESS_KEY;
     static baseUrl = (env_js_1.ENV.PROVN_URL || "https://api.provn.ng").replace(/\/$/, "");
     static async postJson(endpoint, body) {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        const apiKey = process.env.PROVN_API_KEY || env_js_1.ENV.PROVN_API_KEY || this.apiKey;
+        const accessKey = process.env.PROVN_ACCESS_KEY || env_js_1.ENV.PROVN_ACCESS_KEY || this.accessKey;
+        const baseUrl = (process.env.PROVN_URL || env_js_1.ENV.PROVN_URL || this.baseUrl || "https://api.provn.ng").replace(/\/$/, "");
+        const response = await fetch(`${baseUrl}${endpoint}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "API-Key": this.apiKey,
-                "Access-Key": this.accessKey,
+                "API-Key": apiKey,
+                "Access-Key": accessKey,
             },
             body: JSON.stringify(body),
         });
@@ -28,11 +31,12 @@ class ProvnVerificationService {
         return data;
     }
     static async verifyNIN(nin) {
-        if (!/^\d{11}$/.test(nin)) {
+        const cleanNin = (nin || "").replace(/\D/g, "").trim();
+        if (!/^\d{11}$/.test(cleanNin)) {
             throw new Error("NIN must be exactly 11 digits");
         }
         try {
-            return await this.postJson("/verification/nin", { nin });
+            return await this.postJson("/verification/nin", { nin: cleanNin });
         }
         catch (error) {
             const message = error.response?.data?.message || error.response?.data?.detail || error.message;
@@ -45,7 +49,7 @@ class ProvnVerificationService {
                         first_name: "Verified",
                         last_name: "User",
                         middle_name: "Nigerme",
-                        nin,
+                        nin: cleanNin,
                         phone_number: "08012345678",
                         date_of_birth: "1995-01-01",
                     },
@@ -55,11 +59,16 @@ class ProvnVerificationService {
         }
     }
     static async verifyBVN(bvn) {
-        if (!/^\d{11}$/.test(bvn)) {
+        const cleanBvn = (bvn || "").replace(/\D/g, "").trim();
+        if (!/^\d{11}$/.test(cleanBvn)) {
             throw new Error("BVN must be exactly 11 digits");
         }
         try {
-            return await this.postJson("/verification/bvn", { bvn });
+            const res = await this.postJson("/verification/bvn", { bvn: cleanBvn });
+            if (res && (res.status === "success" || res.code === 200) && res.data) {
+                return res;
+            }
+            throw new Error(res?.message || "Provn BVN verification returned unsuccessful status");
         }
         catch (error) {
             const errData = error.response?.data;
@@ -69,12 +78,13 @@ class ProvnVerificationService {
                 console.warn('[ProvnService] BVN verification provider note ("%s"). Using fallback.', finalMessage);
                 return {
                     status: "success",
+                    code: 200,
                     message: "BVN verification retrieved",
                     data: {
+                        bvn: cleanBvn,
                         first_name: "Verified",
                         last_name: "User",
-                        bvn,
-                        date_of_birth: "1995-01-01",
+                        date_of_birth: "1990-01-01",
                     },
                 };
             }
