@@ -1037,6 +1037,12 @@ exports.resolvers = {
         },
         updateUserStatus: async (_, { userId, status }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
+            if (status.toLowerCase() === "suspended") {
+                const target = await index_js_7.UserModel.findById(userId);
+                if (target?.userType === "saas_admin" || target?.role === "owner" || userId === authUser.userId) {
+                    throw new Error("Cannot suspend the organization primary administrator account.");
+                }
+            }
             const user = await index_js_7.UserModel.findOneAndUpdate({ _id: userId, organizationId: authUser.organizationId }, { $set: { status: status.toLowerCase() } }, { new: true });
             if (!user)
                 throw new Error("User not found in this organization");
@@ -1047,6 +1053,10 @@ exports.resolvers = {
         },
         deleteUser: async (_, { userId }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
+            const target = await index_js_7.UserModel.findById(userId);
+            if (target?.userType === "saas_admin" || target?.role === "owner" || userId === authUser.userId) {
+                throw new Error("Cannot delete the organization primary administrator account.");
+            }
             const res = await index_js_7.UserModel.findOneAndDelete({ _id: userId, organizationId: authUser.organizationId });
             return !!res;
         },

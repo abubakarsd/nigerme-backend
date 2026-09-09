@@ -1197,6 +1197,12 @@ export const resolvers = {
       context: GraphQLContext
     ) => {
       const authUser = requireAuth(context);
+      if (status.toLowerCase() === "suspended") {
+        const target = await UserModel.findById(userId);
+        if (target?.userType === "saas_admin" || target?.role === "owner" || userId === authUser.userId) {
+          throw new Error("Cannot suspend the organization primary administrator account.");
+        }
+      }
       const user = await UserModel.findOneAndUpdate(
         { _id: userId, organizationId: authUser.organizationId },
         { $set: { status: status.toLowerCase() } },
@@ -1211,6 +1217,10 @@ export const resolvers = {
 
     deleteUser: async (_: any, { userId }: { userId: string }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
+      const target = await UserModel.findById(userId);
+      if (target?.userType === "saas_admin" || target?.role === "owner" || userId === authUser.userId) {
+        throw new Error("Cannot delete the organization primary administrator account.");
+      }
       const res = await UserModel.findOneAndDelete({ _id: userId, organizationId: authUser.organizationId });
       return !!res;
     },
