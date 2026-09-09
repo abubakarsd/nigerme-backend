@@ -15,23 +15,46 @@ export interface SendEmailOptions {
 }
 
 export class ResendEmailService {
-  private static resendClient: Resend | null = null;
+  private static systemResendClient: Resend | null = null;
+  private static orgResendClient: Resend | null = null;
 
-  private static getClient(): Resend {
-    if (!this.resendClient) {
+  /**
+   * System Resend Client (RESEND_API): Used exclusively for system OTPs, welcome emails,
+   * member invitations, and billing receipts.
+   */
+  private static getSystemClient(): Resend {
+    if (!this.systemResendClient) {
+      const apiKey =
+        env.RESEND_API ||
+        env.RESEND_API_KEY ||
+        process.env.RESEND_API ||
+        process.env.RESEND_API_KEY ||
+        env.RESEND_ORG_API;
+      if (!apiKey) {
+        console.warn("⚠️ RESEND_API key not found for system emails.");
+      }
+      this.systemResendClient = new Resend(apiKey || "re_system_dummy");
+    }
+    return this.systemResendClient;
+  }
+
+  /**
+   * Organization SaaS Resend Client (RESEND_ORG_API): Used exclusively for organization
+   * custom domain mail dispatching (e.g. remoraids.com), receiving webhooks, and inbound email parsing.
+   */
+  private static getOrgClient(): Resend {
+    if (!this.orgResendClient) {
       const apiKey =
         env.RESEND_ORG_API ||
         process.env.RESEND_ORG_API ||
         env.RESEND_API ||
-        env.RESEND_API_KEY ||
-        process.env.RESEND_API ||
-        process.env.RESEND_API_KEY;
+        process.env.RESEND_API;
       if (!apiKey) {
-        console.warn("⚠️ RESEND_ORG_API / RESEND_API key not found in environment variables. Emails will be logged to console in fallback mode.");
+        console.warn("⚠️ RESEND_ORG_API key not found for organization domain operations.");
       }
-      this.resendClient = new Resend(apiKey || "re_dummy");
+      this.orgResendClient = new Resend(apiKey || "re_org_dummy");
     }
-    return this.resendClient;
+    return this.orgResendClient;
   }
 
   private static getFromAddress(customFrom?: string): string {
@@ -44,20 +67,19 @@ export class ResendEmailService {
   }
 
   /**
-   * Generic sender using Resend API
+   * System transactional sender using RESEND_API
    */
   static async sendEmail(options: SendEmailOptions): Promise<{ success: boolean; id?: string; error?: string }> {
     try {
-      const client = this.getClient();
+      const client = this.getSystemClient();
       const from = this.getFromAddress(options.from);
 
       const apiKey =
-        env.RESEND_ORG_API ||
-        process.env.RESEND_ORG_API ||
         env.RESEND_API ||
         env.RESEND_API_KEY ||
         process.env.RESEND_API ||
-        process.env.RESEND_API_KEY;
+        process.env.RESEND_API_KEY ||
+        env.RESEND_ORG_API;
 
       if (!apiKey) {
         console.log(`[Resend Fallback] Email to ${Array.isArray(options.to) ? options.to.join(", ") : options.to} | Subject: "${options.subject}"`);
@@ -960,7 +982,7 @@ export class ResendEmailService {
   }
 
   /**
-   * Dispatches a user-composed email from the webmail client via Resend
+   * Dispatches a user-composed email from the webmail client via Resend Organization Client (RESEND_ORG_API)
    */
   static async sendUserEmail(options: {
     from: string;
@@ -978,14 +1000,12 @@ export class ResendEmailService {
     }>;
   }): Promise<{ success: boolean; id?: string; error?: string }> {
     try {
-      const client = this.getClient();
+      const client = this.getOrgClient();
       const apiKey =
         env.RESEND_ORG_API ||
         process.env.RESEND_ORG_API ||
         env.RESEND_API ||
-        env.RESEND_API_KEY ||
-        process.env.RESEND_API ||
-        process.env.RESEND_API_KEY;
+        process.env.RESEND_API;
 
       if (!apiKey) {
         console.log(`[Resend Fallback Mailer] From: ${options.from} -> To: ${options.to.join(", ")} | Subject: "${options.subject}"`);
@@ -1037,7 +1057,7 @@ export class ResendEmailService {
    */
   static async getReceivedEmail(id: string): Promise<{ data?: any; error?: any }> {
     try {
-      const client = this.getClient();
+      const client = this.getOrgClient();
       const receivingClient = (client as any).emails?.receiving || (client as any).receiving;
       if (!receivingClient || typeof receivingClient.get !== "function") {
         return { data: null, error: { message: "Resend receiving API not supported on this client version." } };
@@ -1053,7 +1073,7 @@ export class ResendEmailService {
    */
   static async listReceivedEmails(params?: { limit?: number; after?: string; before?: string }): Promise<{ data?: any; error?: any }> {
     try {
-      const client = this.getClient();
+      const client = this.getOrgClient();
       const receivingClient = (client as any).emails?.receiving || (client as any).receiving;
       if (!receivingClient || typeof receivingClient.list !== "function") {
         return { data: [], error: null };
@@ -1067,12 +1087,9 @@ export class ResendEmailService {
   /**
    * Retrieves an attachment for a received email from Resend
    */
-  /**
-   * Retrieves an attachment for a received email from Resend
-   */
   static async getReceivedAttachment(emailId: string, attachmentId: string): Promise<{ data?: any; error?: any }> {
     try {
-      const client = this.getClient();
+      const client = this.getOrgClient();
       const receivingClient = (client as any).emails?.receiving || (client as any).receiving;
       if (!receivingClient?.attachments?.get) {
         return { error: { message: "Resend attachment receiving not supported." } };
@@ -1088,7 +1105,7 @@ export class ResendEmailService {
    */
   static async listReceivedAttachments(emailId: string): Promise<{ data?: any; error?: any }> {
     try {
-      const client = this.getClient();
+      const client = this.getOrgClient();
       const receivingClient = (client as any).emails?.receiving || (client as any).receiving;
       if (!receivingClient?.attachments?.list) {
         return { data: [], error: null };
@@ -1107,7 +1124,7 @@ export class ResendEmailService {
       if (!backendBaseUrl || !backendBaseUrl.startsWith("http")) {
         return { error: { message: "Invalid backendBaseUrl" } };
       }
-      const client = this.getClient();
+      const client = this.getOrgClient();
       const endpoint = `${backendBaseUrl.replace(/\/+$/, "")}/webhooks/resend`;
       const events: any = [
         "email.received",
