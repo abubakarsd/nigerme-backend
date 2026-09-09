@@ -250,6 +250,12 @@ class OrganizationService {
         if (dto.departmentId) {
             department_model_js_1.DepartmentModel.findByIdAndUpdate(dto.departmentId, { $inc: { memberCount: 1 } }).catch((err) => console.warn("⚠️ Failed to increment department member count:", err));
         }
+        // Sync seats count on organization (reflects added members, minimum 1)
+        const memberCount = await user_model_js_1.UserModel.countDocuments({ organizationId: orgId });
+        await organization_model_js_1.OrganizationModel.findByIdAndUpdate(orgId, {
+            $set: { usedSeats: Math.max(1, memberCount) },
+            $max: { totalSeats: Math.max(1, memberCount) },
+        }).catch((err) => console.warn("⚠️ Failed to sync org seats on invite:", err));
         // Dispatch invitation email
         organization_model_js_1.OrganizationModel.findById(orgId).then(async (org) => {
             if (org) {

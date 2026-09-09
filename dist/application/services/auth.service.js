@@ -5,6 +5,7 @@ const user_model_js_1 = require("../../infrastructure/database/models/user.model
 const role_model_js_1 = require("../../infrastructure/database/models/role.model.js");
 const organization_model_js_1 = require("../../infrastructure/database/models/organization.model.js");
 const subscription_model_js_1 = require("../../infrastructure/database/models/subscription.model.js");
+const transaction_model_js_1 = require("../../infrastructure/database/models/transaction.model.js");
 const passkey_model_js_1 = require("../../infrastructure/database/models/passkey.model.js");
 const token_manager_js_1 = require("../../infrastructure/security/token.manager.js");
 const otp_service_js_1 = require("./otp.service.js");
@@ -78,8 +79,8 @@ class AuthService {
             dailySendingLimit: 1000,
             phone: dto.phone || user.phone || "",
             subscribedPackages: ["org-email"],
-            totalSeats: 0,
-            usedSeats: 0,
+            totalSeats: 1,
+            usedSeats: 1,
             subscriptionStatus: "TRIAL",
             trialStartsAt,
             trialEndsAt,
@@ -89,12 +90,30 @@ class AuthService {
         });
         user.organizationId = organization._id;
         await user.save();
+        const trialRef = `TRIAL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        // Create initial ₦0 transaction in ledger for 7-day free trial
+        await transaction_model_js_1.TransactionModel.create({
+            organizationId: organization._id,
+            userId: user._id,
+            reference: trialRef,
+            type: "subscription_charge",
+            amount: 0,
+            status: "success",
+            channel: "wallet",
+            currency: "NGN",
+            paidAt: trialStartsAt,
+            metadata: {
+                description: "7-Day Sovereign Free Trial Activation",
+                packageIds: ["org-email"],
+                seatCount: 1,
+            },
+        });
         // Create initial 7-day free trial subscription record
         await subscription_model_js_1.SubscriptionModel.create({
             organizationId: organization._id,
             packageIds: ["org-email"],
             billingCycle: "MONTHLY",
-            seatCount: 0,
+            seatCount: 1,
             totalAmount: 0,
             currency: "NGN",
             status: "TRIAL",
@@ -104,6 +123,7 @@ class AuthService {
             currentPeriodStartsAt: trialStartsAt,
             currentPeriodEndsAt: trialEndsAt,
             autoDebit: true,
+            lastPaymentReference: trialRef,
         });
         // Seed default roles for this new organization in DB (departments created on demand by admin)
         await (0, role_seed_js_1.seedOrganizationDefaultRoles)(organization._id).catch((err) => console.warn("⚠️ Failed to seed default roles during signup:", err));

@@ -2,6 +2,7 @@ import { UserModel } from "../../infrastructure/database/models/user.model.js";
 import { RoleModel } from "../../infrastructure/database/models/role.model.js";
 import { OrganizationModel } from "../../infrastructure/database/models/organization.model.js";
 import { SubscriptionModel } from "../../infrastructure/database/models/subscription.model.js";
+import { TransactionModel } from "../../infrastructure/database/models/transaction.model.js";
 import { PasskeyModel } from "../../infrastructure/database/models/passkey.model.js";
 import { TokenManager, TokenPayload } from "../../infrastructure/security/token.manager.js";
 import { OtpService, maskEmail } from "./otp.service.js";
@@ -133,8 +134,8 @@ export class AuthService {
       dailySendingLimit: 1000,
       phone: dto.phone || user.phone || "",
       subscribedPackages: ["org-email"],
-      totalSeats: 0,
-      usedSeats: 0,
+      totalSeats: 1,
+      usedSeats: 1,
       subscriptionStatus: "TRIAL",
       trialStartsAt,
       trialEndsAt,
@@ -146,12 +147,32 @@ export class AuthService {
     user.organizationId = organization._id as any;
     await user.save();
 
+    const trialRef = `TRIAL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // Create initial ₦0 transaction in ledger for 7-day free trial
+    await TransactionModel.create({
+      organizationId: organization._id,
+      userId: user._id,
+      reference: trialRef,
+      type: "subscription_charge",
+      amount: 0,
+      status: "success",
+      channel: "wallet",
+      currency: "NGN",
+      paidAt: trialStartsAt,
+      metadata: {
+        description: "7-Day Sovereign Free Trial Activation",
+        packageIds: ["org-email"],
+        seatCount: 1,
+      },
+    });
+
     // Create initial 7-day free trial subscription record
     await SubscriptionModel.create({
       organizationId: organization._id,
       packageIds: ["org-email"],
       billingCycle: "MONTHLY",
-      seatCount: 0,
+      seatCount: 1,
       totalAmount: 0,
       currency: "NGN",
       status: "TRIAL",
@@ -161,6 +182,7 @@ export class AuthService {
       currentPeriodStartsAt: trialStartsAt,
       currentPeriodEndsAt: trialEndsAt,
       autoDebit: true,
+      lastPaymentReference: trialRef,
     });
 
     // Seed default roles for this new organization in DB (departments created on demand by admin)

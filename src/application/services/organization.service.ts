@@ -307,6 +307,13 @@ export class OrganizationService {
       );
     }
 
+    // Sync seats count on organization (reflects added members, minimum 1)
+    const memberCount = await UserModel.countDocuments({ organizationId: orgId });
+    await OrganizationModel.findByIdAndUpdate(orgId, {
+      $set: { usedSeats: Math.max(1, memberCount) },
+      $max: { totalSeats: Math.max(1, memberCount) },
+    }).catch((err) => console.warn("⚠️ Failed to sync org seats on invite:", err));
+
     // Dispatch invitation email
     OrganizationModel.findById(orgId).then(async (org) => {
       if (org) {

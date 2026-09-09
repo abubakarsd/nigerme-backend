@@ -135,6 +135,17 @@ exports.resolvers = {
                 await org.save();
             }
             let needsSave = false;
+            // Sync mailbox seats with real member count (1 for initial user, never 0, reflects added members)
+            const userCount = await index_js_7.UserModel.countDocuments({ organizationId: org._id });
+            const actualUsedSeats = Math.max(1, userCount);
+            if (org.usedSeats !== actualUsedSeats) {
+                org.usedSeats = actualUsedSeats;
+                needsSave = true;
+            }
+            if (!org.totalSeats || org.totalSeats < actualUsedSeats) {
+                org.totalSeats = actualUsedSeats;
+                needsSave = true;
+            }
             if (!org.subscribedPackages || org.subscribedPackages.length === 0) {
                 org.subscribedPackages = ["org-email"];
                 needsSave = true;
@@ -149,6 +160,15 @@ exports.resolvers = {
             }
             if (!org.trialEndsAt) {
                 org.trialEndsAt = new Date(new Date(org.trialStartsAt).getTime() + 7 * 24 * 60 * 60 * 1000);
+                needsSave = true;
+            }
+            // Check if 7-day trial period is over -> automatically unsubscribe workspace
+            const now = new Date();
+            if (org.subscriptionStatus === "TRIAL" &&
+                org.trialEndsAt &&
+                now > new Date(org.trialEndsAt)) {
+                org.subscriptionStatus = "CANCELLED";
+                org.isSuspended = true;
                 needsSave = true;
             }
             if (needsSave) {
@@ -817,10 +837,13 @@ exports.resolvers = {
             const isFirstTimeTrial = !org.subscriptionStartsAt ||
                 org.subscriptionStatus === "TRIAL" ||
                 !org.subscriptionStatus;
+            const userCount = await index_js_7.UserModel.countDocuments({ organizationId: org._id });
+            const actualSeats = Math.max(1, totalSeats, userCount, org.usedSeats || 1);
             if (isFirstTimeTrial) {
                 org.subscribedPackages = packageIds;
                 org.billingCycle = billingCycle;
-                org.totalSeats = totalSeats;
+                org.usedSeats = Math.max(1, userCount, org.usedSeats || 1);
+                org.totalSeats = actualSeats;
                 org.subscriptionStatus = "TRIAL";
                 org.trialStartsAt = now;
                 const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -831,12 +854,36 @@ exports.resolvers = {
                 org.isSuspended = false;
                 org.lastBillingReminderType = undefined;
                 await org.save();
+                // Activate email permissions for workspace users
+                if (user) {
+                    user.canAccessEmail = true;
+                    await user.save();
+                }
+                await index_js_7.UserModel.updateMany({ organizationId: org._id }, { $set: { canAccessEmail: true } });
+                const trialRef = `TRIAL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                // Record ₦0 transaction in ledger for 7-day free trial activation
+                await index_js_7.TransactionModel.create({
+                    organizationId: org._id,
+                    userId: authUser.userId,
+                    reference: trialRef,
+                    type: "subscription_charge",
+                    amount: 0,
+                    status: "success",
+                    channel: "wallet",
+                    currency: "NGN",
+                    paidAt: now,
+                    metadata: {
+                        description: "7-Day Sovereign Free Trial Activation",
+                        packageIds,
+                        seatCount: actualSeats,
+                    },
+                });
                 // Create subscription history record
                 await index_js_7.SubscriptionModel.create({
                     organizationId: org._id,
                     packageIds,
                     billingCycle,
-                    seatCount: totalSeats,
+                    seatCount: actualSeats,
                     totalAmount: 0,
                     currency: "NGN",
                     status: "TRIAL",
@@ -846,6 +893,7 @@ exports.resolvers = {
                     currentPeriodStartsAt: now,
                     currentPeriodEndsAt: trialEndsAt,
                     autoDebit: org.autoDebitWallet ?? true,
+                    lastPaymentReference: trialRef,
                 });
                 return {
                     ...org.toObject(),
@@ -862,7 +910,8 @@ exports.resolvers = {
             org.walletBalance = (org.walletBalance || 0) - costInKobo;
             org.subscribedPackages = packageIds;
             org.billingCycle = billingCycle;
-            org.totalSeats = totalSeats;
+            org.usedSeats = Math.max(1, userCount, org.usedSeats || 1);
+            org.totalSeats = actualSeats;
             org.subscriptionStatus = "ACTIVE";
             org.subscriptionStartsAt = now;
             const periodDays = isAnnual ? 365 : 30;
@@ -872,6 +921,12 @@ exports.resolvers = {
             org.isSuspended = false;
             org.lastBillingReminderType = undefined;
             await org.save();
+            // Ensure email access for workspace users
+            if (user) {
+                user.canAccessEmail = true;
+                await user.save();
+            }
+            await index_js_7.UserModel.updateMany({ organizationId: org._id }, { $set: { canAccessEmail: true } });
             const subRef = `SUB-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
             // Record transaction
             await index_js_7.TransactionModel.create({
@@ -1361,8 +1416,18 @@ exports.resolvers = {
                 throw new Error("Organization not found");
             // ── 1. Strict SaaS Subscription Gating ──
             const now = new Date();
-            const isTrialValid = (org.subscriptionStatus === "TRIAL" || !org.subscriptionStatus) &&
-                (!org.trialEndsAt || now <= new Date(org.trialEndsAt));
+            // Check if 7-day free trial has expired -> automatically unsubscribe
+            if (org.subscriptionStatus === "TRIAL" &&
+                org.trialEndsAt &&
+                now > new Date(org.trialEndsAt)) {
+                org.subscriptionStatus = "CANCELLED";
+                org.isSuspended = true;
+                await org.save();
+                throw new Error("Your 7-Day Free Trial has expired. Your subscription has been unsubscribed. Please choose and activate a plan in Billing to continue sending sovereign emails.");
+            }
+            const isTrialValid = org.subscriptionStatus === "TRIAL" &&
+                org.trialEndsAt &&
+                now <= new Date(org.trialEndsAt);
             const isSubActive = org.subscriptionStatus === "ACTIVE" &&
                 (!org.subscriptionExpiresAt || now <= new Date(org.subscriptionExpiresAt));
             const isGracePeriod = org.subscriptionStatus === "GRACE_PERIOD" &&

@@ -65,6 +65,25 @@ export class SubscriptionCronService {
           const msRemaining = expiresAt.getTime() - now.getTime();
           const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
 
+          // 0. 7-Day Free Trial Expiration Check -> Automatically unsubscribe
+          if (org.subscriptionStatus === "TRIAL") {
+            const trialEnd = org.trialEndsAt ? new Date(org.trialEndsAt) : expiresAt;
+            if (trialEnd && now >= trialEnd) {
+              org.subscriptionStatus = "CANCELLED";
+              org.isSuspended = true;
+              org.lastBillingReminderType = "TRIAL_EXPIRED";
+              await org.save();
+
+              await ResendEmailService.sendServiceSuspendedNotice(
+                owner.email,
+                owner.name || "Administrator",
+                org.name
+              ).catch((err) => console.warn("Failed to send trial expired notice:", err));
+              console.log(`ℹ️ 7-Day Free Trial expired for ${org.name}. Organization unsubscribed and suspended.`);
+              continue;
+            }
+          }
+
           // 1. 4-Day Reminder
           if (daysRemaining <= 4 && daysRemaining > 1 && org.lastBillingReminderType !== "4_DAYS") {
             await ResendEmailService.sendSubscriptionDueReminder(
