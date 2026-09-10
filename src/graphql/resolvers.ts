@@ -2159,13 +2159,14 @@ export const resolvers = {
 
     updateEmailStatus: async (
       _: any,
-      { id, folder, isRead, isStarred, isImportant }: any,
+      { id, folder, isRead, isStarred, isImportant, category }: any,
       context: GraphQLContext
     ) => {
       const authUser = requireAuth(context);
 
       const updateData: any = {};
       if (folder) updateData.folder = folder;
+      if (category) updateData.category = category;
       if (typeof isRead === "boolean") updateData.isRead = isRead;
       if (typeof isStarred === "boolean") updateData.isStarred = isStarred;
       if (typeof isImportant === "boolean") updateData.isImportant = isImportant;

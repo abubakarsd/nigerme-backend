@@ -1877,11 +1877,13 @@ exports.resolvers = {
                 createdAt: newEmail.createdAt.toISOString(),
             };
         },
-        updateEmailStatus: async (_, { id, folder, isRead, isStarred, isImportant }, context) => {
+        updateEmailStatus: async (_, { id, folder, isRead, isStarred, isImportant, category }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             const updateData = {};
             if (folder)
                 updateData.folder = folder;
+            if (category)
+                updateData.category = category;
             if (typeof isRead === "boolean")
                 updateData.isRead = isRead;
             if (typeof isStarred === "boolean")

@@ -561,7 +561,7 @@ export const typeDefs = gql`
 
     # ── Webmail Client Dispatch & Management ──
     sendMail(input: SendMailInput!): WebmailMessage!
-    updateEmailStatus(id: ID!, folder: String, isRead: Boolean, isStarred: Boolean, isImportant: Boolean): WebmailMessage!
+    updateEmailStatus(id: ID!, folder: String, isRead: Boolean, isStarred: Boolean, isImportant: Boolean, category: String): WebmailMessage!
     deleteEmail(id: ID!, permanent: Boolean): Boolean!
 
     # ── Legacy / System Email Dispatch (Resend) ──

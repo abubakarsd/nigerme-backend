@@ -6,6 +6,7 @@ const user_model_js_1 = require("../../../infrastructure/database/models/user.mo
 const email_model_js_1 = require("../../../infrastructure/database/models/email.model.js");
 const email_service_js_1 = require("../../../services/resend/email.service.js");
 const audit_log_model_js_1 = require("../../../infrastructure/database/models/audit-log.model.js");
+const classifier_service_js_1 = require("../../../services/mail/classifier.service.js");
 class MailWebhookController {
     /**
      * Handles Resend Inbound Email Webhook (POST /webhooks/resend)
@@ -125,6 +126,15 @@ class MailWebhookController {
                         console.warn(`⚠️ Mailbox not found for recipient: ${cleanRecipient}`);
                         continue;
                     }
+                    // Intelligently classify into primary, updates, social, or promotions
+                    const category = classifier_service_js_1.EmailClassifierService.classify({
+                        fromEmail: cleanFromEmail,
+                        fromName: senderName,
+                        subject,
+                        bodyText,
+                        bodyHtml,
+                        headers: fullEmail.headers,
+                    });
                     // Create inbox record
                     await email_model_js_1.EmailModel.create({
                         organizationId: org._id,
@@ -132,7 +142,7 @@ class MailWebhookController {
                         threadId: `thread-inbound-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                         resendId: resendEmailId,
                         folder: "inbox",
-                        category: "primary",
+                        category,
                         from: {
                             name: senderName || "External Sender",
                             email: cleanFromEmail,

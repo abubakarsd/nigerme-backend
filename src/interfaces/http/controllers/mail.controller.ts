@@ -4,6 +4,7 @@ import { UserModel } from "../../../infrastructure/database/models/user.model.js
 import { EmailModel } from "../../../infrastructure/database/models/email.model.js";
 import { ResendEmailService } from "../../../services/resend/email.service.js";
 import { AuditLogModel } from "../../../infrastructure/database/models/audit-log.model.js";
+import { EmailClassifierService } from "../../../services/mail/classifier.service.js";
 
 export class MailWebhookController {
   /**
@@ -144,6 +145,16 @@ export class MailWebhookController {
             continue;
           }
 
+          // Intelligently classify into primary, updates, social, or promotions
+          const category = EmailClassifierService.classify({
+            fromEmail: cleanFromEmail,
+            fromName: senderName,
+            subject,
+            bodyText,
+            bodyHtml,
+            headers: fullEmail.headers,
+          });
+
           // Create inbox record
           await EmailModel.create({
             organizationId: org._id,
@@ -151,7 +162,7 @@ export class MailWebhookController {
             threadId: `thread-inbound-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             resendId: resendEmailId,
             folder: "inbox",
-            category: "primary",
+            category,
             from: {
               name: senderName || "External Sender",
               email: cleanFromEmail,
