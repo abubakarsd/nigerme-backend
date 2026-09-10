@@ -411,6 +411,7 @@ export const typeDefs = gql`
   input FundWalletInput {
     amountInNaira: Float!
     callbackUrl: String
+    organizationId: ID
   }
 
   input InviteMemberInput {

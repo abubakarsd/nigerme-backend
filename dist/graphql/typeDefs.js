@@ -416,6 +416,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
   input FundWalletInput {
     amountInNaira: Float!
     callbackUrl: String
+    organizationId: ID
   }
 
   input InviteMemberInput {
