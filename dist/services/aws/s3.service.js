@@ -21,16 +21,18 @@ class AwsS3Service {
      */
     static async getPresignedUploadUrl(folder, fileName, contentType, expiresIn = 900 // 15 mins
     ) {
-        const allowedTypes = [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "application/pdf",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ];
-        if (!allowedTypes.includes(contentType)) {
-            throw new Error(`Unsupported file type '${contentType}'. Allowed types: JPEG, PNG, WEBP, PDF, XLSX.`);
+        if (folder !== "attachments") {
+            const allowedTypes = [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "application/pdf",
+                "application/vnd.ms-excel",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ];
+            if (contentType && !allowedTypes.includes(contentType)) {
+                throw new Error(`Unsupported file type '${contentType}'. Allowed types: JPEG, PNG, WEBP, PDF, XLSX.`);
+            }
         }
         const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
         const uniquePrefix = `${Date.now()}-${crypto_1.default.randomBytes(6).toString("hex")}`;

@@ -28,17 +28,19 @@ export class AwsS3Service {
     contentType: string,
     expiresIn = 900 // 15 mins
   ): Promise<PresignedUploadResponse> {
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ];
+    if (folder !== "attachments") {
+      const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ];
 
-    if (!allowedTypes.includes(contentType)) {
-      throw new Error(`Unsupported file type '${contentType}'. Allowed types: JPEG, PNG, WEBP, PDF, XLSX.`);
+      if (contentType && !allowedTypes.includes(contentType)) {
+        throw new Error(`Unsupported file type '${contentType}'. Allowed types: JPEG, PNG, WEBP, PDF, XLSX.`);
+      }
     }
 
     const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
