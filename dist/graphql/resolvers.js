@@ -1778,7 +1778,10 @@ exports.resolvers = {
             }
             const ccEmails = (input.cc || []).map((p) => p.email.trim().toLowerCase()).filter(Boolean);
             const bccEmails = (input.bcc || []).map((p) => p.email.trim().toLowerCase()).filter(Boolean);
-            const senderName = authUser.name || "Workspace Member";
+            // Fetch the actual sender user record from DB to guarantee the person's real display name
+            const user = await index_js_7.UserModel.findById(authUser.userId);
+            const rawSenderName = (input.fromName || user?.name || authUser.name || "").trim();
+            const senderName = rawSenderName || "Sovereign Workspace";
             let senderEmail = authUser.email;
             const userReplyTo = input.replyTo || authUser.email;
             // If senderEmail is on a public/unverified provider (e.g. @gmail.com) but org has a configured domain,
@@ -1787,7 +1790,9 @@ exports.resolvers = {
                 const username = senderEmail.split("@")[0] || "user";
                 senderEmail = `${username}@${org.domain.toLowerCase()}`;
             }
-            const fromFormatted = `${senderName} <${senderEmail}>`;
+            // Format RFC 5322 standard: "Display Name" <email@domain.com>
+            const cleanSenderName = senderName.replace(/["<>\r\n]/g, "").trim();
+            const fromFormatted = `"${cleanSenderName}" <${senderEmail}>`;
             // ── 4. Dispatch via Resend ──
             const resendResult = await index_js_6.ResendEmailService.sendUserEmail({
                 from: fromFormatted,
@@ -1819,7 +1824,7 @@ exports.resolvers = {
                 folder: "sent",
                 category: "primary",
                 from: {
-                    name: senderName,
+                    name: cleanSenderName,
                     email: senderEmail,
                 },
                 to: input.to.map((p) => ({ name: p.name || p.email.split("@")[0], email: p.email })),

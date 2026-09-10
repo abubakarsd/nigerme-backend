@@ -139,6 +139,7 @@ class AuthService {
         const payload = {
             userId: user._id.toString(),
             email: user.email,
+            name: user.name,
             role: user.role,
             userType: user.userType,
             organizationId: organization._id.toString(),
@@ -322,6 +323,7 @@ class AuthService {
         const payload = {
             userId: user._id.toString(),
             email: user.email,
+            name: user.name,
             role: user.role,
             userType: user.userType,
             organizationId: user.organizationId?.toString(),
@@ -397,6 +399,7 @@ class AuthService {
         const payload = {
             userId: user._id.toString(),
             email: user.email,
+            name: user.name,
             role: user.role,
             userType: user.userType,
             organizationId: user.organizationId?.toString(),
@@ -437,9 +440,11 @@ class AuthService {
         const newAccessToken = token_manager_js_1.TokenManager.generateAccessToken({
             userId: user._id.toString(),
             email: user.email,
+            name: user.name,
             role: user.role,
             userType: user.userType,
             organizationId: user.organizationId?.toString(),
+            sessionType: payload.sessionType,
         });
         return { accessToken: newAccessToken };
     }

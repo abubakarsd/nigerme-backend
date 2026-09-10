@@ -2050,7 +2050,10 @@ export const resolvers = {
       const ccEmails = (input.cc || []).map((p: any) => p.email.trim().toLowerCase()).filter(Boolean);
       const bccEmails = (input.bcc || []).map((p: any) => p.email.trim().toLowerCase()).filter(Boolean);
 
-      const senderName = authUser.name || "Workspace Member";
+      // Fetch the actual sender user record from DB to guarantee the person's real display name
+      const user = await UserModel.findById(authUser.userId);
+      const rawSenderName = (input.fromName || user?.name || authUser.name || "").trim();
+      const senderName = rawSenderName || "Sovereign Workspace";
       let senderEmail = authUser.email;
       const userReplyTo = input.replyTo || authUser.email;
 
@@ -2061,7 +2064,9 @@ export const resolvers = {
         senderEmail = `${username}@${org.domain.toLowerCase()}`;
       }
 
-      const fromFormatted = `${senderName} <${senderEmail}>`;
+      // Format RFC 5322 standard: "Display Name" <email@domain.com>
+      const cleanSenderName = senderName.replace(/["<>\r\n]/g, "").trim();
+      const fromFormatted = `"${cleanSenderName}" <${senderEmail}>`;
 
       // ── 4. Dispatch via Resend ──
       const resendResult = await ResendEmailService.sendUserEmail({
@@ -2096,7 +2101,7 @@ export const resolvers = {
         folder: "sent",
         category: "primary",
         from: {
-          name: senderName,
+          name: cleanSenderName,
           email: senderEmail,
         },
         to: input.to.map((p: any) => ({ name: p.name || p.email.split("@")[0], email: p.email })),

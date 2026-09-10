@@ -202,6 +202,7 @@ export class AuthService {
     const payload: Omit<TokenPayload, "iat" | "exp"> = {
       userId: user._id.toString(),
       email: user.email,
+      name: user.name,
       role: user.role,
       userType: user.userType,
       organizationId: organization._id.toString(),
@@ -453,6 +454,7 @@ export class AuthService {
     const payload: Omit<TokenPayload, "iat" | "exp"> = {
       userId: user._id.toString(),
       email: user.email,
+      name: user.name,
       role: user.role,
       userType: user.userType,
       organizationId: user.organizationId?.toString(),
@@ -535,6 +537,7 @@ export class AuthService {
     const payload: Omit<TokenPayload, "iat" | "exp"> = {
       userId: user._id.toString(),
       email: user.email,
+      name: user.name,
       role: user.role,
       userType: user.userType,
       organizationId: user.organizationId?.toString(),
@@ -578,9 +581,11 @@ export class AuthService {
     const newAccessToken = TokenManager.generateAccessToken({
       userId: user._id.toString(),
       email: user.email,
+      name: user.name,
       role: user.role,
       userType: user.userType,
       organizationId: user.organizationId?.toString(),
+      sessionType: payload.sessionType,
     });
 
     return { accessToken: newAccessToken };

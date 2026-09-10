@@ -727,6 +727,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
   }
 
   input SendMailInput {
+    fromName: String
     to: [EmailParticipantInput!]!
     cc: [EmailParticipantInput!]
     bcc: [EmailParticipantInput!]

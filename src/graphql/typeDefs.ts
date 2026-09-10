@@ -722,6 +722,7 @@ export const typeDefs = gql`
   }
 
   input SendMailInput {
+    fromName: String
     to: [EmailParticipantInput!]!
     cc: [EmailParticipantInput!]
     bcc: [EmailParticipantInput!]
