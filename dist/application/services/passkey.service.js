@@ -59,7 +59,7 @@ class PasskeyService {
             }
         }
         return {
-            rpName: "busmailer Business Workspace",
+            rpName: "Busmailer Business Workspace",
             rpID,
             expectedOrigin: origin,
         };

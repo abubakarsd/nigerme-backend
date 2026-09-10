@@ -52,7 +52,7 @@ const envSchema = zod_1.z.object({
     RESEND_API_KEY: zod_1.z.string().optional().default(""),
     RESEND_ORG_API: zod_1.z.string().optional().default(""),
     RESEND_WEBHOOK_SECRET: zod_1.z.string().optional().default(""),
-    EMAIL_SENDER: zod_1.z.string().default("busmailer Workspace <no-reply@vynxtechnology.com>"),
+    EMAIL_SENDER: zod_1.z.string().default("Busmailer Workspace <no-reply@vynxtechnology.com>"),
 });
 const parseEnv = () => {
     const result = envSchema.safeParse(process.env);

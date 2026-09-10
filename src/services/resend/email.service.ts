@@ -409,7 +409,7 @@ export class ResendEmailService {
           </div>
 
           <p style="text-align: center; margin-top: 24px;">
-            <a href="https://busmailer.com/mail/login" class="btn">Sign In to Webmail &rarr;</a>
+            <a href="https://busmailer.com/mail/login" class="btn">Sign In to Busmailer &rarr;</a>
           </p>
 
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">

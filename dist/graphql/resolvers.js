@@ -111,7 +111,7 @@ async function formatUserWithPermissions(userDoc) {
 }
 exports.resolvers = {
     Query: {
-        healthCheck: () => "busmailer Sovereign GraphQL Backend is operational.",
+        healthCheck: () => "Busmailer Sovereign GraphQL Backend is operational.",
         me: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             const user = await index_js_7.UserModel.findById(authUser.userId);
@@ -682,6 +682,68 @@ exports.resolvers = {
                 throw new Error("Access denied to this calendar event.");
             }
             return formatCalendarEvent(event);
+        },
+        // ─── Task Queries ───
+        getMyTasks: async (_, { status, priority }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                return [];
+            const query = { organizationId: authUser.organizationId };
+            if (status)
+                query.status = status;
+            if (priority)
+                query.priority = priority;
+            const tasks = await index_js_7.TaskModel.find(query).sort({ createdAt: -1 });
+            return tasks.map(formatTask);
+        },
+        getTaskById: async (_, { id }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                return null;
+            const task = await index_js_7.TaskModel.findOne({ _id: id, organizationId: authUser.organizationId });
+            return task ? formatTask(task) : null;
+        },
+        // ─── CRM Queries ───
+        getCrmCustomers: async (_, { status, search, limit = 50 }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                return [];
+            const query = { organizationId: authUser.organizationId };
+            if (status)
+                query.status = status;
+            if (search && search.trim()) {
+                const regex = new RegExp(search.trim(), "i");
+                query.$or = [{ name: regex }, { email: regex }, { companyName: regex }];
+            }
+            const customers = await index_js_7.CustomerModel.find(query).sort({ createdAt: -1 }).limit(limit);
+            return customers.map(formatCustomer);
+        },
+        getCrmCustomerById: async (_, { id }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                return null;
+            const c = await index_js_7.CustomerModel.findOne({ _id: id, organizationId: authUser.organizationId });
+            return c ? formatCustomer(c) : null;
+        },
+        getCrmDeals: async (_, { stage, customerId }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                return [];
+            const query = { organizationId: authUser.organizationId };
+            if (stage)
+                query.stage = stage;
+            if (customerId)
+                query.customerId = customerId;
+            const deals = await index_js_7.DealModel.find(query).sort({ createdAt: -1 });
+            return deals.map(formatDeal);
+        },
+        getCrmActivities: async (_, { customerId, limit = 50 }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                return [];
+            const activities = await index_js_7.CRMActivityModel.find({ organizationId: authUser.organizationId, customerId })
+                .sort({ createdAt: -1 }).limit(limit);
+            return activities.map(formatCrmActivity);
         },
         // ─── Passkey & WebAuthn Queries ───
         getPasskeyRegistrationOptions: async (_, __, context) => {
@@ -1532,16 +1594,15 @@ exports.resolvers = {
                 organizationId = orgByOwner?._id?.toString();
             }
             if (!organizationId) {
-                const anyOrg = await index_js_7.OrganizationModel.findOne();
-                organizationId = anyOrg?._id?.toString();
-            }
-            if (!organizationId) {
-                throw new Error("Unable to locate an organization for wallet funding.");
+                throw new Error("Unable to locate an organization associated with your account.");
             }
             let userEmail = authUser.email;
             if (!userEmail || !userEmail.includes("@")) {
                 const userDoc = await index_js_7.UserModel.findById(authUser.userId);
-                userEmail = userDoc?.email || userDoc?.personalEmail || "billing@busmailer.com";
+                userEmail = userDoc?.email || userDoc?.personalEmail;
+            }
+            if (!userEmail) {
+                throw new Error("Valid user email is required for payment processing.");
             }
             return index_js_5.PaystackService.initializeWalletFunding({
                 organizationId,
@@ -1641,7 +1702,10 @@ exports.resolvers = {
             const userFirstName = userParts[0] || "Admin";
             const userLastName = userParts.slice(1).join(" ") || userParts[0] || "Workspace";
             const userPhone = user?.phone;
-            const customerEmail = user?.email || (org.domain ? `billing@${org.domain}` : "billing@busmailer.com");
+            const customerEmail = user?.email || (org.domain ? `admin@${org.domain}` : null);
+            if (!customerEmail) {
+                throw new Error("Valid email address is required to create a dedicated virtual account.");
+            }
             let verifiedFirstName = userFirstName;
             let verifiedLastName = userLastName;
             let verifiedPhone = userPhone;
@@ -1817,10 +1881,10 @@ exports.resolvers = {
                 attachments: (input.attachments || [])
                     .filter((a) => a && (a.content || a.downloadUrl))
                     .map((a) => ({
-                        filename: a.name || "attachment",
-                        content: a.content,
-                        path: a.downloadUrl,
-                    })),
+                    filename: a.name || "attachment",
+                    content: a.content,
+                    path: a.downloadUrl,
+                })),
             });
             if (!resendResult.success) {
                 throw new Error(resendResult.error || "Failed to dispatch email via Resend.");
@@ -2019,7 +2083,7 @@ exports.resolvers = {
                 end: new Date(input.end),
                 allDay: !!input.allDay,
                 timezone: input.timezone || "Africa/Lagos",
-                location: input.location || "busmailer Meet Virtual Room",
+                location: input.location || "Busmailer Meet Virtual Room",
                 meetUrl: input.meetUrl || `https://meet.busmailer.com/${Math.random().toString(36).substring(7)}`,
                 attendees,
                 color: input.color || "bg-[#84cc16]",
@@ -2088,6 +2152,148 @@ exports.resolvers = {
             }
             await index_js_7.CalendarEventModel.deleteOne({ _id: id });
             return true;
+        },
+        // ─── Task Mutations ───
+        createTask: async (_, { input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const task = await index_js_7.TaskModel.create({
+                organizationId: authUser.organizationId,
+                creatorId: authUser.userId || authUser.id,
+                creatorName: authUser.name || authUser.email.split("@")[0],
+                title: input.title.trim(),
+                description: input.description || "",
+                status: input.status || "TODO",
+                priority: input.priority || "MEDIUM",
+                assigneeId: input.assigneeId || null,
+                assigneeName: input.assigneeName || null,
+                dueDate: input.dueDate ? new Date(input.dueDate) : null,
+                labels: input.labels || [],
+                sourceEmailId: input.sourceEmailId || null,
+                sourceEmailSubject: input.sourceEmailSubject || null,
+            });
+            return formatTask(task);
+        },
+        updateTask: async (_, { id, input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const task = await index_js_7.TaskModel.findOne({ _id: id, organizationId: authUser.organizationId });
+            if (!task)
+                throw new Error("Task not found");
+            if (input.title !== undefined)
+                task.title = input.title.trim();
+            if (input.description !== undefined)
+                task.description = input.description;
+            if (input.status !== undefined)
+                task.status = input.status;
+            if (input.priority !== undefined)
+                task.priority = input.priority;
+            if (input.assigneeId !== undefined)
+                task.assigneeId = input.assigneeId;
+            if (input.assigneeName !== undefined)
+                task.assigneeName = input.assigneeName;
+            if (input.dueDate !== undefined)
+                task.dueDate = input.dueDate ? new Date(input.dueDate) : undefined;
+            if (input.labels !== undefined)
+                task.labels = input.labels;
+            await task.save();
+            return formatTask(task);
+        },
+        deleteTask: async (_, { id }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const res = await index_js_7.TaskModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
+            return res.deletedCount > 0;
+        },
+        // ─── CRM Mutations ───
+        createCrmCustomer: async (_, { input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const customer = await index_js_7.CustomerModel.create({
+                organizationId: authUser.organizationId,
+                name: input.name.trim(),
+                email: input.email.toLowerCase().trim(),
+                phone: input.phone || null,
+                companyName: input.companyName || null,
+                status: input.status || "NEW",
+                assignedAgentId: authUser.userId || authUser.id,
+                assignedAgentName: input.assignedAgentName || authUser.name || authUser.email.split("@")[0],
+                source: input.source || "MANUAL",
+                tags: input.tags || [],
+            });
+            return formatCustomer(customer);
+        },
+        updateCrmCustomer: async (_, { id, input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const customer = await index_js_7.CustomerModel.findOneAndUpdate({ _id: id, organizationId: authUser.organizationId }, { $set: input }, { new: true });
+            if (!customer)
+                throw new Error("Customer not found");
+            return formatCustomer(customer);
+        },
+        deleteCrmCustomer: async (_, { id }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const res = await index_js_7.CustomerModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
+            return res.deletedCount > 0;
+        },
+        createCrmDeal: async (_, { input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const deal = await index_js_7.DealModel.create({
+                organizationId: authUser.organizationId,
+                title: input.title.trim(),
+                customerId: input.customerId,
+                customerName: input.customerName,
+                companyName: input.companyName || null,
+                amount: input.amount || 0,
+                currency: input.currency || "NGN",
+                stage: input.stage || "LEAD",
+                probability: input.probability ?? 10,
+                expectedClosingDate: input.expectedClosingDate ? new Date(input.expectedClosingDate) : null,
+                assignedAgentId: authUser.userId || authUser.id,
+                assignedAgentName: input.assignedAgentName || authUser.name || authUser.email.split("@")[0],
+                notes: input.notes || null,
+            });
+            return formatDeal(deal);
+        },
+        updateCrmDeal: async (_, { id, input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const deal = await index_js_7.DealModel.findOneAndUpdate({ _id: id, organizationId: authUser.organizationId }, { $set: input }, { new: true });
+            if (!deal)
+                throw new Error("Deal not found");
+            return formatDeal(deal);
+        },
+        deleteCrmDeal: async (_, { id }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const res = await index_js_7.DealModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
+            return res.deletedCount > 0;
+        },
+        createCrmActivity: async (_, { input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No active organization found");
+            const activity = await index_js_7.CRMActivityModel.create({
+                organizationId: authUser.organizationId,
+                customerId: input.customerId,
+                type: input.type,
+                title: input.title,
+                description: input.description || null,
+                actorName: authUser.name || authUser.email.split("@")[0],
+                actorEmail: authUser.email,
+            });
+            return formatCrmActivity(activity);
         },
     },
     Organization: {
@@ -2167,7 +2373,7 @@ function formatCalendarEvent(doc) {
         end: e.end ? new Date(e.end).toISOString() : new Date().toISOString(),
         allDay: !!e.allDay,
         timezone: e.timezone || "Africa/Lagos",
-        location: e.location || "busmailer Meet Virtual Room",
+        location: e.location || "Busmailer Meet Virtual Room",
         meetUrl: e.meetUrl || "",
         attendees: (e.attendees || []).map((a) => ({
             name: a.name || "",
@@ -2181,5 +2387,91 @@ function formatCalendarEvent(doc) {
         relatedEmailId: e.relatedEmailId || null,
         createdAt: e.createdAt ? new Date(e.createdAt).toISOString() : new Date().toISOString(),
         updatedAt: e.updatedAt ? new Date(e.updatedAt).toISOString() : new Date().toISOString(),
+    };
+}
+function formatTask(doc) {
+    if (!doc)
+        return null;
+    const t = doc.toObject ? doc.toObject() : doc;
+    return {
+        id: t._id ? t._id.toString() : t.id,
+        organizationId: t.organizationId ? t.organizationId.toString() : "",
+        title: t.title || "",
+        description: t.description || "",
+        status: t.status || "TODO",
+        priority: t.priority || "MEDIUM",
+        assigneeId: t.assigneeId ? t.assigneeId.toString() : null,
+        assigneeName: t.assigneeName || null,
+        creatorId: t.creatorId ? t.creatorId.toString() : "",
+        creatorName: t.creatorName || "",
+        dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null,
+        labels: t.labels || [],
+        sourceEmailId: t.sourceEmailId || null,
+        sourceEmailSubject: t.sourceEmailSubject || null,
+        relatedCalendarEventId: t.relatedCalendarEventId || null,
+        customerId: t.customerId ? t.customerId.toString() : null,
+        createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
+    };
+}
+function formatCustomer(doc) {
+    if (!doc)
+        return null;
+    const c = doc.toObject ? doc.toObject() : doc;
+    return {
+        id: c._id ? c._id.toString() : c.id,
+        organizationId: c.organizationId ? c.organizationId.toString() : "",
+        name: c.name || "",
+        email: c.email || "",
+        phone: c.phone || null,
+        companyName: c.companyName || null,
+        status: c.status || "NEW",
+        assignedAgentId: c.assignedAgentId ? c.assignedAgentId.toString() : null,
+        assignedAgentName: c.assignedAgentName || null,
+        source: c.source || "MANUAL",
+        tags: c.tags || [],
+        totalSpent: c.totalSpent || 0,
+        lastInteractionAt: c.lastInteractionAt ? new Date(c.lastInteractionAt).toISOString() : new Date().toISOString(),
+        createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: c.updatedAt ? new Date(c.updatedAt).toISOString() : new Date().toISOString(),
+    };
+}
+function formatDeal(doc) {
+    if (!doc)
+        return null;
+    const d = doc.toObject ? doc.toObject() : doc;
+    return {
+        id: d._id ? d._id.toString() : d.id,
+        organizationId: d.organizationId ? d.organizationId.toString() : "",
+        title: d.title || "",
+        customerId: d.customerId ? d.customerId.toString() : "",
+        customerName: d.customerName || "",
+        companyName: d.companyName || null,
+        amount: d.amount || 0,
+        currency: d.currency || "NGN",
+        stage: d.stage || "LEAD",
+        probability: d.probability ?? 10,
+        expectedClosingDate: d.expectedClosingDate ? new Date(d.expectedClosingDate).toISOString() : null,
+        assignedAgentId: d.assignedAgentId ? d.assignedAgentId.toString() : null,
+        assignedAgentName: d.assignedAgentName || null,
+        notes: d.notes || null,
+        createdAt: d.createdAt ? new Date(d.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: d.updatedAt ? new Date(d.updatedAt).toISOString() : new Date().toISOString(),
+    };
+}
+function formatCrmActivity(doc) {
+    if (!doc)
+        return null;
+    const a = doc.toObject ? doc.toObject() : doc;
+    return {
+        id: a._id ? a._id.toString() : a.id,
+        organizationId: a.organizationId ? a.organizationId.toString() : "",
+        customerId: a.customerId ? a.customerId.toString() : "",
+        type: a.type || "",
+        title: a.title || "",
+        description: a.description || null,
+        actorName: a.actorName || "",
+        actorEmail: a.actorEmail || "",
+        createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
     };
 }

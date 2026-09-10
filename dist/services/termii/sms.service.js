@@ -75,21 +75,21 @@ class SMSService {
      * Registration Verification OTP (FREE)
      */
     static async sendRegistrationOTP(phoneNumber, code) {
-        const msg = `Your busmailer verification code is: ${code}. Valid for 10 minutes. Do not share this code with anyone.`;
+        const msg = `Your Busmailer verification code is: ${code}. Valid for 10 minutes. Do not share this code with anyone.`;
         return this.sendSMS(phoneNumber, msg, "dnd");
     }
     /**
      * Login 2FA Verification OTP (FREE)
      */
     static async sendLogin2FAOTP(phoneNumber, code) {
-        const msg = `Your busmailer login verification OTP is: ${code}. Valid for 5 minutes. If you did not request this, please secure your account immediately.`;
+        const msg = `Your Busmailer login verification OTP is: ${code}. Valid for 5 minutes. If you did not request this, please secure your account immediately.`;
         return this.sendSMS(phoneNumber, msg, "dnd");
     }
     /**
      * Password Reset OTP (FREE)
      */
     static async sendPasswordResetOTP(phoneNumber, code) {
-        const msg = `Use ${code} to reset your busmailer account password. Code is valid for 10 minutes.`;
+        const msg = `Use ${code} to reset your Busmailer account password. Code is valid for 10 minutes.`;
         return this.sendSMS(phoneNumber, msg, "dnd");
     }
     /**

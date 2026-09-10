@@ -234,7 +234,7 @@ class OrganizationService {
         if (existing) {
             throw new Error("A user with this email address already exists.");
         }
-        const tempPassword = dto.password || `busmailer@${Math.floor(100000 + Math.random() * 900000)}`;
+        const tempPassword = dto.password || `Busmailer@${Math.floor(100000 + Math.random() * 900000)}`;
         const passwordHash = await token_manager_js_1.TokenManager.hashPassword(tempPassword);
         const user = await user_model_js_1.UserModel.create({
             name: dto.name,

@@ -7,98 +7,98 @@ exports.BRAND_LOGO_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east
 exports.ADVERT_BANNER_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png";
 exports.FOOTER_BANNER_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/footer-banner.png";
 class ResendEmailService {
-  static systemResendClient = null;
-  static orgResendClient = null;
-  /**
-   * System Resend Client (RESEND_API): Used exclusively for system OTPs, welcome emails,
-   * member invitations, and billing receipts.
-   */
-  static getSystemClient() {
-    if (!this.systemResendClient) {
-      const apiKey = env_js_1.env.RESEND_API ||
-        env_js_1.env.RESEND_API_KEY ||
-        process.env.RESEND_API ||
-        process.env.RESEND_API_KEY ||
-        env_js_1.env.RESEND_ORG_API;
-      if (!apiKey) {
-        console.warn("⚠️ RESEND_API key not found for system emails.");
-      }
-      this.systemResendClient = new resend_1.Resend(apiKey || "re_system_dummy");
+    static systemResendClient = null;
+    static orgResendClient = null;
+    /**
+     * System Resend Client (RESEND_API): Used exclusively for system OTPs, welcome emails,
+     * member invitations, and billing receipts.
+     */
+    static getSystemClient() {
+        if (!this.systemResendClient) {
+            const apiKey = env_js_1.env.RESEND_API ||
+                env_js_1.env.RESEND_API_KEY ||
+                process.env.RESEND_API ||
+                process.env.RESEND_API_KEY ||
+                env_js_1.env.RESEND_ORG_API;
+            if (!apiKey) {
+                console.warn("⚠️ RESEND_API key not found for system emails.");
+            }
+            this.systemResendClient = new resend_1.Resend(apiKey || "re_system_dummy");
+        }
+        return this.systemResendClient;
     }
-    return this.systemResendClient;
-  }
-  /**
-   * Organization SaaS Resend Client (RESEND_ORG_API): Used exclusively for organization
-   * custom domain mail dispatching (e.g. remoraids.com), receiving webhooks, and inbound email parsing.
-   */
-  static getOrgClient() {
-    if (!this.orgResendClient) {
-      const apiKey = env_js_1.env.RESEND_ORG_API ||
-        process.env.RESEND_ORG_API ||
-        env_js_1.env.RESEND_API ||
-        process.env.RESEND_API;
-      if (!apiKey) {
-        console.warn("⚠️ RESEND_ORG_API key not found for organization domain operations.");
-      }
-      this.orgResendClient = new resend_1.Resend(apiKey || "re_org_dummy");
+    /**
+     * Organization SaaS Resend Client (RESEND_ORG_API): Used exclusively for organization
+     * custom domain mail dispatching (e.g. remoraids.com), receiving webhooks, and inbound email parsing.
+     */
+    static getOrgClient() {
+        if (!this.orgResendClient) {
+            const apiKey = env_js_1.env.RESEND_ORG_API ||
+                process.env.RESEND_ORG_API ||
+                env_js_1.env.RESEND_API ||
+                process.env.RESEND_API;
+            if (!apiKey) {
+                console.warn("⚠️ RESEND_ORG_API key not found for organization domain operations.");
+            }
+            this.orgResendClient = new resend_1.Resend(apiKey || "re_org_dummy");
+        }
+        return this.orgResendClient;
     }
-    return this.orgResendClient;
-  }
-  static getFromAddress(customFrom) {
-    if (customFrom)
-      return customFrom;
-    const configured = env_js_1.env.EMAIL_SENDER || process.env.EMAIL_SENDER;
-    if (configured) {
-      return configured.includes("<") ? configured : `busmailer Workspace <${configured.replace(/['"]/g, "")}>`;
+    static getFromAddress(customFrom) {
+        if (customFrom)
+            return customFrom;
+        const configured = env_js_1.env.EMAIL_SENDER || process.env.EMAIL_SENDER;
+        if (configured) {
+            return configured.includes("<") ? configured : `Busmailer Workspace <${configured.replace(/['"]/g, "")}>`;
+        }
+        return "Busmailer Workspace <no-reply@vynxtechnology.com>";
     }
-    return "busmailer Workspace <no-reply@vynxtechnology.com>";
-  }
-  /**
-   * System transactional sender using RESEND_API
-   */
-  static async sendEmail(options) {
-    try {
-      const client = this.getSystemClient();
-      const from = this.getFromAddress(options.from);
-      const apiKey = env_js_1.env.RESEND_API ||
-        env_js_1.env.RESEND_API_KEY ||
-        process.env.RESEND_API ||
-        process.env.RESEND_API_KEY ||
-        env_js_1.env.RESEND_ORG_API;
-      if (!apiKey) {
-        console.log(`[Resend Fallback] Email to ${Array.isArray(options.to) ? options.to.join(", ") : options.to} | Subject: "${options.subject}"`);
-        return { success: true, id: "simulated-" + Date.now() };
-      }
-      const payload = {
-        from,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-      };
-      if (options.text)
-        payload.text = options.text;
-      if (options.replyTo)
-        payload.replyTo = options.replyTo;
-      const response = await client.emails.send(payload);
-      if (response.error) {
-        console.error("❌ Resend API Error:", response.error);
-        return { success: false, error: response.error.message };
-      }
-      console.log(`✉️ Email dispatched via Resend: ${response.data?.id} to ${options.to}`);
-      return { success: true, id: response.data?.id };
+    /**
+     * System transactional sender using RESEND_API
+     */
+    static async sendEmail(options) {
+        try {
+            const client = this.getSystemClient();
+            const from = this.getFromAddress(options.from);
+            const apiKey = env_js_1.env.RESEND_API ||
+                env_js_1.env.RESEND_API_KEY ||
+                process.env.RESEND_API ||
+                process.env.RESEND_API_KEY ||
+                env_js_1.env.RESEND_ORG_API;
+            if (!apiKey) {
+                console.log(`[Resend Fallback] Email to ${Array.isArray(options.to) ? options.to.join(", ") : options.to} | Subject: "${options.subject}"`);
+                return { success: true, id: "simulated-" + Date.now() };
+            }
+            const payload = {
+                from,
+                to: options.to,
+                subject: options.subject,
+                html: options.html,
+            };
+            if (options.text)
+                payload.text = options.text;
+            if (options.replyTo)
+                payload.replyTo = options.replyTo;
+            const response = await client.emails.send(payload);
+            if (response.error) {
+                console.error("❌ Resend API Error:", response.error);
+                return { success: false, error: response.error.message };
+            }
+            console.log(`✉️ Email dispatched via Resend: ${response.data?.id} to ${options.to}`);
+            return { success: true, id: response.data?.id };
+        }
+        catch (error) {
+            console.error("❌ Failed to send email via Resend:", error?.message || error);
+            return { success: false, error: error?.message || "Unknown email delivery failure" };
+        }
     }
-    catch (error) {
-      console.error("❌ Failed to send email via Resend:", error?.message || error);
-      return { success: false, error: error?.message || "Unknown email delivery failure" };
-    }
-  }
-  /**
-   * Sends a branded Two-Factor / Login OTP email
-   */
-  static async sendOtpEmail(to, name, otpCode, expiresInMinutes = 10, isSignup = false) {
-    const subject = `${otpCode} is your busmailer verification code`;
-    const bannerUrl = isSignup ? exports.ADVERT_BANNER_URL : exports.FOOTER_BANNER_URL;
-    const html = `
+    /**
+     * Sends a branded Two-Factor / Login OTP email
+     */
+    static async sendOtpEmail(to, name, otpCode, expiresInMinutes = 10, isSignup = false) {
+        const subject = `${otpCode} is your Busmailer verification code`;
+        const bannerUrl = isSignup ? exports.ADVERT_BANNER_URL : exports.FOOTER_BANNER_URL;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -119,40 +119,40 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="${exports.BRAND_LOGO_URL}" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h1 class="title">Verify your identity</h1>
-          <p class="desc">Hello <strong>${name}</strong>,<br>Use the verification code below to complete your sign in on busmailer Sovereign Workspace:</p>
+          <p class="desc">Hello <strong>${name}</strong>,<br>Use the verification code below to complete your sign in on Busmailer Sovereign Workspace:</p>
           <div class="code-box">
             <div class="otp">${otpCode}</div>
           </div>
           <p class="desc" style="font-size: 13px; color: #6b7280;">This code is valid for <strong>${expiresInMinutes} minutes</strong>. If you did not make this request, you can safely ignore this email.</p>
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
-            <img src="${bannerUrl}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
+            <img src="${bannerUrl}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
           <div class="footer">
-            &copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({
-      to,
-      subject,
-      html,
-      text: `Your busmailer verification code is ${otpCode}. Valid for ${expiresInMinutes} minutes.`,
-    });
-  }
-  /**
-   * Generates the sovereign Welcome & Security Rules email content
-   */
-  static getWelcomeAndRulesContent(name, organizationName, orgEmail, isOwner = false) {
-    const subject = `Welcome to busmailer Sovereign Mail — Getting Started & Account Guidelines`;
-    const preview = `Your sovereign business mailbox is now active for ${organizationName}. Key guidelines and access instructions.`;
-    const bannerUrl = isOwner ? exports.ADVERT_BANNER_URL : exports.FOOTER_BANNER_URL;
-    const html = `
+        return this.sendEmail({
+            to,
+            subject,
+            html,
+            text: `Your Busmailer verification code is ${otpCode}. Valid for ${expiresInMinutes} minutes.`,
+        });
+    }
+    /**
+     * Generates the sovereign Welcome & Security Rules email content
+     */
+    static getWelcomeAndRulesContent(name, organizationName, orgEmail, isOwner = false) {
+        const subject = `Welcome to Busmailer Sovereign Mail — Getting Started & Account Guidelines`;
+        const preview = `Your sovereign business mailbox is now active for ${organizationName}. Key guidelines and access instructions.`;
+        const bannerUrl = isOwner ? exports.ADVERT_BANNER_URL : exports.FOOTER_BANNER_URL;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -182,8 +182,8 @@ class ResendEmailService {
         <div class="container">
           <div class="header">
             <div class="logo-box">
-              <img src="${exports.BRAND_LOGO_URL}" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-              <span class="logo">niger<span>me</span></span>
+              <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+              <span class="logo">bus<span>mailer</span></span>
             </div>
             <div class="badge">Business Mailbox</div>
           </div>
@@ -191,7 +191,7 @@ class ResendEmailService {
           <h1 class="title">Welcome, ${name}!</h1>
           <p class="lead">
             Your mailbox (<strong>${orgEmail}</strong>) has been activated for <strong>${organizationName}</strong>. 
-            busmailer provides authenticated email deliverability, integrated productivity tools, and sovereign communication infrastructure.
+            Busmailer provides authenticated email deliverability, integrated productivity tools, and sovereign communication infrastructure.
           </p>
 
           <div class="section-title">Mailbox Navigation &amp; Features</div>
@@ -233,99 +233,99 @@ class ResendEmailService {
           </div>
 
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
-            <img src="${bannerUrl}" alt="Welcome to busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
+            <img src="${bannerUrl}" alt="Welcome to Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
       </html>
     `;
-    const bodyText = `Welcome to busmailer Sovereign Mail, ${name}!\n\nYour mailbox account (${orgEmail}) for ${organizationName} is now active.\n\nKey Guidelines:\n1. Confidentiality: Never disclose organization credentials.\n2. Password & 2FA: Change temporary passwords and keep 2FA active.\n3. Outbound Sending: Maintain professional standards and avoid spam.\n\nOpen your mailbox at: https://busmailer.com/mail`;
-    return { subject, preview, html, bodyText };
-  }
-  /**
-   * Automatically provisions the Welcome & Rules email in the user's MongoDB mailbox
-   */
-  static async provisionWelcomeEmailInMailbox(organizationId, userId, userName, userEmail, organizationName, isOwner = false) {
-    try {
-      const { EmailModel } = await import("../../infrastructure/database/models/email.model.js");
-      const { subject, preview, html, bodyText } = this.getWelcomeAndRulesContent(userName, organizationName, userEmail, isOwner);
-      // Check if welcome email already exists for this user
-      const existing = await EmailModel.findOne({
-        organizationId,
-        userId,
-        subject,
-      });
-      if (!existing) {
-        await EmailModel.create({
-          organizationId,
-          userId,
-          threadId: `thread-welcome-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          folder: "inbox",
-          category: "primary",
-          from: {
-            name: "busmailer Business Mail",
-            email: "welcome@busmailer.com",
-            avatar: exports.BRAND_LOGO_URL,
-          },
-          to: [
-            {
-              name: userName,
-              email: userEmail,
-            },
-          ],
-          cc: [],
-          bcc: [],
-          subject,
-          preview,
-          bodyHtml: html,
-          bodyText,
-          attachments: [],
-          isRead: false,
-          isStarred: true,
-          isImportant: true,
-          labels: ["Welcome", "Getting Started", "Security"],
-          status: "RECEIVED",
-          receivedAt: new Date(),
-        });
-        console.log(`✅ Provisioned sovereign welcome & rules email in mailbox for ${userEmail}`);
-      }
-      else {
-        // Update existing welcome email to latest formatted HTML and correct details
-        existing.to = [{ name: userName, email: userEmail }];
-        existing.preview = preview;
-        existing.bodyHtml = html;
-        existing.bodyText = bodyText;
-        existing.from = {
-          name: "busmailer Business Mail",
-          email: "welcome@busmailer.com",
-          avatar: exports.BRAND_LOGO_URL,
-        };
-        await existing.save();
-        console.log(`🔄 Refreshed sovereign welcome email in mailbox for ${userEmail}`);
-      }
+        const bodyText = `Welcome to Busmailer Sovereign Mail, ${name}!\n\nYour mailbox account (${orgEmail}) for ${organizationName} is now active.\n\nKey Guidelines:\n1. Confidentiality: Never disclose organization credentials.\n2. Password & 2FA: Change temporary passwords and keep 2FA active.\n3. Outbound Sending: Maintain professional standards and avoid spam.\n\nOpen your mailbox at: https://busmailer.com/mail`;
+        return { subject, preview, html, bodyText };
     }
-    catch (err) {
-      console.warn("⚠️ Could not provision welcome email in database:", err.message);
+    /**
+     * Automatically provisions the Welcome & Rules email in the user's MongoDB mailbox
+     */
+    static async provisionWelcomeEmailInMailbox(organizationId, userId, userName, userEmail, organizationName, isOwner = false) {
+        try {
+            const { EmailModel } = await import("../../infrastructure/database/models/email.model.js");
+            const { subject, preview, html, bodyText } = this.getWelcomeAndRulesContent(userName, organizationName, userEmail, isOwner);
+            // Check if welcome email already exists for this user
+            const existing = await EmailModel.findOne({
+                organizationId,
+                userId,
+                subject,
+            });
+            if (!existing) {
+                await EmailModel.create({
+                    organizationId,
+                    userId,
+                    threadId: `thread-welcome-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                    folder: "inbox",
+                    category: "primary",
+                    from: {
+                        name: "Busmailer Business Mail",
+                        email: "welcome@busmailer.com",
+                        avatar: exports.BRAND_LOGO_URL,
+                    },
+                    to: [
+                        {
+                            name: userName,
+                            email: userEmail,
+                        },
+                    ],
+                    cc: [],
+                    bcc: [],
+                    subject,
+                    preview,
+                    bodyHtml: html,
+                    bodyText,
+                    attachments: [],
+                    isRead: false,
+                    isStarred: true,
+                    isImportant: true,
+                    labels: ["Welcome", "Getting Started", "Security"],
+                    status: "RECEIVED",
+                    receivedAt: new Date(),
+                });
+                console.log(`✅ Provisioned sovereign welcome & rules email in mailbox for ${userEmail}`);
+            }
+            else {
+                // Update existing welcome email to latest formatted HTML and correct details
+                existing.to = [{ name: userName, email: userEmail }];
+                existing.preview = preview;
+                existing.bodyHtml = html;
+                existing.bodyText = bodyText;
+                existing.from = {
+                    name: "Busmailer Business Mail",
+                    email: "welcome@busmailer.com",
+                    avatar: exports.BRAND_LOGO_URL,
+                };
+                await existing.save();
+                console.log(`🔄 Refreshed sovereign welcome email in mailbox for ${userEmail}`);
+            }
+        }
+        catch (err) {
+            console.warn("⚠️ Could not provision welcome email in database:", err.message);
+        }
     }
-  }
-  /**
-   * Sends a Welcome email to newly registered organization owners
-   */
-  static async sendWelcomeEmail(to, name, organizationName, domain) {
-    const { subject, html, bodyText } = this.getWelcomeAndRulesContent(name, organizationName, to, true);
-    return this.sendEmail({ to, subject, html, text: bodyText });
-  }
-  /**
-   * Sends an invitation to a new team member
-   * Dispatches member invitation email to the user's personal email with temporary login credentials.
-   */
-  static async sendMemberInvitationEmail(personalEmail, name, organizationName, assignedOrgEmail, tempPassword) {
-    const subject = `Your Sovereign Business Mailbox for ${organizationName} on busmailer`;
-    const html = `
+    /**
+     * Sends a Welcome email to newly registered organization owners
+     */
+    static async sendWelcomeEmail(to, name, organizationName, domain) {
+        const { subject, html, bodyText } = this.getWelcomeAndRulesContent(name, organizationName, to, true);
+        return this.sendEmail({ to, subject, html, text: bodyText });
+    }
+    /**
+     * Sends an invitation to a new team member
+     * Dispatches member invitation email to the user's personal email with temporary login credentials.
+     */
+    static async sendMemberInvitationEmail(personalEmail, name, organizationName, assignedOrgEmail, tempPassword) {
+        const subject = `Your Sovereign Business Mailbox for ${organizationName} on Busmailer`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -346,8 +346,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="${exports.BRAND_LOGO_URL}" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 style="margin: 0 0 12px; font-size: 18px; color: #111827;">Hello ${name},</h2>
           <p class="desc">Your workspace administrator has provisioned your sovereign business mailbox for <strong>${organizationName}</strong>.</p>
@@ -355,8 +355,8 @@ class ResendEmailService {
           <div class="cred-box">
             <div><strong>Assigned Business Email:</strong> <span style="font-family: monospace; font-weight: bold; color: #111827;">${assignedOrgEmail}</span></div>
             ${tempPassword
-        ? `<div style="margin-top: 8px;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #111827;">${tempPassword}</code></div>`
-        : ""}
+            ? `<div style="margin-top: 8px;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #111827;">${tempPassword}</code></div>`
+            : ""}
           </div>
 
           <div class="notice-box">
@@ -364,28 +364,28 @@ class ResendEmailService {
           </div>
 
           <p style="text-align: center; margin-top: 24px;">
-            <a href="https://busmailer.com/mail/login" class="btn">Sign In to Webmail &rarr;</a>
+            <a href="https://busmailer.com/mail/login" class="btn">Sign In to Busmailer &rarr;</a>
           </p>
 
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({ to: personalEmail, subject, html });
-  }
-  /**
-   * Sends a 2FA OTP code to the user's personal email for Webmail login.
-   */
-  static async sendWebmailOtpEmail(personalEmail, name, orgEmail, otpCode, expiresInMinutes = 10) {
-    const subject = `Your busmailer Webmail Security Code: ${otpCode}`;
-    const html = `
+        return this.sendEmail({ to: personalEmail, subject, html });
+    }
+    /**
+     * Sends a 2FA OTP code to the user's personal email for Webmail login.
+     */
+    static async sendWebmailOtpEmail(personalEmail, name, orgEmail, otpCode, expiresInMinutes = 10) {
+        const subject = `Your Busmailer Webmail Security Code: ${otpCode}`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -404,8 +404,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 style="margin: 0 0 12px; font-size: 18px; color: #111827; text-align: left;">Webmail Verification</h2>
           <p class="desc">A sign-in attempt was initiated for your mailbox <strong>${orgEmail}</strong>. Enter the verification code below to authorize your session:</p>
@@ -415,36 +415,36 @@ class ResendEmailService {
           <p class="desc" style="font-size: 13px; color: #6b7280;">Valid for <strong>${expiresInMinutes} minutes</strong>. If you did not initiate this request, notify your administrator immediately.</p>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({ to: personalEmail, subject, html });
-  }
-  /**
-   * Sends a receipt when a package is added / subscribed
-   */
-  static async sendPackageSubscribedReceipt(to, name, organizationName, packageName, _billingCycle = "MONTHLY") {
-    return this.sendSubscriptionActivatedEmail(to, name, organizationName, packageName);
-  }
-  /**
-   * Sends a cancellation confirmation when a package or organization subscription is cancelled
-   */
-  static async sendPackageCancelledConfirmation(to, name, organizationName, cancelledPackageName) {
-    return this.sendCancellationEmail(to, name, organizationName, cancelledPackageName);
-  }
-  /**
-   * Sends a Plan / Package Cancellation confirmation email to the workspace administrator
-   */
-  static async sendCancellationEmail(to, name, organizationName, cancelledPackageName) {
-    const subject = `Subscription Update: ${cancelledPackageName} cancelled for ${organizationName}`;
-    const html = `
+        return this.sendEmail({ to: personalEmail, subject, html });
+    }
+    /**
+     * Sends a receipt when a package is added / subscribed
+     */
+    static async sendPackageSubscribedReceipt(to, name, organizationName, packageName, _billingCycle = "MONTHLY") {
+        return this.sendSubscriptionActivatedEmail(to, name, organizationName, packageName);
+    }
+    /**
+     * Sends a cancellation confirmation when a package or organization subscription is cancelled
+     */
+    static async sendPackageCancelledConfirmation(to, name, organizationName, cancelledPackageName) {
+        return this.sendCancellationEmail(to, name, organizationName, cancelledPackageName);
+    }
+    /**
+     * Sends a Plan / Package Cancellation confirmation email to the workspace administrator
+     */
+    static async sendCancellationEmail(to, name, organizationName, cancelledPackageName) {
+        const subject = `Subscription Update: ${cancelledPackageName} cancelled for ${organizationName}`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -464,8 +464,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Package Cancellation Notice</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -477,29 +477,29 @@ class ResendEmailService {
           <p class="desc">You can manage your active packages at any time in your <a href="https://app.busmailer.com/admin/subscription" style="color: #65a30d; font-weight: 600;">Subscription console</a>.</p>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({
-      to,
-      subject,
-      html,
-      text: `Subscription Update: ${cancelledPackageName} has been cancelled for ${organizationName}.`,
-    });
-  }
-  /**
-   * Sends a Plan / Package Subscription confirmation email to the workspace administrator
-   */
-  static async sendSubscriptionActivatedEmail(to, name, organizationName, packageName) {
-    const subject = `Subscription Activated: ${packageName} is now live for ${organizationName}`;
-    const html = `
+        return this.sendEmail({
+            to,
+            subject,
+            html,
+            text: `Subscription Update: ${cancelledPackageName} has been cancelled for ${organizationName}.`,
+        });
+    }
+    /**
+     * Sends a Plan / Package Subscription confirmation email to the workspace administrator
+     */
+    static async sendSubscriptionActivatedEmail(to, name, organizationName, packageName) {
+        const subject = `Subscription Activated: ${packageName} is now live for ${organizationName}`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -519,8 +519,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="${exports.BRAND_LOGO_URL}" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Package Activated</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -532,30 +532,30 @@ class ResendEmailService {
           <p class="desc">All members in your workspace now have access to this module.</p>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
-            <img src="${exports.ADVERT_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
+            <img src="${exports.ADVERT_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({
-      to,
-      subject,
-      html,
-      text: `Subscription Activated: ${packageName} is now active for ${organizationName}.`,
-    });
-  }
-  /**
-   * Sends subscription due reminder (e.g. 4 days before, 1 day before)
-   */
-  static async sendSubscriptionDueReminder(to, name, organizationName, daysRemaining, amount, cycle) {
-    const urgency = daysRemaining === 1 ? "Urgent: Renewal tomorrow" : `Renewal in ${daysRemaining} days`;
-    const subject = `${urgency} — busmailer subscription for ${organizationName}`;
-    const html = `
+        return this.sendEmail({
+            to,
+            subject,
+            html,
+            text: `Subscription Activated: ${packageName} is now active for ${organizationName}.`,
+        });
+    }
+    /**
+     * Sends subscription due reminder (e.g. 4 days before, 1 day before)
+     */
+    static async sendSubscriptionDueReminder(to, name, organizationName, daysRemaining, amount, cycle) {
+        const urgency = daysRemaining === 1 ? "Urgent: Renewal tomorrow" : `Renewal in ${daysRemaining} days`;
+        const subject = `${urgency} — Busmailer subscription for ${organizationName}`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -576,8 +576,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Subscription Renewal Notice</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -591,22 +591,22 @@ class ResendEmailService {
           <a href="https://app.busmailer.com/admin/billing" class="btn">View Billing &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({ to, subject, html });
-  }
-  /**
-   * Sends payment failure & 5-day grace period notice
-   */
-  static async sendPaymentFailedGracePeriodNotice(to, name, organizationName, amount, graceDaysLeft) {
-    const subject = `Action Required: Subscription Payment Failed (${graceDaysLeft}-Day Grace Period Active)`;
-    const html = `
+        return this.sendEmail({ to, subject, html });
+    }
+    /**
+     * Sends payment failure & 5-day grace period notice
+     */
+    static async sendPaymentFailedGracePeriodNotice(to, name, organizationName, amount, graceDaysLeft) {
+        const subject = `Action Required: Subscription Payment Failed (${graceDaysLeft}-Day Grace Period Active)`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -627,8 +627,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Automatic Debit Failed</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -641,22 +641,22 @@ class ResendEmailService {
           <a href="https://app.busmailer.com/admin/billing" class="btn">Fund Wallet Now &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({ to, subject, html });
-  }
-  /**
-   * Sends complete service suspension notice
-   */
-  static async sendServiceSuspendedNotice(to, name, organizationName) {
-    const subject = `Service Suspended: Grace period expired for ${organizationName}`;
-    const html = `
+        return this.sendEmail({ to, subject, html });
+    }
+    /**
+     * Sends complete service suspension notice
+     */
+    static async sendServiceSuspendedNotice(to, name, organizationName) {
+        const subject = `Service Suspended: Grace period expired for ${organizationName}`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -676,8 +676,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Services Temporarily Suspended</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -686,22 +686,22 @@ class ResendEmailService {
           <a href="https://app.busmailer.com/admin/billing" class="btn">Reactivate Workspace &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({ to, subject, html });
-  }
-  /**
-   * Sends renewal wallet debit receipt
-   */
-  static async sendWalletDebitedReceipt(to, name, organizationName, amount, nextDueDate) {
-    const subject = `Receipt: ₦${amount.toLocaleString()} subscription auto-renewed for ${organizationName}`;
-    const html = `
+        return this.sendEmail({ to, subject, html });
+    }
+    /**
+     * Sends renewal wallet debit receipt
+     */
+    static async sendWalletDebitedReceipt(to, name, organizationName, amount, nextDueDate) {
+        const subject = `Receipt: ₦${amount.toLocaleString()} subscription auto-renewed for ${organizationName}`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -721,8 +721,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Subscription Renewal Receipt</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -734,25 +734,25 @@ class ResendEmailService {
           </div>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({ to, subject, html });
-  }
-  /**
-   * Sends an immediate security alert when domain DNS records disconnect or fail verification
-   */
-  static async sendDnsDisconnectionAlertEmail(to, name, organizationName, domainName, disconnectedRecords = ["SPF", "DKIM", "MX"]) {
-    const subject = `Action Required: DNS records disconnected for ${domainName}`;
-    const recordsHtml = disconnectedRecords
-      .map((r) => `<li style="margin-bottom: 6px;"><strong style="color: #dc2626;">${r}</strong> - Disconnected / Unreachable</li>`)
-      .join("");
-    const html = `
+        return this.sendEmail({ to, subject, html });
+    }
+    /**
+     * Sends an immediate security alert when domain DNS records disconnect or fail verification
+     */
+    static async sendDnsDisconnectionAlertEmail(to, name, organizationName, domainName, disconnectedRecords = ["SPF", "DKIM", "MX"]) {
+        const subject = `Action Required: DNS records disconnected for ${domainName}`;
+        const recordsHtml = disconnectedRecords
+            .map((r) => `<li style="margin-bottom: 6px;"><strong style="color: #dc2626;">${r}</strong> - Disconnected / Unreachable</li>`)
+            .join("");
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -773,8 +773,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">DNS Disconnection Detected</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -791,22 +791,22 @@ class ResendEmailService {
           <a href="https://app.busmailer.com/admin/domains" class="btn">Update DNS in Admin Console &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({ to, subject, html });
-  }
-  /**
-   * Sends confirmation email when domain DNS verification succeeds
-   */
-  static async sendDnsConnectedConfirmationEmail(to, name, organizationName, domainName) {
-    const subject = `Domain Active: ${domainName} is verified`;
-    const html = `
+        return this.sendEmail({ to, subject, html });
+    }
+    /**
+     * Sends confirmation email when domain DNS verification succeeds
+     */
+    static async sendDnsConnectedConfirmationEmail(to, name, organizationName, domainName) {
+        const subject = `Domain Active: ${domainName} is verified`;
+        const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -827,8 +827,8 @@ class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${exports.BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Domain ${domainName} is Active</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -844,180 +844,180 @@ class ResendEmailService {
           <a href="https://app.busmailer.com/admin/domains" class="btn">View Domain Console &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${exports.FOOTER_BANNER_URL}" alt="busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${exports.FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
     `;
-    return this.sendEmail({ to, subject, html });
-  }
-  /**
-   * Dispatches a user-composed email from the webmail client via Resend Organization Client (RESEND_ORG_API)
-   */
-  static async sendUserEmail(options) {
-    try {
-      const client = this.getOrgClient();
-      const apiKey = env_js_1.env.RESEND_ORG_API ||
-        process.env.RESEND_ORG_API ||
-        env_js_1.env.RESEND_API ||
-        process.env.RESEND_API;
-      if (!apiKey) {
-        console.log(`[Resend Fallback Mailer] From: ${options.from} -> To: ${options.to.join(", ")} | Subject: "${options.subject}"`);
-        return { success: true, id: "simulated-mail-" + Date.now() };
-      }
-      const payload = {
-        from: options.from,
-        to: options.to,
-        subject: options.subject || "(No subject)",
-        html: options.html,
-      };
-      if (options.text)
-        payload.text = options.text;
-      if (options.cc && options.cc.length > 0)
-        payload.cc = options.cc;
-      if (options.bcc && options.bcc.length > 0)
-        payload.bcc = options.bcc;
-      if (options.replyTo)
-        payload.replyTo = options.replyTo;
-      if (options.attachments && options.attachments.length > 0) {
-        const validAttachments = options.attachments
-          .filter((a) => a && (a.content || a.path))
-          .map((a) => {
-            const att = { filename: a.filename || "attachment" };
-            if (a.content)
-              att.content = a.content;
-            if (a.path)
-              att.path = a.path;
-            return att;
-          });
-        if (validAttachments.length > 0) {
-          payload.attachments = validAttachments;
+        return this.sendEmail({ to, subject, html });
+    }
+    /**
+     * Dispatches a user-composed email from the webmail client via Resend Organization Client (RESEND_ORG_API)
+     */
+    static async sendUserEmail(options) {
+        try {
+            const client = this.getOrgClient();
+            const apiKey = env_js_1.env.RESEND_ORG_API ||
+                process.env.RESEND_ORG_API ||
+                env_js_1.env.RESEND_API ||
+                process.env.RESEND_API;
+            if (!apiKey) {
+                console.log(`[Resend Fallback Mailer] From: ${options.from} -> To: ${options.to.join(", ")} | Subject: "${options.subject}"`);
+                return { success: true, id: "simulated-mail-" + Date.now() };
+            }
+            const payload = {
+                from: options.from,
+                to: options.to,
+                subject: options.subject || "(No subject)",
+                html: options.html,
+            };
+            if (options.text)
+                payload.text = options.text;
+            if (options.cc && options.cc.length > 0)
+                payload.cc = options.cc;
+            if (options.bcc && options.bcc.length > 0)
+                payload.bcc = options.bcc;
+            if (options.replyTo)
+                payload.replyTo = options.replyTo;
+            if (options.attachments && options.attachments.length > 0) {
+                const validAttachments = options.attachments
+                    .filter((a) => a && (a.content || a.path))
+                    .map((a) => {
+                    const att = { filename: a.filename || "attachment" };
+                    if (a.content)
+                        att.content = a.content;
+                    if (a.path)
+                        att.path = a.path;
+                    return att;
+                });
+                if (validAttachments.length > 0) {
+                    payload.attachments = validAttachments;
+                }
+            }
+            const response = await client.emails.send(payload);
+            if (response.error) {
+                console.error("❌ Resend sendUserEmail error:", response.error);
+                return { success: false, error: response.error.message };
+            }
+            console.log(`✉️ Webmail dispatched via Resend: ${response.data?.id} from ${options.from}`);
+            return { success: true, id: response.data?.id };
         }
-      }
-      const response = await client.emails.send(payload);
-      if (response.error) {
-        console.error("❌ Resend sendUserEmail error:", response.error);
-        return { success: false, error: response.error.message };
-      }
-      console.log(`✉️ Webmail dispatched via Resend: ${response.data?.id} from ${options.from}`);
-      return { success: true, id: response.data?.id };
+        catch (err) {
+            console.error("❌ Failed to send user email:", err?.message || err);
+            return { success: false, error: err?.message || "Failed to dispatch email via Resend" };
+        }
     }
-    catch (err) {
-      console.error("❌ Failed to send user email:", err?.message || err);
-      return { success: false, error: err?.message || "Failed to dispatch email via Resend" };
+    /**
+     * Retrieves a single received email from Resend Inbound Receiving API
+     */
+    static async getReceivedEmail(id) {
+        try {
+            const client = this.getOrgClient();
+            const receivingClient = client.emails?.receiving || client.receiving;
+            if (!receivingClient || typeof receivingClient.get !== "function") {
+                return { data: null, error: { message: "Resend receiving API not supported on this client version." } };
+            }
+            return await receivingClient.get(id);
+        }
+        catch (err) {
+            return { error: { message: err?.message || "Failed to retrieve received email" } };
+        }
     }
-  }
-  /**
-   * Retrieves a single received email from Resend Inbound Receiving API
-   */
-  static async getReceivedEmail(id) {
-    try {
-      const client = this.getOrgClient();
-      const receivingClient = client.emails?.receiving || client.receiving;
-      if (!receivingClient || typeof receivingClient.get !== "function") {
-        return { data: null, error: { message: "Resend receiving API not supported on this client version." } };
-      }
-      return await receivingClient.get(id);
+    /**
+     * Lists received emails from Resend Inbound Receiving API
+     */
+    static async listReceivedEmails(params) {
+        try {
+            const client = this.getOrgClient();
+            const receivingClient = client.emails?.receiving || client.receiving;
+            if (!receivingClient || typeof receivingClient.list !== "function") {
+                return { data: [], error: null };
+            }
+            return await receivingClient.list(params);
+        }
+        catch (err) {
+            return { error: { message: err?.message || "Failed to list received emails" } };
+        }
     }
-    catch (err) {
-      return { error: { message: err?.message || "Failed to retrieve received email" } };
+    /**
+     * Retrieves an attachment for a received email from Resend
+     */
+    static async getReceivedAttachment(emailId, attachmentId) {
+        try {
+            const client = this.getOrgClient();
+            const receivingClient = client.emails?.receiving || client.receiving;
+            if (!receivingClient?.attachments?.get) {
+                return { error: { message: "Resend attachment receiving not supported." } };
+            }
+            return await receivingClient.attachments.get({ emailId, id: attachmentId });
+        }
+        catch (err) {
+            return { error: { message: err?.message || "Failed to retrieve attachment" } };
+        }
     }
-  }
-  /**
-   * Lists received emails from Resend Inbound Receiving API
-   */
-  static async listReceivedEmails(params) {
-    try {
-      const client = this.getOrgClient();
-      const receivingClient = client.emails?.receiving || client.receiving;
-      if (!receivingClient || typeof receivingClient.list !== "function") {
-        return { data: [], error: null };
-      }
-      return await receivingClient.list(params);
+    /**
+     * Lists all attachments for a received email from Resend
+     */
+    static async listReceivedAttachments(emailId) {
+        try {
+            const client = this.getOrgClient();
+            const receivingClient = client.emails?.receiving || client.receiving;
+            if (!receivingClient?.attachments?.list) {
+                return { data: [], error: null };
+            }
+            return await receivingClient.attachments.list({ emailId });
+        }
+        catch (err) {
+            return { data: [], error: { message: err?.message || "Failed to list attachments" } };
+        }
     }
-    catch (err) {
-      return { error: { message: err?.message || "Failed to list received emails" } };
+    /**
+     * Automatically configures or updates the Inbound & Delivery Webhook on Resend
+     */
+    static async setupInboundWebhook(backendBaseUrl) {
+        try {
+            if (!backendBaseUrl || !backendBaseUrl.startsWith("http")) {
+                return { error: { message: "Invalid backendBaseUrl" } };
+            }
+            const client = this.getOrgClient();
+            const endpoint = `${backendBaseUrl.replace(/\/+$/, "")}/webhooks/resend`;
+            const events = [
+                "email.received",
+                "email.sent",
+                "email.delivered",
+                "email.bounced",
+                "email.complained",
+            ];
+            if (!client.webhooks) {
+                return { error: { message: "Webhooks API not available on this client" } };
+            }
+            const existing = await client.webhooks.list().catch(() => ({ data: [] }));
+            const webhookList = Array.isArray(existing?.data)
+                ? existing.data
+                : Array.isArray(existing?.data?.data)
+                    ? existing.data.data
+                    : [];
+            const found = webhookList.find((w) => w.endpoint === endpoint);
+            if (found) {
+                console.log(`📡 Resend Webhook already active for ${endpoint} (id: ${found.id})`);
+                return await client.webhooks.update(found.id, {
+                    endpoint,
+                    events,
+                });
+            }
+            console.log(`🚀 Provisioning new Resend Inbound Webhook for ${endpoint}...`);
+            return await client.webhooks.create({
+                endpoint,
+                events,
+            });
+        }
+        catch (err) {
+            console.warn("⚠️ Note: Auto-webhook registration skipped:", err?.message || err);
+            return { error: { message: err?.message || "Failed to setup webhook" } };
+        }
     }
-  }
-  /**
-   * Retrieves an attachment for a received email from Resend
-   */
-  static async getReceivedAttachment(emailId, attachmentId) {
-    try {
-      const client = this.getOrgClient();
-      const receivingClient = client.emails?.receiving || client.receiving;
-      if (!receivingClient?.attachments?.get) {
-        return { error: { message: "Resend attachment receiving not supported." } };
-      }
-      return await receivingClient.attachments.get({ emailId, id: attachmentId });
-    }
-    catch (err) {
-      return { error: { message: err?.message || "Failed to retrieve attachment" } };
-    }
-  }
-  /**
-   * Lists all attachments for a received email from Resend
-   */
-  static async listReceivedAttachments(emailId) {
-    try {
-      const client = this.getOrgClient();
-      const receivingClient = client.emails?.receiving || client.receiving;
-      if (!receivingClient?.attachments?.list) {
-        return { data: [], error: null };
-      }
-      return await receivingClient.attachments.list({ emailId });
-    }
-    catch (err) {
-      return { data: [], error: { message: err?.message || "Failed to list attachments" } };
-    }
-  }
-  /**
-   * Automatically configures or updates the Inbound & Delivery Webhook on Resend
-   */
-  static async setupInboundWebhook(backendBaseUrl) {
-    try {
-      if (!backendBaseUrl || !backendBaseUrl.startsWith("http")) {
-        return { error: { message: "Invalid backendBaseUrl" } };
-      }
-      const client = this.getOrgClient();
-      const endpoint = `${backendBaseUrl.replace(/\/+$/, "")}/webhooks/resend`;
-      const events = [
-        "email.received",
-        "email.sent",
-        "email.delivered",
-        "email.bounced",
-        "email.complained",
-      ];
-      if (!client.webhooks) {
-        return { error: { message: "Webhooks API not available on this client" } };
-      }
-      const existing = await client.webhooks.list().catch(() => ({ data: [] }));
-      const webhookList = Array.isArray(existing?.data)
-        ? existing.data
-        : Array.isArray(existing?.data?.data)
-          ? existing.data.data
-          : [];
-      const found = webhookList.find((w) => w.endpoint === endpoint);
-      if (found) {
-        console.log(`📡 Resend Webhook already active for ${endpoint} (id: ${found.id})`);
-        return await client.webhooks.update(found.id, {
-          endpoint,
-          events,
-        });
-      }
-      console.log(`🚀 Provisioning new Resend Inbound Webhook for ${endpoint}...`);
-      return await client.webhooks.create({
-        endpoint,
-        events,
-      });
-    }
-    catch (err) {
-      console.warn("⚠️ Note: Auto-webhook registration skipped:", err?.message || err);
-      return { error: { message: err?.message || "Failed to setup webhook" } };
-    }
-  }
 }
 exports.ResendEmailService = ResendEmailService;

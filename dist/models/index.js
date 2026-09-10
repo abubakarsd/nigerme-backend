@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WalletModel = exports.PasskeyModel = exports.DepartmentModel = exports.CalendarEventModel = exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
+exports.CRMActivityModel = exports.DealModel = exports.CustomerModel = exports.TaskModel = exports.WalletModel = exports.PasskeyModel = exports.DepartmentModel = exports.CalendarEventModel = exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
 var user_model_js_1 = require("../infrastructure/database/models/user.model.js");
 Object.defineProperty(exports, "UserModel", { enumerable: true, get: function () { return user_model_js_1.UserModel; } });
 var organization_model_js_1 = require("../infrastructure/database/models/organization.model.js");
@@ -33,3 +33,11 @@ var passkey_model_js_1 = require("../infrastructure/database/models/passkey.mode
 Object.defineProperty(exports, "PasskeyModel", { enumerable: true, get: function () { return passkey_model_js_1.PasskeyModel; } });
 var wallet_model_js_1 = require("../infrastructure/database/models/wallet.model.js");
 Object.defineProperty(exports, "WalletModel", { enumerable: true, get: function () { return wallet_model_js_1.WalletModel; } });
+var task_model_js_1 = require("../infrastructure/database/models/task.model.js");
+Object.defineProperty(exports, "TaskModel", { enumerable: true, get: function () { return task_model_js_1.TaskModel; } });
+var customer_model_js_1 = require("../infrastructure/database/models/customer.model.js");
+Object.defineProperty(exports, "CustomerModel", { enumerable: true, get: function () { return customer_model_js_1.CustomerModel; } });
+var deal_model_js_1 = require("../infrastructure/database/models/deal.model.js");
+Object.defineProperty(exports, "DealModel", { enumerable: true, get: function () { return deal_model_js_1.DealModel; } });
+var crm_activity_model_js_1 = require("../infrastructure/database/models/crm-activity.model.js");
+Object.defineProperty(exports, "CRMActivityModel", { enumerable: true, get: function () { return crm_activity_model_js_1.CRMActivityModel; } });
