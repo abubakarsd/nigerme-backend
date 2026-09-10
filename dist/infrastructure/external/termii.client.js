@@ -25,13 +25,14 @@ class TermiiClient {
      */
     static async sendSms(to, message) {
         const formattedPhone = this.formatNigerianPhone(to);
+        const apiKey = (process.env.TERMII_API_LIVE || env_js_1.env.TERMII_API_LIVE || "").trim().replace(/^["']|["']$/g, "");
         const payload = {
             to: formattedPhone,
             from: env_js_1.env.TERMII_SENDER_ID,
             sms: message,
             type: "plain",
             channel: "generic",
-            api_key: env_js_1.env.TERMII_API_LIVE,
+            api_key: apiKey,
         };
         try {
             const response = await fetch(`${this.BASE_URL}/sms/send`, {
@@ -45,6 +46,9 @@ class TermiiClient {
             const data = (await response.json());
             if (!response.ok) {
                 console.error("Termii SMS API Error Response:", data);
+                if (data.message?.toLowerCase().includes("invalid key") || response.status === 401) {
+                    throw new Error(`Termii SMS Authentication Failed (Invalid key): The configured TERMII_API_LIVE was rejected by Termii. Please verify your TERMII_API_LIVE in Render environment variables.`);
+                }
                 throw new Error(data.message || `Termii SMS sending failed with HTTP ${response.status}`);
             }
             return data;

@@ -31,12 +31,19 @@ export interface ProvnVerificationResponse {
 export class ProvnClient {
   private static readonly BASE_URL = env.PROVN_URL.replace(/\/$/, "");
 
+  private static sanitizeKey(k: string | undefined): string {
+    if (!k) return "";
+    return k.trim().replace(/^["']|["']$/g, "").trim();
+  }
+
   private static getHeaders() {
+    const apiKey = this.sanitizeKey(process.env.PROVN_API_KEY || env.PROVN_API_KEY);
+    const accessKey = this.sanitizeKey(process.env.PROVN_ACCESS_KEY || env.PROVN_ACCESS_KEY);
     return {
       "Content-Type": "application/json",
       Accept: "application/json",
-      "API-Key": process.env.PROVN_API_KEY || env.PROVN_API_KEY || "",
-      "Access-Key": process.env.PROVN_ACCESS_KEY || env.PROVN_ACCESS_KEY || "",
+      "API-Key": apiKey,
+      "Access-Key": accessKey,
     };
   }
 

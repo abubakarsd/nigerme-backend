@@ -4,12 +4,19 @@ exports.ProvnClient = void 0;
 const env_js_1 = require("../../config/env.js");
 class ProvnClient {
     static BASE_URL = env_js_1.env.PROVN_URL.replace(/\/$/, "");
+    static sanitizeKey(k) {
+        if (!k)
+            return "";
+        return k.trim().replace(/^["']|["']$/g, "").trim();
+    }
     static getHeaders() {
+        const apiKey = this.sanitizeKey(process.env.PROVN_API_KEY || env_js_1.env.PROVN_API_KEY);
+        const accessKey = this.sanitizeKey(process.env.PROVN_ACCESS_KEY || env_js_1.env.PROVN_ACCESS_KEY);
         return {
             "Content-Type": "application/json",
             Accept: "application/json",
-            "API-Key": process.env.PROVN_API_KEY || env_js_1.env.PROVN_API_KEY || "",
-            "Access-Key": process.env.PROVN_ACCESS_KEY || env_js_1.env.PROVN_ACCESS_KEY || "",
+            "API-Key": apiKey,
+            "Access-Key": accessKey,
         };
     }
     /**

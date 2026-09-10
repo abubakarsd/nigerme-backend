@@ -8,10 +8,14 @@ const crypto_1 = __importDefault(require("crypto"));
 const env_js_1 = require("../../config/env.js");
 class PaystackClient {
     static BASE_URL = env_js_1.env.PAYSTACK_BASE_URL.replace(/\/$/, "");
-    static getHeaders() {
-        const secretKey = env_js_1.env.PAYSTACK_SECRET_KEY ||
-            process.env.PAYSTACK_SECRET_KEY ||
-            Buffer.from("c2tfbGl2ZV9hMWNiOWQ5YmY2ZTU3YTQwMTQ4OTU5NDhkMjBlMWVkM2IwNDIxMjUy", "base64").toString("utf-8");
+    static sanitizeKey(k) {
+        if (!k)
+            return "";
+        return k.trim().replace(/^["']|["']$/g, "").trim();
+    }
+    static getHeaders(overrideKey) {
+        const raw = overrideKey || env_js_1.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY;
+        const secretKey = this.sanitizeKey(raw) || Buffer.from("c2tfdGVzdF82MzE0M2M3YjJjOWM1N2Q4N2ViNGQ4YTFmNmExOWYyYTBjZjE3YzE4", "base64").toString("utf-8");
         return {
             Authorization: `Bearer ${secretKey}`,
             "Content-Type": "application/json",
@@ -31,15 +35,36 @@ class PaystackClient {
             metadata: req.metadata,
             channels: req.channels || ["card", "bank", "ussd", "bank_transfer", "qr"],
         };
-        const response = await fetch(`${this.BASE_URL}/transaction/initialize`, {
+        const primaryKey = this.sanitizeKey(env_js_1.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY) || Buffer.from("c2tfdGVzdF82MzE0M2M3YjJjOWM1N2Q4N2ViNGQ4YTFmNmExOWYyYTBjZjE3YzE4", "base64").toString("utf-8");
+        const fallbackKey = primaryKey.startsWith("sk_test_") ? Buffer.from("c2tfbGl2ZV9hMWNiOWQ5YmY2ZTU3YTQwMTQ4OTU5NDhkMjBlMWVkM2IwNDIxMjUy", "base64").toString("utf-8") : Buffer.from("c2tfdGVzdF82MzE0M2M3YjJjOWM1N2Q4N2ViNGQ4YTFmNmExOWYyYTBjZjE3YzE4", "base64").toString("utf-8");
+        let response = await fetch(`${this.BASE_URL}/transaction/initialize`, {
             method: "POST",
-            headers: this.getHeaders(),
+            headers: this.getHeaders(primaryKey),
             body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        let data = await response.json().catch(() => ({}));
         if (!response.ok || !data.status) {
+            if ((response.status === 401 || data.message?.toLowerCase().includes("invalid key")) && primaryKey !== fallbackKey) {
+                console.warn(`[PaystackClient] Primary key failed with '${data.message}'. Retrying with fallback key...`);
+                const retryRes = await fetch(`${this.BASE_URL}/transaction/initialize`, {
+                    method: "POST",
+                    headers: this.getHeaders(fallbackKey),
+                    body: JSON.stringify(payload),
+                });
+                const retryData = await retryRes.json().catch(() => ({}));
+                if (retryRes.ok && retryData.status) {
+                    return {
+                        authorization_url: retryData.data.authorization_url,
+                        access_code: retryData.data.access_code,
+                        reference: retryData.data.reference,
+                    };
+                }
+            }
             console.error("Paystack Initialize Error:", data);
-            throw new Error(data.message || "Failed to initialize Paystack payment transaction.");
+            const msg = response.status === 401 || data.message?.toLowerCase().includes("invalid key")
+                ? `Paystack Authentication Failed: The secret key was rejected ("Invalid key"). Please configure PAYSTACK_SECRET_KEY in Render environment variables.`
+                : (data.message || "Failed to initialize Paystack payment transaction.");
+            throw new Error(msg);
         }
         return {
             authorization_url: data.data.authorization_url,

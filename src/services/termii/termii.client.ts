@@ -34,13 +34,15 @@ export class TermiiClient {
   static async sendSms(to: string, message: string): Promise<TermiiSendSmsResponse> {
     const formattedPhone = this.formatNigerianPhone(to);
 
+    const apiKey = (process.env.TERMII_API_LIVE || env.TERMII_API_LIVE || "").trim().replace(/^["']|["']$/g, "");
+
     const payload = {
       to: formattedPhone,
       from: env.TERMII_SENDER_ID,
       sms: message,
       type: "plain",
       channel: "generic",
-      api_key: env.TERMII_API_LIVE,
+      api_key: apiKey,
     };
 
     try {
@@ -57,6 +59,11 @@ export class TermiiClient {
 
       if (!response.ok) {
         console.error("Termii Error:", data);
+        if (data.message?.toLowerCase().includes("invalid key") || response.status === 401) {
+          throw new Error(
+            `Termii SMS Authentication Failed (Invalid key): The configured TERMII_API_LIVE was rejected by Termii. Please verify your TERMII_API_LIVE in Render environment variables.`
+          );
+        }
         throw new Error(data.message || `Termii SMS failed with HTTP ${response.status}`);
       }
 

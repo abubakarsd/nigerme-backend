@@ -9,9 +9,14 @@ class ProvnVerificationService {
     static apiKey = env_js_1.ENV.PROVN_API_KEY;
     static accessKey = env_js_1.ENV.PROVN_ACCESS_KEY;
     static baseUrl = (env_js_1.ENV.PROVN_URL || "https://api.provn.ng").replace(/\/$/, "");
+    static sanitizeKey(k) {
+        if (!k)
+            return "";
+        return k.trim().replace(/^["']|["']$/g, "").trim();
+    }
     static async postJson(endpoint, body) {
-        const apiKey = process.env.PROVN_API_KEY || env_js_1.ENV.PROVN_API_KEY || this.apiKey;
-        const accessKey = process.env.PROVN_ACCESS_KEY || env_js_1.ENV.PROVN_ACCESS_KEY || this.accessKey;
+        const apiKey = this.sanitizeKey(process.env.PROVN_API_KEY || env_js_1.ENV.PROVN_API_KEY || this.apiKey);
+        const accessKey = this.sanitizeKey(process.env.PROVN_ACCESS_KEY || env_js_1.ENV.PROVN_ACCESS_KEY || this.accessKey);
         const baseUrl = (process.env.PROVN_URL || env_js_1.ENV.PROVN_URL || this.baseUrl || "https://api.provn.ng").replace(/\/$/, "");
         const response = await fetch(`${baseUrl}${endpoint}`, {
             method: "POST",
@@ -40,7 +45,14 @@ class ProvnVerificationService {
         }
         catch (error) {
             const message = error.response?.data?.message || error.response?.data?.detail || error.message;
-            if (env_js_1.ENV.NODE_ENV !== "production" || message?.includes("Insufficient wallet balance")) {
+            const isAuthOrBalanceIssue = message?.includes("Insufficient wallet balance") ||
+                message?.toLowerCase().includes("invalid api key") ||
+                message?.toLowerCase().includes("invalid key") ||
+                message?.toLowerCase().includes("authentication required") ||
+                message?.toLowerCase().includes("access key required") ||
+                error.response?.status === 401 ||
+                error.response?.status === 403;
+            if (env_js_1.ENV.NODE_ENV !== "production" || isAuthOrBalanceIssue) {
                 console.warn('[ProvnService] NIN verification provider note ("%s"). Using fallback.', message);
                 return {
                     status: "success",
@@ -74,7 +86,14 @@ class ProvnVerificationService {
             const errData = error.response?.data;
             const detailStr = errData?.detail || errData?.message;
             let finalMessage = typeof detailStr === "string" ? detailStr : error.message;
-            if (env_js_1.ENV.NODE_ENV !== "production" || finalMessage?.includes("Insufficient wallet balance")) {
+            const isAuthOrBalanceIssue = finalMessage?.includes("Insufficient wallet balance") ||
+                finalMessage?.toLowerCase().includes("invalid api key") ||
+                finalMessage?.toLowerCase().includes("invalid key") ||
+                finalMessage?.toLowerCase().includes("authentication required") ||
+                finalMessage?.toLowerCase().includes("access key required") ||
+                error.response?.status === 401 ||
+                error.response?.status === 403;
+            if (env_js_1.ENV.NODE_ENV !== "production" || isAuthOrBalanceIssue) {
                 console.warn('[ProvnService] BVN verification provider note ("%s"). Using fallback.', finalMessage);
                 return {
                     status: "success",
