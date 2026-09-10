@@ -2213,19 +2213,41 @@ export const resolvers = {
         preview,
         bodyHtml: input.bodyHtml,
         bodyText: input.bodyText || preview,
-        attachments: (input.attachments || []).map((a: any) => ({
-          id: a.id || `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          name: a.name,
-          sizeBytes: a.sizeBytes || 0,
-          contentType: a.contentType || "application/octet-stream",
-          downloadUrl:
-            a.downloadUrl && !a.downloadUrl.startsWith("blob:")
-              ? a.downloadUrl
-              : a.content
-              ? `data:${a.contentType || "application/octet-stream"};base64,${a.content.includes("base64,") ? a.content.split("base64,")[1] : a.content}`
-              : "",
-          contentId: a.contentId,
-        })),
+        attachments: (input.attachments || []).map((a: any) => {
+          const ext = (a.name || "").split(".").pop()?.toLowerCase();
+          const cleanCt =
+            a.contentType && a.contentType.includes("/")
+              ? a.contentType
+              : ext === "png"
+              ? "image/png"
+              : ext === "jpg" || ext === "jpeg"
+              ? "image/jpeg"
+              : ext === "webp"
+              ? "image/webp"
+              : ext === "gif"
+              ? "image/gif"
+              : ext === "svg"
+              ? "image/svg+xml"
+              : ext === "pdf"
+              ? "application/pdf"
+              : a.contentType === "image"
+              ? "image/png"
+              : a.contentType || "application/octet-stream";
+
+          return {
+            id: a.id || `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: a.name,
+            sizeBytes: a.sizeBytes || 0,
+            contentType: cleanCt,
+            downloadUrl:
+              a.downloadUrl && !a.downloadUrl.startsWith("blob:")
+                ? a.downloadUrl
+                : a.content
+                ? `data:${cleanCt};base64,${a.content.includes("base64,") ? a.content.split("base64,")[1] : a.content}`
+                : "",
+            contentId: a.contentId,
+          };
+        }),
         isRead: true,
         isStarred: false,
         isImportant: false,
