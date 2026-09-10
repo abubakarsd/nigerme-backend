@@ -495,6 +495,16 @@ export const typeDefs = gql`
     getCalendarEvents(start: String, end: String, type: String): [CalendarEvent!]!
     getCalendarEventById(id: ID!): CalendarEvent
 
+    # Tasks
+    getMyTasks(status: String, priority: String): [AppTask!]!
+    getTaskById(id: ID!): AppTask
+
+    # CRM
+    getCrmCustomers(status: String, search: String, limit: Int): [CrmCustomer!]!
+    getCrmCustomerById(id: ID!): CrmCustomer
+    getCrmDeals(stage: String, customerId: ID): [CrmDeal!]!
+    getCrmActivities(customerId: ID!, limit: Int): [CrmActivity!]!
+
     # Passkey & WebAuthn Queries
     getPasskeyRegistrationOptions: String!
     getPasskeyAuthOptions(email: String!): String!
@@ -576,6 +586,20 @@ export const typeDefs = gql`
     createCalendarEvent(input: CreateCalendarEventInput!): CalendarEvent!
     updateCalendarEvent(id: ID!, input: UpdateCalendarEventInput!): CalendarEvent!
     deleteCalendarEvent(id: ID!): Boolean!
+
+    # ── Task Management ──
+    createTask(input: CreateTaskInput!): AppTask!
+    updateTask(id: ID!, input: UpdateTaskInput!): AppTask!
+    deleteTask(id: ID!): Boolean!
+
+    # ── CRM Management ──
+    createCrmCustomer(input: CreateCrmCustomerInput!): CrmCustomer!
+    updateCrmCustomer(id: ID!, input: UpdateCrmCustomerInput!): CrmCustomer!
+    deleteCrmCustomer(id: ID!): Boolean!
+    createCrmDeal(input: CreateCrmDealInput!): CrmDeal!
+    updateCrmDeal(id: ID!, input: UpdateCrmDealInput!): CrmDeal!
+    deleteCrmDeal(id: ID!): Boolean!
+    createCrmActivity(input: CreateCrmActivityInput!): CrmActivity!
   }
 
   type PasskeyCredentialInfo {
@@ -783,5 +807,157 @@ export const typeDefs = gql`
     html: String!
     text: String
   }
+
+  # ─── Task Types ───
+
+  type AppTask {
+    id: ID!
+    organizationId: ID!
+    title: String!
+    description: String
+    status: String!
+    priority: String!
+    assigneeId: ID
+    assigneeName: String
+    creatorId: ID!
+    creatorName: String!
+    dueDate: String
+    labels: [String!]!
+    sourceEmailId: String
+    sourceEmailSubject: String
+    relatedCalendarEventId: String
+    customerId: ID
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input CreateTaskInput {
+    title: String!
+    description: String
+    status: String
+    priority: String
+    assigneeId: ID
+    assigneeName: String
+    dueDate: String
+    labels: [String!]
+    sourceEmailId: String
+    sourceEmailSubject: String
+  }
+
+  input UpdateTaskInput {
+    title: String
+    description: String
+    status: String
+    priority: String
+    assigneeId: ID
+    assigneeName: String
+    dueDate: String
+    labels: [String!]
+  }
+
+  # ─── CRM Types ───
+
+  type CrmCustomer {
+    id: ID!
+    organizationId: ID!
+    name: String!
+    email: String!
+    phone: String
+    companyName: String
+    status: String!
+    assignedAgentId: ID
+    assignedAgentName: String
+    source: String!
+    tags: [String!]!
+    totalSpent: Float!
+    lastInteractionAt: String!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input CreateCrmCustomerInput {
+    name: String!
+    email: String!
+    phone: String
+    companyName: String
+    status: String
+    assignedAgentName: String
+    source: String
+    tags: [String!]
+  }
+
+  input UpdateCrmCustomerInput {
+    name: String
+    email: String
+    phone: String
+    companyName: String
+    status: String
+    assignedAgentName: String
+    tags: [String!]
+  }
+
+  type CrmDeal {
+    id: ID!
+    organizationId: ID!
+    title: String!
+    customerId: ID!
+    customerName: String!
+    companyName: String
+    amount: Float!
+    currency: String!
+    stage: String!
+    probability: Int!
+    expectedClosingDate: String
+    assignedAgentId: ID
+    assignedAgentName: String
+    notes: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input CreateCrmDealInput {
+    title: String!
+    customerId: ID!
+    customerName: String!
+    companyName: String
+    amount: Float!
+    currency: String
+    stage: String
+    probability: Int
+    expectedClosingDate: String
+    assignedAgentName: String
+    notes: String
+  }
+
+  input UpdateCrmDealInput {
+    title: String
+    amount: Float
+    stage: String
+    probability: Int
+    expectedClosingDate: String
+    notes: String
+    assignedAgentName: String
+  }
+
+  type CrmActivity {
+    id: ID!
+    organizationId: ID!
+    customerId: ID!
+    type: String!
+    title: String!
+    description: String
+    actorName: String!
+    actorEmail: String!
+    createdAt: String!
+  }
+
+  input CreateCrmActivityInput {
+    customerId: ID!
+    type: String!
+    title: String!
+    description: String
+  }
 `;
+
+
 

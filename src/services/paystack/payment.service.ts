@@ -77,7 +77,7 @@ export class PaymentService {
     const raw = process.env.PAYSTACK_SECRET_KEY || ENV.PAYSTACK_SECRET_KEY;
     const cleaned = this.sanitizeKey(raw);
     if (!cleaned) {
-      throw new Error("PAYSTACK_SECRET_KEY is not configured in environment variables.");
+      throw new Error("Unknown.");
     }
     return cleaned;
   }

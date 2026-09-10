@@ -14,4 +14,9 @@ export { CalendarEventModel, ICalendarEvent, ICalendarAttendee } from "../infras
 export { DepartmentModel, IDepartment } from "../infrastructure/database/models/department.model.js";
 export { PasskeyModel, IPasskey } from "../infrastructure/database/models/passkey.model.js";
 export { WalletModel, IWallet } from "../infrastructure/database/models/wallet.model.js";
+export { TaskModel, ITask } from "../infrastructure/database/models/task.model.js";
+export { CustomerModel, ICustomer } from "../infrastructure/database/models/customer.model.js";
+export { DealModel, IDeal } from "../infrastructure/database/models/deal.model.js";
+export { CRMActivityModel, ICRMActivity } from "../infrastructure/database/models/crm-activity.model.js";
+
 

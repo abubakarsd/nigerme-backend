@@ -9,7 +9,7 @@ import { OrganizationService } from "../application/services/organization.servic
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
-import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, DepartmentModel, EmailModel, CalendarEventModel, PasskeyModel, WalletModel } from "../models/index.js";
+import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, DepartmentModel, EmailModel, CalendarEventModel, PasskeyModel, WalletModel, TaskModel, CustomerModel, DealModel, CRMActivityModel } from "../models/index.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService, maskEmail } from "../application/services/otp.service.js";
 import { PasskeyService } from "../application/services/passkey.service.js";
@@ -752,6 +752,63 @@ export const resolvers = {
       }
 
       return formatCalendarEvent(event);
+    },
+
+    // ─── Task Queries ───
+    getMyTasks: async (_: any, { status, priority }: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+      const query: any = { organizationId: authUser.organizationId };
+      if (status) query.status = status;
+      if (priority) query.priority = priority;
+      const tasks = await TaskModel.find(query).sort({ createdAt: -1 });
+      return tasks.map(formatTask);
+    },
+
+    getTaskById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return null;
+      const task = await TaskModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      return task ? formatTask(task) : null;
+    },
+
+    // ─── CRM Queries ───
+    getCrmCustomers: async (_: any, { status, search, limit = 50 }: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+      const query: any = { organizationId: authUser.organizationId };
+      if (status) query.status = status;
+      if (search && search.trim()) {
+        const regex = new RegExp(search.trim(), "i");
+        query.$or = [{ name: regex }, { email: regex }, { companyName: regex }];
+      }
+      const customers = await CustomerModel.find(query).sort({ createdAt: -1 }).limit(limit);
+      return customers.map(formatCustomer);
+    },
+
+    getCrmCustomerById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return null;
+      const c = await CustomerModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      return c ? formatCustomer(c) : null;
+    },
+
+    getCrmDeals: async (_: any, { stage, customerId }: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+      const query: any = { organizationId: authUser.organizationId };
+      if (stage) query.stage = stage;
+      if (customerId) query.customerId = customerId;
+      const deals = await DealModel.find(query).sort({ createdAt: -1 });
+      return deals.map(formatDeal);
+    },
+
+    getCrmActivities: async (_: any, { customerId, limit = 50 }: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+      const activities = await CRMActivityModel.find({ organizationId: authUser.organizationId, customerId })
+        .sort({ createdAt: -1 }).limit(limit);
+      return activities.map(formatCrmActivity);
     },
 
     // ─── Passkey & WebAuthn Queries ───
@@ -2384,6 +2441,145 @@ export const resolvers = {
       await CalendarEventModel.deleteOne({ _id: id });
       return true;
     },
+
+    // ─── Task Mutations ───
+    createTask: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const task = await TaskModel.create({
+        organizationId: authUser.organizationId,
+        creatorId: authUser.userId || (authUser as any).id,
+        creatorName: authUser.name || authUser.email.split("@")[0],
+        title: input.title.trim(),
+        description: input.description || "",
+        status: input.status || "TODO",
+        priority: input.priority || "MEDIUM",
+        assigneeId: input.assigneeId || null,
+        assigneeName: input.assigneeName || null,
+        dueDate: input.dueDate ? new Date(input.dueDate) : null,
+        labels: input.labels || [],
+        sourceEmailId: input.sourceEmailId || null,
+        sourceEmailSubject: input.sourceEmailSubject || null,
+      });
+      return formatTask(task);
+    },
+
+    updateTask: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const task = await TaskModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      if (!task) throw new Error("Task not found");
+      if (input.title !== undefined) task.title = input.title.trim();
+      if (input.description !== undefined) task.description = input.description;
+      if (input.status !== undefined) task.status = input.status;
+      if (input.priority !== undefined) task.priority = input.priority;
+      if (input.assigneeId !== undefined) task.assigneeId = input.assigneeId;
+      if (input.assigneeName !== undefined) task.assigneeName = input.assigneeName;
+      if (input.dueDate !== undefined) task.dueDate = input.dueDate ? new Date(input.dueDate) : undefined;
+      if (input.labels !== undefined) task.labels = input.labels;
+      await task.save();
+      return formatTask(task);
+    },
+
+    deleteTask: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const res = await TaskModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
+      return res.deletedCount > 0;
+    },
+
+    // ─── CRM Mutations ───
+    createCrmCustomer: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const customer = await CustomerModel.create({
+        organizationId: authUser.organizationId,
+        name: input.name.trim(),
+        email: input.email.toLowerCase().trim(),
+        phone: input.phone || null,
+        companyName: input.companyName || null,
+        status: input.status || "NEW",
+        assignedAgentId: authUser.userId || (authUser as any).id,
+        assignedAgentName: input.assignedAgentName || authUser.name || authUser.email.split("@")[0],
+        source: input.source || "MANUAL",
+        tags: input.tags || [],
+      });
+      return formatCustomer(customer);
+    },
+
+    updateCrmCustomer: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const customer = await CustomerModel.findOneAndUpdate(
+        { _id: id, organizationId: authUser.organizationId },
+        { $set: input },
+        { new: true }
+      );
+      if (!customer) throw new Error("Customer not found");
+      return formatCustomer(customer);
+    },
+
+    deleteCrmCustomer: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const res = await CustomerModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
+      return res.deletedCount > 0;
+    },
+
+    createCrmDeal: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const deal = await DealModel.create({
+        organizationId: authUser.organizationId,
+        title: input.title.trim(),
+        customerId: input.customerId,
+        customerName: input.customerName,
+        companyName: input.companyName || null,
+        amount: input.amount || 0,
+        currency: input.currency || "NGN",
+        stage: input.stage || "LEAD",
+        probability: input.probability ?? 10,
+        expectedClosingDate: input.expectedClosingDate ? new Date(input.expectedClosingDate) : null,
+        assignedAgentId: authUser.userId || (authUser as any).id,
+        assignedAgentName: input.assignedAgentName || authUser.name || authUser.email.split("@")[0],
+        notes: input.notes || null,
+      });
+      return formatDeal(deal);
+    },
+
+    updateCrmDeal: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const deal = await DealModel.findOneAndUpdate(
+        { _id: id, organizationId: authUser.organizationId },
+        { $set: input },
+        { new: true }
+      );
+      if (!deal) throw new Error("Deal not found");
+      return formatDeal(deal);
+    },
+
+    deleteCrmDeal: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const res = await DealModel.deleteOne({ _id: id, organizationId: authUser.organizationId });
+      return res.deletedCount > 0;
+    },
+
+    createCrmActivity: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const activity = await CRMActivityModel.create({
+        organizationId: authUser.organizationId,
+        customerId: input.customerId,
+        type: input.type,
+        title: input.title,
+        description: input.description || null,
+        actorName: authUser.name || authUser.email.split("@")[0],
+        actorEmail: authUser.email,
+      });
+      return formatCrmActivity(activity);
+    },
   },
 
   Organization: {
@@ -2483,5 +2679,91 @@ function formatCalendarEvent(doc: any) {
     relatedEmailId: e.relatedEmailId || null,
     createdAt: e.createdAt ? new Date(e.createdAt).toISOString() : new Date().toISOString(),
     updatedAt: e.updatedAt ? new Date(e.updatedAt).toISOString() : new Date().toISOString(),
+  };
+}
+
+function formatTask(doc: any) {
+  if (!doc) return null;
+  const t = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: t._id ? t._id.toString() : t.id,
+    organizationId: t.organizationId ? t.organizationId.toString() : "",
+    title: t.title || "",
+    description: t.description || "",
+    status: t.status || "TODO",
+    priority: t.priority || "MEDIUM",
+    assigneeId: t.assigneeId ? t.assigneeId.toString() : null,
+    assigneeName: t.assigneeName || null,
+    creatorId: t.creatorId ? t.creatorId.toString() : "",
+    creatorName: t.creatorName || "",
+    dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null,
+    labels: t.labels || [],
+    sourceEmailId: t.sourceEmailId || null,
+    sourceEmailSubject: t.sourceEmailSubject || null,
+    relatedCalendarEventId: t.relatedCalendarEventId || null,
+    customerId: t.customerId ? t.customerId.toString() : null,
+    createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
+  };
+}
+
+function formatCustomer(doc: any) {
+  if (!doc) return null;
+  const c = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: c._id ? c._id.toString() : c.id,
+    organizationId: c.organizationId ? c.organizationId.toString() : "",
+    name: c.name || "",
+    email: c.email || "",
+    phone: c.phone || null,
+    companyName: c.companyName || null,
+    status: c.status || "NEW",
+    assignedAgentId: c.assignedAgentId ? c.assignedAgentId.toString() : null,
+    assignedAgentName: c.assignedAgentName || null,
+    source: c.source || "MANUAL",
+    tags: c.tags || [],
+    totalSpent: c.totalSpent || 0,
+    lastInteractionAt: c.lastInteractionAt ? new Date(c.lastInteractionAt).toISOString() : new Date().toISOString(),
+    createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: c.updatedAt ? new Date(c.updatedAt).toISOString() : new Date().toISOString(),
+  };
+}
+
+function formatDeal(doc: any) {
+  if (!doc) return null;
+  const d = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: d._id ? d._id.toString() : d.id,
+    organizationId: d.organizationId ? d.organizationId.toString() : "",
+    title: d.title || "",
+    customerId: d.customerId ? d.customerId.toString() : "",
+    customerName: d.customerName || "",
+    companyName: d.companyName || null,
+    amount: d.amount || 0,
+    currency: d.currency || "NGN",
+    stage: d.stage || "LEAD",
+    probability: d.probability ?? 10,
+    expectedClosingDate: d.expectedClosingDate ? new Date(d.expectedClosingDate).toISOString() : null,
+    assignedAgentId: d.assignedAgentId ? d.assignedAgentId.toString() : null,
+    assignedAgentName: d.assignedAgentName || null,
+    notes: d.notes || null,
+    createdAt: d.createdAt ? new Date(d.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: d.updatedAt ? new Date(d.updatedAt).toISOString() : new Date().toISOString(),
+  };
+}
+
+function formatCrmActivity(doc: any) {
+  if (!doc) return null;
+  const a = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: a._id ? a._id.toString() : a.id,
+    organizationId: a.organizationId ? a.organizationId.toString() : "",
+    customerId: a.customerId ? a.customerId.toString() : "",
+    type: a.type || "",
+    title: a.title || "",
+    description: a.description || null,
+    actorName: a.actorName || "",
+    actorEmail: a.actorEmail || "",
+    createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
   };
 }
