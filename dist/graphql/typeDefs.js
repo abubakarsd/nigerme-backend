@@ -501,6 +501,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     getMyEmails(folder: String, category: String, search: String, limit: Int, offset: Int): [WebmailMessage!]!
     getEmailById(id: ID!): WebmailMessage
     getMailboxCounts: MailboxCounts!
+    getEmailCounts: MailboxCounts!
 
     # Calendar Events
     getCalendarEvents(start: String, end: String, type: String): [CalendarEvent!]!

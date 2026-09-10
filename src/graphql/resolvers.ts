@@ -726,6 +726,37 @@ export const resolvers = {
       return { inbox, unread, starred, sent, drafts, spam, trash, archive };
     },
 
+    getMailboxCounts: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      const baseQuery: any = {
+        organizationId: authUser.organizationId,
+        $or: [
+          { userId: authUser.userId || (authUser as any).id },
+          { "to.email": authUser.email.toLowerCase() },
+          { "from.email": authUser.email.toLowerCase() },
+        ],
+      };
+
+      const [inbox, unread, starred, sent, drafts, spam, trash, archive] = await Promise.all([
+        EmailModel.countDocuments({ ...baseQuery, folder: "inbox" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "inbox", isRead: false }),
+        EmailModel.countDocuments({
+          ...baseQuery,
+          $and: [
+            { $or: [{ isStarred: true }, { folder: "starred" }] },
+            { folder: { $ne: "trash" } },
+          ],
+        }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "sent" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "drafts" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "spam" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "trash" }),
+        EmailModel.countDocuments({ ...baseQuery, folder: "archive" }),
+      ]);
+
+      return { inbox, unread, starred, sent, drafts, spam, trash, archive };
+    },
+
     // ─── Calendar Events Queries ───
     getCalendarEvents: async (
       _: any,

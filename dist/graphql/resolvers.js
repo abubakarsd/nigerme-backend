@@ -665,6 +665,34 @@ exports.resolvers = {
             ]);
             return { inbox, unread, starred, sent, drafts, spam, trash, archive };
         },
+        getMailboxCounts: async (_, __, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            const baseQuery = {
+                organizationId: authUser.organizationId,
+                $or: [
+                    { userId: authUser.userId || authUser.id },
+                    { "to.email": authUser.email.toLowerCase() },
+                    { "from.email": authUser.email.toLowerCase() },
+                ],
+            };
+            const [inbox, unread, starred, sent, drafts, spam, trash, archive] = await Promise.all([
+                index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "inbox" }),
+                index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "inbox", isRead: false }),
+                index_js_7.EmailModel.countDocuments({
+                    ...baseQuery,
+                    $and: [
+                        { $or: [{ isStarred: true }, { folder: "starred" }] },
+                        { folder: { $ne: "trash" } },
+                    ],
+                }),
+                index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "sent" }),
+                index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "drafts" }),
+                index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "spam" }),
+                index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "trash" }),
+                index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "archive" }),
+            ]);
+            return { inbox, unread, starred, sent, drafts, spam, trash, archive };
+        },
         // ─── Calendar Events Queries ───
         getCalendarEvents: async (_, { start, end, type }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);

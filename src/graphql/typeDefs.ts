@@ -496,6 +496,7 @@ export const typeDefs = gql`
     getMyEmails(folder: String, category: String, search: String, limit: Int, offset: Int): [WebmailMessage!]!
     getEmailById(id: ID!): WebmailMessage
     getMailboxCounts: MailboxCounts!
+    getEmailCounts: MailboxCounts!
 
     # Calendar Events
     getCalendarEvents(start: String, end: String, type: String): [CalendarEvent!]!
