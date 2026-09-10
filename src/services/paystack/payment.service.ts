@@ -68,35 +68,36 @@ export interface FundWalletDto {
 import { InitializePaymentResponse } from "./paystack.client.js";
 
 export class PaymentService {
-  private static activeKey: string | null = null;
-
   private static sanitizeKey(k: string | undefined): string {
     if (!k) return "";
     return k.trim().replace(/^["']|["']$/g, "").trim();
   }
 
-  private static getFallbackTestKey(): string {
-    return Buffer.from("c2tfdGVzdF82MzE0M2M3YjJjOWM1N2Q4N2ViNGQ4YTFmNmExOWYyYTBjZjE3YzE4", "base64").toString("utf-8");
-  }
-
-  private static getFallbackLiveKey(): string {
-    return Buffer.from("c2tfbGl2ZV9hMWNiOWQ5YmY2ZTU3YTQwMTQ4OTU5NDhkMjBlMWVkM2IwNDIxMjUy", "base64").toString("utf-8");
-  }
-
-  private static getSecretKey(): string {
-    if (this.activeKey) return this.activeKey;
+  public static getSecretKey(): string {
     const raw = process.env.PAYSTACK_SECRET_KEY || ENV.PAYSTACK_SECRET_KEY;
     const cleaned = this.sanitizeKey(raw);
-    if (cleaned) return cleaned;
-    return this.getFallbackTestKey();
+    if (!cleaned) {
+      throw new Error("PAYSTACK_SECRET_KEY is not configured in environment variables.");
+    }
+    return cleaned;
   }
 
-  private static getAlternateKey(): string {
-    const primary = this.getSecretKey();
-    if (primary.startsWith("sk_test_")) {
-      return this.getFallbackLiveKey();
+  public static getPublicKey(): string {
+    const raw = process.env.PAYSTACK_PUBLIC_KEY || ENV.PAYSTACK_PUBLIC_KEY;
+    return this.sanitizeKey(raw);
+  }
+
+  public static getWebhookSecret(): string {
+    const raw =
+      process.env.PAYSTACK_WEBHOOK_SECRET ||
+      process.env.PAYSTACK_SECRET_KEY ||
+      ENV.PAYSTACK_WEBHOOK_SECRET ||
+      ENV.PAYSTACK_SECRET_KEY;
+    const cleaned = this.sanitizeKey(raw);
+    if (!cleaned) {
+      throw new Error("PAYSTACK_WEBHOOK_SECRET is not configured in environment variables.");
     }
-    return this.getFallbackTestKey();
+    return cleaned;
   }
 
   private static getBaseUrl(): string {
@@ -114,8 +115,7 @@ export class PaymentService {
 
   /**
    * Centralized HTTP caller for all Paystack API operations.
-   * Transparently catches 401 Unauthorized / Invalid Key errors,
-   * switches to the fallback key, caches the working key, and retries.
+   * Uses strictly the configured secret key from environment variables.
    */
   private static async paystackRequest<T = any>(
     method: "get" | "post",
@@ -126,39 +126,17 @@ export class PaymentService {
     const baseUrl = this.getBaseUrl();
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${cleanEndpoint}`;
-
-    const currentKey = this.getSecretKey();
-    const altKey = this.getAlternateKey();
+    const secretKey = this.getSecretKey();
 
     try {
       if (method === "get") {
-        return await httpClient.get(url, { headers: this.getHeaders(currentKey), params });
+        return await httpClient.get(url, { headers: this.getHeaders(secretKey), params });
       } else {
-        return await httpClient.post(url, body, { headers: this.getHeaders(currentKey), params });
+        return await httpClient.post(url, body, { headers: this.getHeaders(secretKey), params });
       }
     } catch (err: any) {
-      const isAuthError =
-        err.response?.status === 401 ||
-        err.message?.toLowerCase().includes("invalid key");
-
-      if (isAuthError && currentKey !== altKey) {
-        console.warn(`[Paystack] Request to ${cleanEndpoint} rejected with '${err.message}'. Switching to alternate key (${altKey.slice(0, 7)}...) and retrying...`);
-        this.activeKey = altKey;
-        try {
-          if (method === "get") {
-            const retryRes = await httpClient.get(url, { headers: this.getHeaders(altKey), params });
-            console.log(`[Paystack] Request to ${cleanEndpoint} succeeded with alternate key!`);
-            return retryRes;
-          } else {
-            const retryRes = await httpClient.post(url, body, { headers: this.getHeaders(altKey), params });
-            console.log(`[Paystack] Request to ${cleanEndpoint} succeeded with alternate key!`);
-            return retryRes;
-          }
-        } catch (fallbackErr: any) {
-          console.error(`[Paystack] Alternate key also failed for ${cleanEndpoint}:`, fallbackErr.message);
-          throw fallbackErr;
-        }
-      }
+      const apiMessage = err.response?.data?.message || err.message || "Paystack API request failed";
+      console.error(`[Paystack] Request to ${cleanEndpoint} failed (${err.response?.status || "network"}):`, apiMessage);
       throw err;
     }
   }
@@ -219,12 +197,18 @@ export class PaymentService {
   public static verifyWebhookSignature(signatureHeader: string | undefined, rawBody: string | Buffer): boolean {
     if (!signatureHeader) return false;
 
-    const hash = crypto
-      .createHmac("sha512", this.getSecretKey())
-      .update(rawBody)
-      .digest("hex");
+    try {
+      const webhookSecret = this.getWebhookSecret();
+      const hash = crypto
+        .createHmac("sha512", webhookSecret)
+        .update(rawBody)
+        .digest("hex");
 
-    return crypto.timingSafeEqual(Buffer.from(hash, "utf8"), Buffer.from(signatureHeader, "utf8"));
+      return crypto.timingSafeEqual(Buffer.from(hash, "utf8"), Buffer.from(signatureHeader, "utf8"));
+    } catch (err) {
+      console.error("[Paystack] Webhook verification error:", err);
+      return false;
+    }
   }
 
   /**
@@ -392,20 +376,14 @@ export class PaymentService {
       };
     }
 
-    // Fallback: If Paystack sandbox or merchant compliance requires live NIBSS corporate approval,
-    // generate a formatted dedicated sovereign virtual NUBAN for this verified identity
-    console.warn(`[Paystack] Dedicated virtual account note (${lastError || "Compliance pending"}). Provisioning sovereign dedicated virtual account ledger...`);
-    const randomSuffix = Math.floor(10000000 + Math.random() * 90000000);
-    return {
-      accountNumber: `02${randomSuffix}`,
-      accountName: `Nigerme / ${firstName} ${lastName}`,
-      bankName: "Wema Bank Plc (Paystack Sovereign Switch)",
-      customerCode: customerCode || `CUS_${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-      paystackCustomerId: customerId || Date.now(),
-      paystackDedicatedAccountId: Date.now(),
-      isVerified: true,
-      assignedAt: new Date(),
-    };
+    console.error(
+      `[Paystack] Failed to provision dedicated virtual account for ${customerEmail}:`,
+      lastError || "No account returned from Paystack"
+    );
+    throw new Error(
+      lastError ||
+        "Paystack dedicated virtual account creation could not be completed. Please ensure Dedicated NUBAN / Virtual Accounts are enabled on your Paystack merchant dashboard."
+    );
   }
 
   /**

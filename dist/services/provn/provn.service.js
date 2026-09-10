@@ -41,32 +41,14 @@ class ProvnVerificationService {
             throw new Error("NIN must be exactly 11 digits");
         }
         try {
-            return await this.postJson("/verification/nin", { nin: cleanNin });
+            const res = await this.postJson("/verification/nin", { nin: cleanNin });
+            if (res && (res.status === "success" || res.code === 200) && res.data) {
+                return res;
+            }
+            throw new Error(res?.message || "Provn NIN verification returned unsuccessful status");
         }
         catch (error) {
             const message = error.response?.data?.message || error.response?.data?.detail || error.message;
-            const isAuthOrBalanceIssue = message?.includes("Insufficient wallet balance") ||
-                message?.toLowerCase().includes("invalid api key") ||
-                message?.toLowerCase().includes("invalid key") ||
-                message?.toLowerCase().includes("authentication required") ||
-                message?.toLowerCase().includes("access key required") ||
-                error.response?.status === 401 ||
-                error.response?.status === 403;
-            if (env_js_1.ENV.NODE_ENV !== "production" || isAuthOrBalanceIssue) {
-                console.warn('[ProvnService] NIN verification provider note ("%s"). Using fallback.', message);
-                return {
-                    status: "success",
-                    message: "NIN verification retrieved",
-                    data: {
-                        first_name: "Verified",
-                        last_name: "User",
-                        middle_name: "Nigerme",
-                        nin: cleanNin,
-                        phone_number: "08012345678",
-                        date_of_birth: "1995-01-01",
-                    },
-                };
-            }
             throw new Error(`Provn NIN Verification failed: ${message}`);
         }
     }
@@ -85,28 +67,7 @@ class ProvnVerificationService {
         catch (error) {
             const errData = error.response?.data;
             const detailStr = errData?.detail || errData?.message;
-            let finalMessage = typeof detailStr === "string" ? detailStr : error.message;
-            const isAuthOrBalanceIssue = finalMessage?.includes("Insufficient wallet balance") ||
-                finalMessage?.toLowerCase().includes("invalid api key") ||
-                finalMessage?.toLowerCase().includes("invalid key") ||
-                finalMessage?.toLowerCase().includes("authentication required") ||
-                finalMessage?.toLowerCase().includes("access key required") ||
-                error.response?.status === 401 ||
-                error.response?.status === 403;
-            if (env_js_1.ENV.NODE_ENV !== "production" || isAuthOrBalanceIssue) {
-                console.warn('[ProvnService] BVN verification provider note ("%s"). Using fallback.', finalMessage);
-                return {
-                    status: "success",
-                    code: 200,
-                    message: "BVN verification retrieved",
-                    data: {
-                        bvn: cleanBvn,
-                        first_name: "Verified",
-                        last_name: "User",
-                        date_of_birth: "1990-01-01",
-                    },
-                };
-            }
+            const finalMessage = typeof detailStr === "string" ? detailStr : error.message;
             throw new Error(`Provn BVN Verification failed: ${finalMessage}`);
         }
     }

@@ -7,15 +7,22 @@ exports.PaystackClient = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const env_js_1 = require("../../config/env.js");
 class PaystackClient {
-    static BASE_URL = env_js_1.env.PAYSTACK_BASE_URL.replace(/\/$/, "");
+    static BASE_URL = (env_js_1.env.PAYSTACK_BASE_URL || process.env.PAYSTACK_BASE_URL || "https://api.paystack.co").replace(/\/$/, "");
     static sanitizeKey(k) {
         if (!k)
             return "";
         return k.trim().replace(/^["']|["']$/g, "").trim();
     }
-    static getHeaders(overrideKey) {
+    static getSecretKey(overrideKey) {
         const raw = overrideKey || env_js_1.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY;
-        const secretKey = this.sanitizeKey(raw) || Buffer.from("c2tfdGVzdF82MzE0M2M3YjJjOWM1N2Q4N2ViNGQ4YTFmNmExOWYyYTBjZjE3YzE4", "base64").toString("utf-8");
+        const cleaned = this.sanitizeKey(raw);
+        if (!cleaned) {
+            throw new Error("PAYSTACK_SECRET_KEY is not configured in environment variables.");
+        }
+        return cleaned;
+    }
+    static getHeaders(overrideKey) {
+        const secretKey = this.getSecretKey(overrideKey);
         return {
             Authorization: `Bearer ${secretKey}`,
             "Content-Type": "application/json",
@@ -23,7 +30,7 @@ class PaystackClient {
         };
     }
     /**
-     * Initializes standard Paystack card/bank/USSD checkout transaction
+     * Initializes standard Paystack checkout transaction
      */
     static async initializePayment(req) {
         const reference = req.reference || `NGM-PAY-${Date.now()}-${crypto_1.default.randomBytes(4).toString("hex")}`;
@@ -35,34 +42,16 @@ class PaystackClient {
             metadata: req.metadata,
             channels: req.channels || ["card", "bank", "ussd", "bank_transfer", "qr"],
         };
-        const primaryKey = this.sanitizeKey(env_js_1.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY) || Buffer.from("c2tfdGVzdF82MzE0M2M3YjJjOWM1N2Q4N2ViNGQ4YTFmNmExOWYyYTBjZjE3YzE4", "base64").toString("utf-8");
-        const fallbackKey = primaryKey.startsWith("sk_test_") ? Buffer.from("c2tfbGl2ZV9hMWNiOWQ5YmY2ZTU3YTQwMTQ4OTU5NDhkMjBlMWVkM2IwNDIxMjUy", "base64").toString("utf-8") : Buffer.from("c2tfdGVzdF82MzE0M2M3YjJjOWM1N2Q4N2ViNGQ4YTFmNmExOWYyYTBjZjE3YzE4", "base64").toString("utf-8");
-        let response = await fetch(`${this.BASE_URL}/transaction/initialize`, {
+        const response = await fetch(`${this.BASE_URL}/transaction/initialize`, {
             method: "POST",
-            headers: this.getHeaders(primaryKey),
+            headers: this.getHeaders(),
             body: JSON.stringify(payload),
         });
-        let data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({}));
         if (!response.ok || !data.status) {
-            if ((response.status === 401 || data.message?.toLowerCase().includes("invalid key")) && primaryKey !== fallbackKey) {
-                console.warn(`[PaystackClient] Primary key failed with '${data.message}'. Retrying with fallback key...`);
-                const retryRes = await fetch(`${this.BASE_URL}/transaction/initialize`, {
-                    method: "POST",
-                    headers: this.getHeaders(fallbackKey),
-                    body: JSON.stringify(payload),
-                });
-                const retryData = await retryRes.json().catch(() => ({}));
-                if (retryRes.ok && retryData.status) {
-                    return {
-                        authorization_url: retryData.data.authorization_url,
-                        access_code: retryData.data.access_code,
-                        reference: retryData.data.reference,
-                    };
-                }
-            }
             console.error("Paystack Initialize Error:", data);
             const msg = response.status === 401 || data.message?.toLowerCase().includes("invalid key")
-                ? `Paystack Authentication Failed: The secret key was rejected ("Invalid key"). Please configure PAYSTACK_SECRET_KEY in Render environment variables.`
+                ? `Paystack Authentication Failed: The secret key was rejected ("Invalid key"). Please verify PAYSTACK_SECRET_KEY in your environment variables.`
                 : (data.message || "Failed to initialize Paystack payment transaction.");
             throw new Error(msg);
         }
@@ -92,11 +81,24 @@ class PaystackClient {
     static verifyWebhookSignature(signatureHeader, rawBody) {
         if (!signatureHeader)
             return false;
-        const hash = crypto_1.default
-            .createHmac("sha512", env_js_1.env.PAYSTACK_SECRET_KEY)
-            .update(rawBody)
-            .digest("hex");
-        return crypto_1.default.timingSafeEqual(Buffer.from(hash, "utf8"), Buffer.from(signatureHeader, "utf8"));
+        const secret = env_js_1.env.PAYSTACK_WEBHOOK_SECRET ||
+            env_js_1.env.PAYSTACK_SECRET_KEY ||
+            process.env.PAYSTACK_WEBHOOK_SECRET ||
+            process.env.PAYSTACK_SECRET_KEY ||
+            "";
+        if (!secret)
+            return false;
+        try {
+            const hash = crypto_1.default
+                .createHmac("sha512", secret)
+                .update(rawBody)
+                .digest("hex");
+            return crypto_1.default.timingSafeEqual(Buffer.from(hash, "utf8"), Buffer.from(signatureHeader, "utf8"));
+        }
+        catch (err) {
+            console.error("[PaystackClient] Error verifying webhook signature:", err);
+            return false;
+        }
     }
 }
 exports.PaystackClient = PaystackClient;

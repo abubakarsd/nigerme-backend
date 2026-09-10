@@ -722,6 +722,7 @@ export const typeDefs = gql`
   }
 
   input SendMailInput {
+    threadId: String
     fromName: String
     to: [EmailParticipantInput!]!
     cc: [EmailParticipantInput!]

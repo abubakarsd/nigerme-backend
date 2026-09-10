@@ -155,11 +155,30 @@ export class MailWebhookController {
             headers: fullEmail.headers,
           });
 
+          // Match existing conversation thread by normalized subject if available
+          const cleanSubject = (subject || "").replace(/^(re:\s*|fwd:\s*)+/i, "").trim();
+          let threadId = "";
+          if (cleanSubject) {
+            const existing = await EmailModel.findOne({
+              organizationId: org._id,
+              $or: [
+                { subject: new RegExp(`^${cleanSubject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+                { subject: new RegExp(`^(re:\\s*|fwd:\\s*)*${cleanSubject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+              ],
+            }).sort({ createdAt: -1 });
+            if (existing?.threadId) {
+              threadId = existing.threadId;
+            }
+          }
+          if (!threadId) {
+            threadId = `thread-inbound-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          }
+
           // Create inbox record
           await EmailModel.create({
             organizationId: org._id,
             userId: user._id,
-            threadId: `thread-inbound-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            threadId,
             resendId: resendEmailId,
             folder: "inbox",
             category,
