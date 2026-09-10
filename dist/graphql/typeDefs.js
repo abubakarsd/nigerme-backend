@@ -413,6 +413,12 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     contentType: String!
   }
 
+  input PresignedUploadInput {
+    folder: String!
+    fileName: String!
+    contentType: String!
+  }
+
   input FundWalletInput {
     amountInNaira: Float!
     callbackUrl: String
@@ -716,6 +722,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     attachments: [EmailAttachment!]!
     isRead: Boolean!
     isStarred: Boolean!
+    starredAt: String
     isImportant: Boolean!
     labels: [String!]!
     status: String!

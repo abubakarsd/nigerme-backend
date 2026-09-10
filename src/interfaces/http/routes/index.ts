@@ -96,6 +96,7 @@ apiRouter.use("/kyc", kycRouter);
 
 // ─── 5. Storage Routes (AWS S3) ───
 const storageRouter = Router();
+storageRouter.get("/proxy-file", StorageController.proxyFile);
 storageRouter.use(authenticate);
 storageRouter.post("/presigned-upload", validate(presignedUploadSchema), StorageController.getPresignedUploadUrl);
 storageRouter.get("/file-url", StorageController.getSecureFileUrl);

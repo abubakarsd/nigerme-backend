@@ -504,7 +504,9 @@ exports.resolvers = {
             };
             if (folder) {
                 if (folder === "starred") {
-                    query.isStarred = true;
+                    query.$and = (query.$and || []).concat([
+                        { $or: [{ isStarred: true }, { folder: "starred" }] },
+                    ]);
                 }
                 else {
                     query.folder = folder;
@@ -523,8 +525,9 @@ exports.resolvers = {
                     { "to.email": regex },
                 ];
             }
+            const sortOptions = folder === "starred" ? { starredAt: -1, createdAt: -1 } : { createdAt: -1 };
             let emails = await index_js_7.EmailModel.find(query)
-                .sort({ createdAt: -1 })
+                .sort(sortOptions)
                 .skip(offset)
                 .limit(limit);
             if (emails.length === 0 && offset === 0 && (!search || !search.trim()) && authUser.organizationId) {
@@ -533,7 +536,7 @@ exports.resolvers = {
                 if (org && user) {
                     await index_js_6.ResendEmailService.provisionWelcomeEmailInMailbox(authUser.organizationId, user._id, user.name || user.email.split("@")[0], user.email, org.name, user.role === "admin" || user.role === "owner");
                     emails = await index_js_7.EmailModel.find(query)
-                        .sort({ createdAt: -1 })
+                        .sort(sortOptions)
                         .skip(offset)
                         .limit(limit);
                 }
@@ -561,7 +564,8 @@ exports.resolvers = {
                     contentId: a.contentId,
                 })),
                 isRead: m.isRead,
-                isStarred: m.isStarred,
+                isStarred: Boolean(m.isStarred || m.folder === "starred"),
+                starredAt: m.starredAt?.toISOString(),
                 isImportant: m.isImportant || false,
                 labels: m.labels || [],
                 status: m.status || "SENT",
@@ -578,63 +582,62 @@ exports.resolvers = {
             });
             if (!email)
                 throw new Error("Email not found");
-            if (!email.isRead) {
-                email.isRead = true;
-                await email.save();
-            }
-            let attachmentsUpdated = false;
-            const attachments = await Promise.all((email.attachments || []).map(async (a) => {
-                let downloadUrl = a.downloadUrl;
-                if (!downloadUrl && email.resendId && a.id) {
-                    try {
-                        const res = await index_js_6.ResendEmailService.getReceivedAttachment(email.resendId, a.id);
-                        if (res?.data?.download_url) {
-                            downloadUrl = res.data.download_url;
-                            a.downloadUrl = downloadUrl;
-                            attachmentsUpdated = true;
+            // Auto-enrich inbound attachments missing signed download URLs
+            if (email.resendId && email.attachments && email.attachments.length > 0) {
+                let hasModifiedAttachments = false;
+                for (const att of email.attachments) {
+                    if (!att.downloadUrl || (!att.downloadUrl.includes("X-Amz-Signature") && att.downloadUrl.includes("s3.resend.com"))) {
+                        try {
+                            const enriched = await index_js_6.ResendEmailService.getReceivedAttachment(email.resendId, att.id);
+                            const signedUrl = enriched?.data?.download_url || enriched?.download_url;
+                            if (signedUrl) {
+                                att.downloadUrl = signedUrl;
+                                hasModifiedAttachments = true;
+                            }
+                        }
+                        catch (err) {
+                            console.warn(`[getEmailById] Could not fetch signed URL for attachment ${att.id}:`, err.message);
                         }
                     }
-                    catch { }
                 }
-                return {
-                    id: a.id,
-                    name: a.name,
-                    sizeBytes: a.sizeBytes || 0,
-                    contentType: a.contentType || "application/octet-stream",
-                    downloadUrl,
-                    contentId: a.contentId,
-                };
-            }));
-            if (attachmentsUpdated) {
-                email.markModified("attachments");
-                await email.save().catch(() => { });
+                if (hasModifiedAttachments) {
+                    await email.save().catch(() => { });
+                }
             }
             return {
                 id: email._id.toString(),
                 threadId: email.threadId,
                 folder: email.folder,
-                category: email.category || "primary",
+                category: email.category,
                 from: email.from,
-                to: email.to || [],
-                cc: email.cc || [],
-                bcc: email.bcc || [],
+                to: email.to,
+                cc: email.cc,
+                bcc: email.bcc,
                 replyTo: email.replyTo,
-                subject: email.subject || "(No subject)",
-                preview: email.preview || "",
-                bodyHtml: email.bodyHtml || "",
-                bodyText: email.bodyText || "",
-                attachments,
+                subject: email.subject,
+                preview: email.preview,
+                bodyHtml: email.bodyHtml,
+                bodyText: email.bodyText,
+                attachments: (email.attachments || []).map((a) => ({
+                    id: a.id,
+                    name: a.name,
+                    sizeBytes: a.sizeBytes || 0,
+                    contentType: a.contentType || "application/octet-stream",
+                    downloadUrl: a.downloadUrl,
+                    contentId: a.contentId,
+                })),
                 isRead: email.isRead,
-                isStarred: email.isStarred,
-                isImportant: email.isImportant || false,
-                labels: email.labels || [],
-                status: email.status || "SENT",
+                isStarred: Boolean(email.isStarred || email.folder === "starred"),
+                starredAt: email.starredAt?.toISOString(),
+                isImportant: email.isImportant,
+                labels: email.labels,
+                status: email.status,
                 receivedAt: email.receivedAt?.toISOString(),
                 sentAt: email.sentAt?.toISOString(),
                 createdAt: email.createdAt.toISOString(),
             };
         },
-        getMailboxCounts: async (_, __, context) => {
+        getEmailCounts: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             const baseQuery = {
                 organizationId: authUser.organizationId,
@@ -647,7 +650,13 @@ exports.resolvers = {
             const [inbox, unread, starred, sent, drafts, spam, trash, archive] = await Promise.all([
                 index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "inbox" }),
                 index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "inbox", isRead: false }),
-                index_js_7.EmailModel.countDocuments({ ...baseQuery, isStarred: true }),
+                index_js_7.EmailModel.countDocuments({
+                    ...baseQuery,
+                    $and: [
+                        { $or: [{ isStarred: true }, { folder: "starred" }] },
+                        { folder: { $ne: "trash" } },
+                    ],
+                }),
                 index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "sent" }),
                 index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "drafts" }),
                 index_js_7.EmailModel.countDocuments({ ...baseQuery, folder: "spam" }),
@@ -2044,17 +2053,63 @@ exports.resolvers = {
         updateEmailStatus: async (_, { id, folder, isRead, isStarred, isImportant, category }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             const updateData = {};
-            if (folder)
+            if (folder) {
                 updateData.folder = folder;
+                if (folder === "starred") {
+                    updateData.isStarred = true;
+                    updateData.starredAt = new Date();
+                }
+            }
             if (category)
                 updateData.category = category;
             if (typeof isRead === "boolean")
                 updateData.isRead = isRead;
-            if (typeof isStarred === "boolean")
+            if (typeof isStarred === "boolean") {
                 updateData.isStarred = isStarred;
+                updateData.starredAt = isStarred ? new Date() : null;
+            }
             if (typeof isImportant === "boolean")
                 updateData.isImportant = isImportant;
-            const email = await index_js_7.EmailModel.findOneAndUpdate({ _id: id, organizationId: authUser.organizationId }, { $set: updateData }, { new: true });
+            // Find conditions scoped to the user/org
+            const authConditions = [];
+            if (authUser.organizationId) {
+                authConditions.push({ organizationId: authUser.organizationId });
+            }
+            const uId = authUser.userId || authUser.id;
+            if (uId) {
+                authConditions.push({ userId: uId });
+            }
+            if (authUser.email) {
+                authConditions.push({ "to.email": authUser.email.toLowerCase() });
+                authConditions.push({ "from.email": authUser.email.toLowerCase() });
+            }
+            let idQuery;
+            if (mongoose_1.default.Types.ObjectId.isValid(id)) {
+                idQuery = {
+                    $or: [
+                        { _id: new mongoose_1.default.Types.ObjectId(id) },
+                        { _id: id },
+                        { resendId: id },
+                        { threadId: id },
+                    ],
+                };
+            }
+            else {
+                idQuery = {
+                    $or: [{ resendId: id }, { threadId: id }],
+                };
+            }
+            const updateFilter = {
+                ...idQuery,
+            };
+            if (authConditions.length > 0) {
+                updateFilter.$and = [{ $or: authConditions }];
+            }
+            let email = await index_js_7.EmailModel.findOneAndUpdate(updateFilter, { $set: updateData }, { new: true });
+            // Fallback: direct ID match if user is authenticated
+            if (!email && mongoose_1.default.Types.ObjectId.isValid(id)) {
+                email = await index_js_7.EmailModel.findByIdAndUpdate(id, { $set: updateData }, { new: true });
+            }
             if (!email)
                 throw new Error("Email not found");
             return {
@@ -2073,7 +2128,8 @@ exports.resolvers = {
                 bodyText: email.bodyText,
                 attachments: email.attachments,
                 isRead: email.isRead,
-                isStarred: email.isStarred,
+                isStarred: Boolean(email.isStarred || email.folder === "starred"),
+                starredAt: email.starredAt?.toISOString(),
                 isImportant: email.isImportant,
                 labels: email.labels,
                 status: email.status,

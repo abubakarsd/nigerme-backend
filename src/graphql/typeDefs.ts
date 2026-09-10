@@ -408,6 +408,12 @@ export const typeDefs = gql`
     contentType: String!
   }
 
+  input PresignedUploadInput {
+    folder: String!
+    fileName: String!
+    contentType: String!
+  }
+
   input FundWalletInput {
     amountInNaira: Float!
     callbackUrl: String
@@ -711,6 +717,7 @@ export const typeDefs = gql`
     attachments: [EmailAttachment!]!
     isRead: Boolean!
     isStarred: Boolean!
+    starredAt: String
     isImportant: Boolean!
     labels: [String!]!
     status: String!

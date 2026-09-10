@@ -134,6 +134,11 @@ const EmailSchema = new mongoose_1.Schema({
         default: false,
         index: true,
     },
+    starredAt: {
+        type: Date,
+        default: null,
+        index: true,
+    },
     isImportant: {
         type: Boolean,
         default: false,
@@ -159,6 +164,8 @@ const EmailSchema = new mongoose_1.Schema({
 // Compound indexes for high-speed webmail listing
 EmailSchema.index({ userId: 1, folder: 1, createdAt: -1 });
 EmailSchema.index({ organizationId: 1, folder: 1, createdAt: -1 });
+EmailSchema.index({ userId: 1, isStarred: 1, createdAt: -1 });
+EmailSchema.index({ organizationId: 1, isStarred: 1, createdAt: -1 });
 EmailSchema.index({ "from.email": 1, createdAt: -1 });
 EmailSchema.index({ "to.email": 1, createdAt: -1 });
 exports.EmailModel = mongoose_1.default.model("Email", EmailSchema);
