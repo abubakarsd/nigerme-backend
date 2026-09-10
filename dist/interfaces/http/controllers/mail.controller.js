@@ -89,7 +89,7 @@ class MailWebhookController {
                         $or: [{ domain }, { "dnsVerification.spfStatus": "verified", domain }],
                     });
                     if (!org) {
-                        console.warn(`⚠️ Inbound email domain not registered on Nigerme: ${domain}`);
+                        console.warn(`⚠️ Inbound email domain not registered on busmailer: ${domain}`);
                         continue;
                     }
                     // Strict SaaS Subscription & Package Check

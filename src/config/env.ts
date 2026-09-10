@@ -23,14 +23,14 @@ const envSchema = z.object({
   // AWS S3 Storage
   STORAGE_PROVIDER: z.string().default("s3"),
   AWS_REGION: z.string().default("us-east-1"),
-  AWS_S3_BUCKET: z.string().optional().default("nigerme-media-bucket"),
+  AWS_S3_BUCKET: z.string().optional().default("busmailer-media-bucket"),
   AWS_S3_ACCESS_POINT: z.string().optional(),
   AWS_S3_ACCESS_POINT_ARN: z.string().optional(),
   AWS_ACCOUNT_ID: z.string().optional(),
   AWS_VPC_ID: z.string().optional(),
   AWS_ACCESS_KEY_ID: z.string().optional().default(""),
   AWS_SECRET_ACCESS_KEY: z.string().optional().default(""),
-  AWS_S3_BASE_FOLDER: z.string().default("nigerme-media"),
+  AWS_S3_BASE_FOLDER: z.string().default("busmailer-media"),
   AWS_S3_CUSTOM_DOMAIN: z.string().optional().default(""),
 
   // Provn KYC
@@ -42,7 +42,7 @@ const envSchema = z.object({
   TERMII_BASE_URL: z.string().url().default("https://api.ng.termii.com/api"),
   TERMII_API_LIVE: z.string().optional().default(""),
   TERMII_SECRET_KEY: z.string().optional().default(""),
-  TERMII_SENDER_ID: z.string().default("NIGERME"),
+  TERMII_SENDER_ID: z.string().default("busmailer"),
 
   // Paystack
   PAYSTACK_SECRET_KEY: z.string().optional().default(""),
@@ -55,7 +55,7 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional().default(""),
   RESEND_ORG_API: z.string().optional().default(""),
   RESEND_WEBHOOK_SECRET: z.string().optional().default(""),
-  EMAIL_SENDER: z.string().default("Nigerme Workspace <no-reply@vynxtechnology.com>"),
+  EMAIL_SENDER: z.string().default("Busmailer Workspace <no-reply@vynxtechnology.com>"),
 });
 
 const parseEnv = () => {

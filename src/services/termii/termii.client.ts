@@ -78,7 +78,7 @@ export class TermiiClient {
    * Dispatches 6-digit OTP SMS
    */
   static async sendOtp(to: string, otpCode: string): Promise<TermiiSendSmsResponse> {
-    const message = `Your Nigerme verification code is ${otpCode}. Valid for 5 minutes. Do not share this code.`;
+    const message = `Your Busmailer verification code is ${otpCode}. Valid for 5 minutes. Do not share this code.`;
     return this.sendSms(to, message);
   }
 }

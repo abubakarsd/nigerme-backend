@@ -47,25 +47,25 @@ export class PasskeyService {
           rpID = url.hostname;
           origin = [`${url.protocol}//${url.host}`];
         } catch {
-          rpID = process.env.PASSKEY_RP_ID || "nigerme.com";
+          rpID = process.env.PASSKEY_RP_ID || "busmailer.com";
           origin = [
-            process.env.APP_URL || "https://nigerme.com",
-            "https://app.nigerme.com",
-            "https://mail.nigerme.com",
+            process.env.APP_URL || "https://busmailer.com",
+            "https://app.busmailer.com",
+            "https://mail.busmailer.com",
           ];
         }
       } else {
-        rpID = process.env.PASSKEY_RP_ID || "nigerme.com";
+        rpID = process.env.PASSKEY_RP_ID || "busmailer.com";
         origin = [
-          process.env.APP_URL || "https://nigerme.com",
-          "https://app.nigerme.com",
-          "https://mail.nigerme.com",
+          process.env.APP_URL || "https://busmailer.com",
+          "https://app.busmailer.com",
+          "https://mail.busmailer.com",
         ];
       }
     }
 
     return {
-      rpName: "Nigerme Business Workspace",
+      rpName: "Busmailer Business Workspace",
       rpID,
       expectedOrigin: origin,
     };

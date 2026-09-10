@@ -27,8 +27,8 @@ export class MailWebhookController {
         const toRecipients: string[] = Array.isArray(emailData.to)
           ? emailData.to
           : emailData.to
-          ? [emailData.to]
-          : [];
+            ? [emailData.to]
+            : [];
         const fromAddress: string = emailData.from || "unknown@unknown.com";
         const subject: string = emailData.subject || "(No subject)";
 
@@ -71,7 +71,7 @@ export class MailWebhookController {
             if (attRes.data && Array.isArray(attRes.data)) {
               rawAttachments = attRes.data;
             }
-          } catch {}
+          } catch { }
         }
 
         const attachments = rawAttachments.map((att: any) => ({
@@ -96,7 +96,7 @@ export class MailWebhookController {
           });
 
           if (!org) {
-            console.warn(`⚠️ Inbound email domain not registered on Nigerme: ${domain}`);
+            console.warn(`⚠️ Inbound email domain not registered on busmailer: ${domain}`);
             continue;
           }
 
@@ -130,7 +130,7 @@ export class MailWebhookController {
               targetResource: `Mailbox: ${cleanRecipient}`,
               details: `Inbound email "${subject}" rejected because organization subscription is ${org.subscriptionStatus}.`,
               ipAddress: req.ip || "resend-inbound",
-            }).catch(() => {});
+            }).catch(() => { });
             continue;
           }
 

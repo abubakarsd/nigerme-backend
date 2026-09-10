@@ -19,7 +19,7 @@ export class SMSService {
   }
 
   private static getSenderId(): string {
-    return ENV.TERMII_SENDER_ID || "NIGERME";
+    return ENV.TERMII_SENDER_ID || "busmailer";
   }
 
   /**
@@ -85,7 +85,7 @@ export class SMSService {
    * Registration Verification OTP (FREE)
    */
   public static async sendRegistrationOTP(phoneNumber: string, code: string): Promise<boolean> {
-    const msg = `Your Nigerme verification code is: ${code}. Valid for 10 minutes. Do not share this code with anyone.`;
+    const msg = `Your Busmailer verification code is: ${code}. Valid for 10 minutes. Do not share this code with anyone.`;
     return this.sendSMS(phoneNumber, msg, "dnd");
   }
 
@@ -93,7 +93,7 @@ export class SMSService {
    * Login 2FA Verification OTP (FREE)
    */
   public static async sendLogin2FAOTP(phoneNumber: string, code: string): Promise<boolean> {
-    const msg = `Your Nigerme login verification OTP is: ${code}. Valid for 5 minutes. If you did not request this, please secure your account immediately.`;
+    const msg = `Your Busmailer login verification OTP is: ${code}. Valid for 5 minutes. If you did not request this, please secure your account immediately.`;
     return this.sendSMS(phoneNumber, msg, "dnd");
   }
 
@@ -101,7 +101,7 @@ export class SMSService {
    * Password Reset OTP (FREE)
    */
   public static async sendPasswordResetOTP(phoneNumber: string, code: string): Promise<boolean> {
-    const msg = `Use ${code} to reset your Nigerme account password. Code is valid for 10 minutes.`;
+    const msg = `Use ${code} to reset your Busmailer account password. Code is valid for 10 minutes.`;
     return this.sendSMS(phoneNumber, msg, "dnd");
   }
 

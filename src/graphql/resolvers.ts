@@ -106,7 +106,7 @@ async function formatUserWithPermissions(userDoc: any) {
 
 export const resolvers = {
   Query: {
-    healthCheck: () => "Nigerme Sovereign GraphQL Backend is operational.",
+    healthCheck: () => "Busmailer Sovereign GraphQL Backend is operational.",
 
     me: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
@@ -188,7 +188,7 @@ export const resolvers = {
         await OrganizationModel.findByIdAndUpdate(org._id, updateOp);
       }
 
-      let cleanPhone = org.phone && org.phone !== "+234 800 NIGERME" ? org.phone : "";
+      let cleanPhone = org.phone && org.phone !== "+234 800 busmailer" ? org.phone : "";
       if (!cleanPhone && authUser.userId) {
         const user = await UserModel.findById(authUser.userId);
         if (user?.phone) cleanPhone = user.phone;
@@ -209,14 +209,14 @@ export const resolvers = {
         hasWallet,
         wallet: wallet
           ? {
-              id: wallet._id.toString(),
-              organizationId: wallet.organizationId.toString(),
-              balance: (wallet.balance || 0) / 100,
-              currency: wallet.currency || "NGN",
-              status: wallet.status || "ACTIVE",
-              createdAt: wallet.createdAt ? wallet.createdAt.toISOString() : null,
-              updatedAt: wallet.updatedAt ? wallet.updatedAt.toISOString() : null,
-            }
+            id: wallet._id.toString(),
+            organizationId: wallet.organizationId.toString(),
+            balance: (wallet.balance || 0) / 100,
+            currency: wallet.currency || "NGN",
+            status: wallet.status || "ACTIVE",
+            createdAt: wallet.createdAt ? wallet.createdAt.toISOString() : null,
+            updatedAt: wallet.updatedAt ? wallet.updatedAt.toISOString() : null,
+          }
           : null,
         departments: (org.departments || []).map((d: any) => ({
           ...d,
@@ -2374,8 +2374,8 @@ export const resolvers = {
         end: new Date(input.end),
         allDay: !!input.allDay,
         timezone: input.timezone || "Africa/Lagos",
-        location: input.location || "Nigerme Meet Virtual Room",
-        meetUrl: input.meetUrl || `https://meet.nigerme.com/${Math.random().toString(36).substring(7)}`,
+        location: input.location || "Busmailer Meet Virtual Room",
+        meetUrl: input.meetUrl || `https://meet.busmailer.com/${Math.random().toString(36).substring(7)}`,
         attendees,
         color: input.color || "bg-[#84cc16]",
         type: input.type || "ORGANIZATION",
@@ -2603,7 +2603,7 @@ export const resolvers = {
       if (!dva || !dva.accountNumber) return null;
       return {
         accountNumber: dva.accountNumber,
-        accountName: dva.accountName || `Nigerme / ${parent.name || "Enterprise"}`,
+        accountName: dva.accountName || `busmailer / ${parent.name || "Enterprise"}`,
         bankName: dva.bankName || "Wema Bank Plc",
         assignedAt: dva.assignedAt ? new Date(dva.assignedAt).toISOString() : null,
         isVerified: !!dva.isVerified,
@@ -2667,7 +2667,7 @@ function formatCalendarEvent(doc: any) {
     end: e.end ? new Date(e.end).toISOString() : new Date().toISOString(),
     allDay: !!e.allDay,
     timezone: e.timezone || "Africa/Lagos",
-    location: e.location || "Nigerme Meet Virtual Room",
+    location: e.location || "Busmailer Meet Virtual Room",
     meetUrl: e.meetUrl || "",
     attendees: (e.attendees || []).map((a: any) => ({
       name: a.name || "",

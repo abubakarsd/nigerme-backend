@@ -1,9 +1,9 @@
 import { Resend } from "resend";
 import { env } from "../../config/env.js";
 
-export const BRAND_LOGO_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png";
-export const ADVERT_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png";
-export const FOOTER_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/footer-banner.png";
+export const BRAND_LOGO_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png";
+export const ADVERT_BANNER_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png";
+export const FOOTER_BANNER_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/footer-banner.png";
 
 export interface SendEmailOptions {
   to: string | string[];
@@ -61,9 +61,9 @@ export class ResendEmailService {
     if (customFrom) return customFrom;
     const configured = env.EMAIL_SENDER || process.env.EMAIL_SENDER;
     if (configured) {
-      return configured.includes("<") ? configured : `Nigerme Workspace <${configured.replace(/['"]/g, "")}>`;
+      return configured.includes("<") ? configured : `Busmailer Workspace <${configured.replace(/['"]/g, "")}>`;
     }
-    return "Nigerme Workspace <no-reply@vynxtechnology.com>";
+    return "Busmailer Workspace <no-reply@vynxtechnology.com>";
   }
 
   /**
@@ -115,7 +115,7 @@ export class ResendEmailService {
    * Sends a branded Two-Factor / Login OTP email
    */
   static async sendOtpEmail(to: string, name: string, otpCode: string, expiresInMinutes = 10, isSignup = false): Promise<{ success: boolean; id?: string; error?: string }> {
-    const subject = `${otpCode} is your Nigerme verification code`;
+    const subject = `${otpCode} is your Busmailer verification code`;
     const bannerUrl = isSignup ? ADVERT_BANNER_URL : FOOTER_BANNER_URL;
     const html = `
       <!DOCTYPE html>
@@ -138,20 +138,20 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="${BRAND_LOGO_URL}" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h1 class="title">Verify your identity</h1>
-          <p class="desc">Hello <strong>${name}</strong>,<br>Use the verification code below to complete your sign in on Nigerme Sovereign Workspace:</p>
+          <p class="desc">Hello <strong>${name}</strong>,<br>Use the verification code below to complete your sign in on Busmailer Sovereign Workspace:</p>
           <div class="code-box">
             <div class="otp">${otpCode}</div>
           </div>
           <p class="desc" style="font-size: 13px; color: #6b7280;">This code is valid for <strong>${expiresInMinutes} minutes</strong>. If you did not make this request, you can safely ignore this email.</p>
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
-            <img src="${bannerUrl}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
+            <img src="${bannerUrl}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
@@ -162,7 +162,7 @@ export class ResendEmailService {
       to,
       subject,
       html,
-      text: `Your Nigerme verification code is ${otpCode}. Valid for ${expiresInMinutes} minutes.`,
+      text: `Your Busmailer verification code is ${otpCode}. Valid for ${expiresInMinutes} minutes.`,
     });
   }
 
@@ -170,7 +170,7 @@ export class ResendEmailService {
    * Generates the sovereign Welcome & Security Rules email content
    */
   static getWelcomeAndRulesContent(name: string, organizationName: string, orgEmail: string, isOwner = false) {
-    const subject = `Welcome to Nigerme Sovereign Mail — Getting Started & Account Guidelines`;
+    const subject = `Welcome to Busmailer Sovereign Mail — Getting Started & Account Guidelines`;
     const preview = `Your sovereign business mailbox is now active for ${organizationName}. Key guidelines and access instructions.`;
     const bannerUrl = isOwner ? ADVERT_BANNER_URL : FOOTER_BANNER_URL;
 
@@ -204,8 +204,8 @@ export class ResendEmailService {
         <div class="container">
           <div class="header">
             <div class="logo-box">
-              <img src="${BRAND_LOGO_URL}" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-              <span class="logo">niger<span>me</span></span>
+              <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+              <span class="logo">bus<span>mailer</span></span>
             </div>
             <div class="badge">Business Mailbox</div>
           </div>
@@ -213,7 +213,7 @@ export class ResendEmailService {
           <h1 class="title">Welcome, ${name}!</h1>
           <p class="lead">
             Your mailbox (<strong>${orgEmail}</strong>) has been activated for <strong>${organizationName}</strong>. 
-            Nigerme provides authenticated email deliverability, integrated productivity tools, and sovereign communication infrastructure.
+            Busmailer provides authenticated email deliverability, integrated productivity tools, and sovereign communication infrastructure.
           </p>
 
           <div class="section-title">Mailbox Navigation &amp; Features</div>
@@ -251,22 +251,22 @@ export class ResendEmailService {
           </div>
 
           <div style="text-align: center; margin-top: 24px;">
-            <a href="https://nigerme.com/mail" class="btn">Open Your Mailbox &rarr;</a>
+            <a href="https://busmailer.com/mail" class="btn">Open Your Mailbox &rarr;</a>
           </div>
 
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
-            <img src="${bannerUrl}" alt="Welcome to Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
+            <img src="${bannerUrl}" alt="Welcome to Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
       </html>
     `;
 
-    const bodyText = `Welcome to Nigerme Sovereign Mail, ${name}!\n\nYour mailbox account (${orgEmail}) for ${organizationName} is now active.\n\nKey Guidelines:\n1. Confidentiality: Never disclose organization credentials.\n2. Password & 2FA: Change temporary passwords and keep 2FA active.\n3. Outbound Sending: Maintain professional standards and avoid spam.\n\nOpen your mailbox at: https://nigerme.com/mail`;
+    const bodyText = `Welcome to Busmailer Sovereign Mail, ${name}!\n\nYour mailbox account (${orgEmail}) for ${organizationName} is now active.\n\nKey Guidelines:\n1. Confidentiality: Never disclose organization credentials.\n2. Password & 2FA: Change temporary passwords and keep 2FA active.\n3. Outbound Sending: Maintain professional standards and avoid spam.\n\nOpen your mailbox at: https://busmailer.com/mail`;
     return { subject, preview, html, bodyText };
   }
 
@@ -305,8 +305,8 @@ export class ResendEmailService {
           folder: "inbox",
           category: "primary",
           from: {
-            name: "Nigerme Business Mail",
-            email: "welcome@nigerme.com",
+            name: "Busmailer Business Mail",
+            email: "welcome@busmailer.com",
             avatar: BRAND_LOGO_URL,
           },
           to: [
@@ -337,8 +337,8 @@ export class ResendEmailService {
         existing.bodyHtml = html;
         existing.bodyText = bodyText;
         existing.from = {
-          name: "Nigerme Business Mail",
-          email: "welcome@nigerme.com",
+          name: "Busmailer Business Mail",
+          email: "welcome@busmailer.com",
           avatar: BRAND_LOGO_URL,
         };
         await existing.save();
@@ -368,7 +368,7 @@ export class ResendEmailService {
     assignedOrgEmail: string,
     tempPassword?: string
   ): Promise<{ success: boolean; id?: string }> {
-    const subject = `Your Sovereign Business Mailbox for ${organizationName} on Nigerme`;
+    const subject = `Your Sovereign Business Mailbox for ${organizationName} on Busmailer`;
     const html = `
       <!DOCTYPE html>
       <html>
@@ -390,19 +390,18 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="${BRAND_LOGO_URL}" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 style="margin: 0 0 12px; font-size: 18px; color: #111827;">Hello ${name},</h2>
           <p class="desc">Your workspace administrator has provisioned your sovereign business mailbox for <strong>${organizationName}</strong>.</p>
           
           <div class="cred-box">
             <div><strong>Assigned Business Email:</strong> <span style="font-family: monospace; font-weight: bold; color: #111827;">${assignedOrgEmail}</span></div>
-            ${
-              tempPassword
-                ? `<div style="margin-top: 8px;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #111827;">${tempPassword}</code></div>`
-                : ""
-            }
+            ${tempPassword
+        ? `<div style="margin-top: 8px;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #111827;">${tempPassword}</code></div>`
+        : ""
+      }
           </div>
 
           <div class="notice-box">
@@ -410,15 +409,15 @@ export class ResendEmailService {
           </div>
 
           <p style="text-align: center; margin-top: 24px;">
-            <a href="https://nigerme.com/mail/login" class="btn">Sign In to Webmail &rarr;</a>
+            <a href="https://busmailer.com/mail/login" class="btn">Sign In to Webmail &rarr;</a>
           </p>
 
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
@@ -438,7 +437,7 @@ export class ResendEmailService {
     otpCode: string,
     expiresInMinutes = 10
   ): Promise<{ success: boolean; id?: string }> {
-    const subject = `Your Nigerme Webmail Security Code: ${otpCode}`;
+    const subject = `Your Busmailer Webmail Security Code: ${otpCode}`;
     const html = `
       <!DOCTYPE html>
       <html>
@@ -458,8 +457,8 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 style="margin: 0 0 12px; font-size: 18px; color: #111827; text-align: left;">Webmail Verification</h2>
           <p class="desc">A sign-in attempt was initiated for your mailbox <strong>${orgEmail}</strong>. Enter the verification code below to authorize your session:</p>
@@ -469,11 +468,11 @@ export class ResendEmailService {
           <p class="desc" style="font-size: 13px; color: #6b7280;">Valid for <strong>${expiresInMinutes} minutes</strong>. If you did not initiate this request, notify your administrator immediately.</p>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
@@ -538,8 +537,8 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Package Cancellation Notice</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -548,14 +547,14 @@ export class ResendEmailService {
             <div style="font-size: 13px; color: #4b5563;">Cancelled Package: <strong style="color: #111827;">${cancelledPackageName}</strong></div>
             <div style="font-size: 13px; color: #4b5563; margin-top: 6px;">Status: <strong style="color: #dc2626;">Cancelled &amp; Auto-debit removed</strong></div>
           </div>
-          <p class="desc">You can manage your active packages at any time in your <a href="https://app.nigerme.com/admin/subscription" style="color: #65a30d; font-weight: 600;">Subscription console</a>.</p>
+          <p class="desc">You can manage your active packages at any time in your <a href="https://app.busmailer.com/admin/subscription" style="color: #65a30d; font-weight: 600;">Subscription console</a>.</p>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
@@ -600,8 +599,8 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="${BRAND_LOGO_URL}" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Package Activated</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -613,11 +612,11 @@ export class ResendEmailService {
           <p class="desc">All members in your workspace now have access to this module.</p>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 8px; overflow: hidden;">
-            <img src="${ADVERT_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
+            <img src="${ADVERT_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 8px; border: 0;" />
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.
+            &copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.
           </div>
         </div>
       </body>
@@ -644,7 +643,7 @@ export class ResendEmailService {
     cycle: string
   ): Promise<{ success: boolean; id?: string }> {
     const urgency = daysRemaining === 1 ? "Urgent: Renewal tomorrow" : `Renewal in ${daysRemaining} days`;
-    const subject = `${urgency} — Nigerme subscription for ${organizationName}`;
+    const subject = `${urgency} — Busmailer subscription for ${organizationName}`;
     const html = `
       <!DOCTYPE html>
       <html>
@@ -666,8 +665,8 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Subscription Renewal Notice</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -678,13 +677,13 @@ export class ResendEmailService {
             <div style="font-size: 13px; color: #4b5563; margin-top: 6px;">Payment Method: <strong style="color: #16a34a;">Wallet Auto-Debit</strong></div>
           </div>
           <p class="desc">Please ensure your organization dedicated wallet has sufficient balance to prevent service disruption.</p>
-          <a href="https://app.nigerme.com/admin/billing" class="btn">View Billing &rarr;</a>
+          <a href="https://app.busmailer.com/admin/billing" class="btn">View Billing &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -724,8 +723,8 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Automatic Debit Failed</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -735,13 +734,13 @@ export class ResendEmailService {
             <div style="font-size: 12px; color: #6b7280; margin-top: 6px;">After the grace period expires, outbound and inbound email dispatch will be restricted.</div>
           </div>
           <p class="desc">Please fund your dedicated wallet to maintain uninterrupted service.</p>
-          <a href="https://app.nigerme.com/admin/billing" class="btn">Fund Wallet Now &rarr;</a>
+          <a href="https://app.busmailer.com/admin/billing" class="btn">Fund Wallet Now &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -778,20 +777,20 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Services Temporarily Suspended</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
           <p class="desc">The grace period for <strong>${organizationName}</strong> has expired without renewal. Outbound email transmission and modular services are currently restricted.</p>
           <p class="desc">To reactivate your workspace, fund your wallet and click reactivate in your admin console.</p>
-          <a href="https://app.nigerme.com/admin/billing" class="btn">Reactivate Workspace &rarr;</a>
+          <a href="https://app.busmailer.com/admin/billing" class="btn">Reactivate Workspace &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -830,8 +829,8 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Subscription Renewal Receipt</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -843,10 +842,10 @@ export class ResendEmailService {
           </div>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -893,8 +892,8 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">DNS Disconnection Detected</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -908,13 +907,13 @@ export class ResendEmailService {
 
           <p class="desc">Outbound emails from this domain may be delayed or marked as spam until DNS records are restored.</p>
 
-          <a href="https://app.nigerme.com/admin/domains" class="btn">Update DNS in Admin Console &rarr;</a>
+          <a href="https://app.busmailer.com/admin/domains" class="btn">Update DNS in Admin Console &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -953,8 +952,8 @@ export class ResendEmailService {
       <body>
         <div class="container">
           <div class="logo-box">
-            <img src="https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png" alt="Nigerme Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
-            <span class="logo">niger<span>me</span></span>
+            <img src="${BRAND_LOGO_URL}" alt="Busmailer Logo" width="28" height="28" style="display: inline-block; vertical-align: middle; border-radius: 6px;" />
+            <span class="logo">bus<span>mailer</span></span>
           </div>
           <h2 class="title">Domain ${domainName} is Active</h2>
           <p class="desc">Hello <strong>${name}</strong>,</p>
@@ -967,13 +966,13 @@ export class ResendEmailService {
             <div style="font-size: 13px; color: #166534; font-weight: 600;">✓ Anti-Spoofing &amp; DMARC: Enforced</div>
           </div>
 
-          <a href="https://app.nigerme.com/admin/domains" class="btn">View Domain Console &rarr;</a>
+          <a href="https://app.busmailer.com/admin/domains" class="btn">View Domain Console &rarr;</a>
           
           <div style="margin-top: 24px; width: 100%; border-radius: 0;">
-            <img src="${FOOTER_BANNER_URL}" alt="Nigerme" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
+            <img src="${FOOTER_BANNER_URL}" alt="Busmailer" width="100%" style="width: 100%; max-width: 100%; height: auto; display: block; border-radius: 0; border: 0;" />
           </div>
 
-          <div class="footer">&copy; ${new Date().getFullYear()} Nigerme Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Busmailer Technologies Ltd. Sovereign Enterprise Infrastructure.</div>
         </div>
       </body>
       </html>
@@ -1142,8 +1141,8 @@ export class ResendEmailService {
       const webhookList = Array.isArray(existing?.data)
         ? existing.data
         : Array.isArray(existing?.data?.data)
-        ? existing.data.data
-        : [];
+          ? existing.data.data
+          : [];
       const found = webhookList.find((w: any) => w.endpoint === endpoint);
 
       if (found) {

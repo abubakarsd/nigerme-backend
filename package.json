@@ -1,5 +1,5 @@
 {
-  "name": "nigerme-backend",
+  "name": "busmailer-backend",
   "version": "1.0.0",
   "description": "Sovereign enterprise cloud GraphQL backend with Clean Architecture",
   "main": "dist/server.js",

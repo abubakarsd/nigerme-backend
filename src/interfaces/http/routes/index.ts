@@ -33,7 +33,7 @@ const apiRouter = Router();
 apiRouter.get("/health", (_req, res) => {
   res.status(200).json({
     status: "healthy",
-    service: "nigerme-enterprise-backend",
+    service: "busmailer-enterprise-backend",
     timestamp: new Date().toISOString(),
   });
 });

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: nigerme-backend
+    name: busmailer-backend
     env: node
     plan: free
     buildCommand: npm install --include=dev && npm run build

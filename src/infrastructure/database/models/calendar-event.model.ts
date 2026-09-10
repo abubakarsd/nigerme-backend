@@ -97,7 +97,7 @@ const CalendarEventSchema = new Schema<ICalendarEvent>(
     },
     location: {
       type: String,
-      default: "Nigerme Meet Virtual Room",
+      default: "Busmailer Meet Virtual Room",
     },
     meetUrl: {
       type: String,

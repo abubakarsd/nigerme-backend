@@ -236,7 +236,7 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     supportEmail: {
       type: String,
-      default: "support@nigerme.com",
+      default: "support@busmailer.com",
     },
     departments: {
       type: [Schema.Types.Mixed],

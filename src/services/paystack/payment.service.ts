@@ -219,12 +219,12 @@ export class PaymentService {
     paramsOrEmail:
       | string
       | {
-          customerEmail: string;
-          firstName: string;
-          lastName: string;
-          phone?: string;
-          bvn?: string;
-        },
+        customerEmail: string;
+        firstName: string;
+        lastName: string;
+        phone?: string;
+        bvn?: string;
+      },
     firstNameArg?: string,
     lastNameArg?: string,
     phoneArg?: string
@@ -362,7 +362,7 @@ export class PaymentService {
 
     if (resData && (resData.account_number || resData.accountNumber)) {
       const accountNumber = String(resData.account_number || resData.accountNumber);
-      const accountName = resData.account_name || resData.accountName || `Nigerme / ${firstName} ${lastName}`;
+      const accountName = resData.account_name || resData.accountName || `busmailer / ${firstName} ${lastName}`;
       const bankName = resData.bank?.name || resData.bankName || "Wema Bank Plc";
       return {
         accountNumber,
@@ -382,7 +382,7 @@ export class PaymentService {
     );
     throw new Error(
       lastError ||
-        "Paystack dedicated virtual account creation could not be completed. Please ensure Dedicated NUBAN / Virtual Accounts are enabled on your Paystack merchant dashboard."
+      "Paystack dedicated virtual account creation could not be completed. Please ensure Dedicated NUBAN / Virtual Accounts are enabled on your Paystack merchant dashboard."
     );
   }
 

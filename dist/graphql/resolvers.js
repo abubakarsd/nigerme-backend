@@ -111,7 +111,7 @@ async function formatUserWithPermissions(userDoc) {
 }
 exports.resolvers = {
     Query: {
-        healthCheck: () => "Nigerme Sovereign GraphQL Backend is operational.",
+        healthCheck: () => "busmailer Sovereign GraphQL Backend is operational.",
         me: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             const user = await index_js_7.UserModel.findById(authUser.userId);
@@ -184,7 +184,7 @@ exports.resolvers = {
             if (Object.keys(updateOp).length > 0) {
                 await index_js_7.OrganizationModel.findByIdAndUpdate(org._id, updateOp);
             }
-            let cleanPhone = org.phone && org.phone !== "+234 800 NIGERME" ? org.phone : "";
+            let cleanPhone = org.phone && org.phone !== "+234 800 busmailer" ? org.phone : "";
             if (!cleanPhone && authUser.userId) {
                 const user = await index_js_7.UserModel.findById(authUser.userId);
                 if (user?.phone)
@@ -1541,7 +1541,7 @@ exports.resolvers = {
             let userEmail = authUser.email;
             if (!userEmail || !userEmail.includes("@")) {
                 const userDoc = await index_js_7.UserModel.findById(authUser.userId);
-                userEmail = userDoc?.email || userDoc?.personalEmail || "billing@nigerme.com";
+                userEmail = userDoc?.email || userDoc?.personalEmail || "billing@busmailer.com";
             }
             return index_js_5.PaystackService.initializeWalletFunding({
                 organizationId,
@@ -1641,7 +1641,7 @@ exports.resolvers = {
             const userFirstName = userParts[0] || "Admin";
             const userLastName = userParts.slice(1).join(" ") || userParts[0] || "Workspace";
             const userPhone = user?.phone;
-            const customerEmail = user?.email || (org.domain ? `billing@${org.domain}` : "billing@nigerme.com");
+            const customerEmail = user?.email || (org.domain ? `billing@${org.domain}` : "billing@busmailer.com");
             let verifiedFirstName = userFirstName;
             let verifiedLastName = userLastName;
             let verifiedPhone = userPhone;
@@ -1817,10 +1817,10 @@ exports.resolvers = {
                 attachments: (input.attachments || [])
                     .filter((a) => a && (a.content || a.downloadUrl))
                     .map((a) => ({
-                    filename: a.name || "attachment",
-                    content: a.content,
-                    path: a.downloadUrl,
-                })),
+                        filename: a.name || "attachment",
+                        content: a.content,
+                        path: a.downloadUrl,
+                    })),
             });
             if (!resendResult.success) {
                 throw new Error(resendResult.error || "Failed to dispatch email via Resend.");
@@ -2019,8 +2019,8 @@ exports.resolvers = {
                 end: new Date(input.end),
                 allDay: !!input.allDay,
                 timezone: input.timezone || "Africa/Lagos",
-                location: input.location || "Nigerme Meet Virtual Room",
-                meetUrl: input.meetUrl || `https://meet.nigerme.com/${Math.random().toString(36).substring(7)}`,
+                location: input.location || "busmailer Meet Virtual Room",
+                meetUrl: input.meetUrl || `https://meet.busmailer.com/${Math.random().toString(36).substring(7)}`,
                 attendees,
                 color: input.color || "bg-[#84cc16]",
                 type: input.type || "ORGANIZATION",
@@ -2108,7 +2108,7 @@ exports.resolvers = {
                 return null;
             return {
                 accountNumber: dva.accountNumber,
-                accountName: dva.accountName || `Nigerme / ${parent.name || "Enterprise"}`,
+                accountName: dva.accountName || `busmailer / ${parent.name || "Enterprise"}`,
                 bankName: dva.bankName || "Wema Bank Plc",
                 assignedAt: dva.assignedAt ? new Date(dva.assignedAt).toISOString() : null,
                 isVerified: !!dva.isVerified,
@@ -2167,7 +2167,7 @@ function formatCalendarEvent(doc) {
         end: e.end ? new Date(e.end).toISOString() : new Date().toISOString(),
         allDay: !!e.allDay,
         timezone: e.timezone || "Africa/Lagos",
-        location: e.location || "Nigerme Meet Virtual Room",
+        location: e.location || "busmailer Meet Virtual Room",
         meetUrl: e.meetUrl || "",
         attendees: (e.attendees || []).map((a) => ({
             name: a.name || "",

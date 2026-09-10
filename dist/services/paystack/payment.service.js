@@ -300,7 +300,7 @@ class PaymentService {
         }
         if (resData && (resData.account_number || resData.accountNumber)) {
             const accountNumber = String(resData.account_number || resData.accountNumber);
-            const accountName = resData.account_name || resData.accountName || `Nigerme / ${firstName} ${lastName}`;
+            const accountName = resData.account_name || resData.accountName || `busmailer / ${firstName} ${lastName}`;
             const bankName = resData.bank?.name || resData.bankName || "Wema Bank Plc";
             return {
                 accountNumber,
