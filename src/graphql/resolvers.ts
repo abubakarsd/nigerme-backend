@@ -1812,17 +1812,16 @@ export const resolvers = {
         organizationId = orgByOwner?._id?.toString();
       }
       if (!organizationId) {
-        const anyOrg = await OrganizationModel.findOne();
-        organizationId = anyOrg?._id?.toString();
-      }
-      if (!organizationId) {
-        throw new Error("Unable to locate an organization for wallet funding.");
+        throw new Error("Unable to locate an organization associated with your account.");
       }
 
-      let userEmail = authUser.email;
+      let userEmail: string | undefined = authUser.email;
       if (!userEmail || !userEmail.includes("@")) {
         const userDoc = await UserModel.findById(authUser.userId);
-        userEmail = userDoc?.email || userDoc?.personalEmail || "billing@nigerme.com";
+        userEmail = userDoc?.email || userDoc?.personalEmail;
+      }
+      if (!userEmail) {
+        throw new Error("Valid user email is required for payment processing.");
       }
 
       return PaystackService.initializeWalletFunding({
@@ -1947,7 +1946,10 @@ export const resolvers = {
       const userFirstName = userParts[0] || "Admin";
       const userLastName = userParts.slice(1).join(" ") || userParts[0] || "Workspace";
       const userPhone = user?.phone;
-      const customerEmail = user?.email || (org.domain ? `billing@${org.domain}` : "billing@nigerme.com");
+      const customerEmail = user?.email || (org.domain ? `admin@${org.domain}` : null);
+      if (!customerEmail) {
+        throw new Error("Valid email address is required to create a dedicated virtual account.");
+      }
 
       let verifiedFirstName = userFirstName;
       let verifiedLastName = userLastName;
