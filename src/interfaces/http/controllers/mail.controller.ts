@@ -74,14 +74,29 @@ export class MailWebhookController {
           } catch { }
         }
 
-        const attachments = rawAttachments.map((att: any) => ({
-          id: att.id || `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          name: att.filename || att.name || "attachment",
-          sizeBytes: att.size || att.sizeBytes || 0,
-          contentType: att.content_type || att.contentType || "application/octet-stream",
-          downloadUrl: att.download_url || att.url || null,
-          contentId: att.content_id || null,
-        }));
+        const attachments = await Promise.all(
+          rawAttachments.map(async (att: any) => {
+            let downloadUrl = att.download_url || att.url || null;
+            if (!downloadUrl && resendEmailId && att.id) {
+              try {
+                const singleAtt = await ResendEmailService.getReceivedAttachment(resendEmailId, att.id);
+                if (singleAtt?.data?.download_url) {
+                  downloadUrl = singleAtt.data.download_url;
+                }
+              } catch (e) {
+                console.warn(`Could not fetch download_url for attachment ${att.id}:`, e);
+              }
+            }
+            return {
+              id: att.id || `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              name: att.filename || att.name || "attachment",
+              sizeBytes: att.size || att.sizeBytes || 0,
+              contentType: att.content_type || att.contentType || "application/octet-stream",
+              downloadUrl,
+              contentId: att.content_id || null,
+            };
+          })
+        );
 
         // Process for each recipient mailbox
         for (const recipient of toRecipients) {

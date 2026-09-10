@@ -639,6 +639,35 @@ export const resolvers = {
         await email.save();
       }
 
+      let attachmentsUpdated = false;
+      const attachments = await Promise.all(
+        (email.attachments || []).map(async (a) => {
+          let downloadUrl = a.downloadUrl;
+          if (!downloadUrl && email.resendId && a.id) {
+            try {
+              const res = await ResendEmailService.getReceivedAttachment(email.resendId, a.id);
+              if (res?.data?.download_url) {
+                downloadUrl = res.data.download_url;
+                a.downloadUrl = downloadUrl;
+                attachmentsUpdated = true;
+              }
+            } catch { }
+          }
+          return {
+            id: a.id,
+            name: a.name,
+            sizeBytes: a.sizeBytes || 0,
+            contentType: a.contentType || "application/octet-stream",
+            downloadUrl,
+            contentId: a.contentId,
+          };
+        })
+      );
+      if (attachmentsUpdated) {
+        email.markModified("attachments");
+        await email.save().catch(() => {});
+      }
+
       return {
         id: email._id.toString(),
         threadId: email.threadId,
@@ -653,14 +682,7 @@ export const resolvers = {
         preview: email.preview || "",
         bodyHtml: email.bodyHtml || "",
         bodyText: email.bodyText || "",
-        attachments: (email.attachments || []).map((a) => ({
-          id: a.id,
-          name: a.name,
-          sizeBytes: a.sizeBytes || 0,
-          contentType: a.contentType || "application/octet-stream",
-          downloadUrl: a.downloadUrl,
-          contentId: a.contentId,
-        })),
+        attachments,
         isRead: email.isRead,
         isStarred: email.isStarred,
         isImportant: email.isImportant || false,
