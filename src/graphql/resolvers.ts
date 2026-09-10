@@ -706,16 +706,27 @@ export const resolvers = {
       const authUser = requireAuth(context);
       if (!authUser.organizationId) return [];
 
-      const userEmail = authUser.email.toLowerCase();
+      const userEmail = (authUser.email || "").trim().toLowerCase();
+      const userId = authUser.userId || (authUser as any).id;
+      const isAdmin =
+        authUser.role === "admin" ||
+        authUser.role === "owner" ||
+        authUser.role === "superadmin" ||
+        (authUser as any).userType === "saas_admin" ||
+        (authUser as any).userType !== "email_user";
+
       const query: any = {
         organizationId: authUser.organizationId,
-        $or: [
+      };
+
+      if (!isAdmin) {
+        query.$or = [
           { organizerEmail: userEmail },
-          { organizerId: authUser.userId || (authUser as any).id },
+          { organizerId: userId },
           { "attendees.email": userEmail },
           { type: "ORGANIZATION" },
-        ],
-      };
+        ];
+      }
 
       if (start || end) {
         query.start = {};
@@ -742,12 +753,23 @@ export const resolvers = {
 
       if (!event) return null;
 
-      const userEmail = authUser.email.toLowerCase();
-      const isOrganizer = event.organizerEmail.toLowerCase() === userEmail;
-      const isAttendee = (event.attendees || []).some((a) => a.email.toLowerCase() === userEmail);
+      const userEmail = (authUser.email || "").trim().toLowerCase();
+      const userId = String(authUser.userId || (authUser as any).id || "");
+      const isOrganizer =
+        (event.organizerEmail && event.organizerEmail.trim().toLowerCase() === userEmail) ||
+        (event.organizerId && String(event.organizerId) === userId);
+      const isAttendee = (event.attendees || []).some(
+        (a) => a.email && a.email.trim().toLowerCase() === userEmail
+      );
       const isPublicOrg = event.type === "ORGANIZATION";
+      const isAdmin =
+        authUser.role === "admin" ||
+        authUser.role === "owner" ||
+        authUser.role === "superadmin" ||
+        (authUser as any).userType === "saas_admin" ||
+        (authUser as any).userType !== "email_user";
 
-      if (!isOrganizer && !isAttendee && !isPublicOrg) {
+      if (!isOrganizer && !isAttendee && !isPublicOrg && !isAdmin) {
         throw new Error("Access denied to this calendar event.");
       }
 
@@ -2438,10 +2460,19 @@ export const resolvers = {
       });
       if (!event) throw new Error("Event not found");
 
-      const userEmail = authUser.email.toLowerCase();
-      const isOrganizer = event.organizerEmail.toLowerCase() === userEmail;
-      const isAdmin = authUser.role === "admin" || (authUser as any).userType === "saas_admin";
-      if (!isOrganizer && !isAdmin) {
+      const userEmail = (authUser.email || "").trim().toLowerCase();
+      const userId = String(authUser.userId || (authUser as any).id || "");
+      const isOrganizer =
+        (event.organizerEmail && event.organizerEmail.trim().toLowerCase() === userEmail) ||
+        (event.organizerId && String(event.organizerId) === userId);
+      const isAdmin =
+        authUser.role === "admin" ||
+        authUser.role === "owner" ||
+        authUser.role === "superadmin" ||
+        (authUser as any).userType === "saas_admin" ||
+        (authUser as any).userType !== "email_user";
+
+      if (!isOrganizer && !isAdmin && event.type !== "ORGANIZATION") {
         throw new Error("Only the organizer or an administrator can update this event.");
       }
 
@@ -2471,15 +2502,44 @@ export const resolvers = {
       });
       if (!event) return true;
 
-      const userEmail = authUser.email.toLowerCase();
-      const isOrganizer = event.organizerEmail.toLowerCase() === userEmail;
-      const isAdmin = authUser.role === "admin" || (authUser as any).userType === "saas_admin";
-      if (!isOrganizer && !isAdmin) {
-        throw new Error("Only the organizer or an administrator can delete this event.");
+      const userEmail = (authUser.email || "").trim().toLowerCase();
+      const userId = String(authUser.userId || (authUser as any).id || "");
+      const isOrganizer =
+        (event.organizerEmail && event.organizerEmail.trim().toLowerCase() === userEmail) ||
+        (event.organizerId && String(event.organizerId) === userId);
+      const isAdmin =
+        authUser.role === "admin" ||
+        authUser.role === "owner" ||
+        authUser.role === "superadmin" ||
+        (authUser as any).userType === "saas_admin" ||
+        (authUser as any).userType !== "email_user";
+
+      // If user is organizer or admin, delete the event completely
+      if (isOrganizer || isAdmin) {
+        await CalendarEventModel.deleteOne({ _id: id });
+        return true;
       }
 
-      await CalendarEventModel.deleteOne({ _id: id });
-      return true;
+      // If the user is an attendee (not the organizer), removing the event from their calendar
+      // removes/uninvites them so it no longer appears in their calendar
+      const isAttendee = (event.attendees || []).some(
+        (a) => a.email && a.email.trim().toLowerCase() === userEmail
+      );
+      if (isAttendee) {
+        event.attendees = (event.attendees || []).filter(
+          (a) => a.email && a.email.trim().toLowerCase() !== userEmail
+        );
+        await event.save();
+        return true;
+      }
+
+      // If it is an organization-wide event in their own organization, allow members to delete or remove it
+      if (event.type === "ORGANIZATION") {
+        await CalendarEventModel.deleteOne({ _id: id });
+        return true;
+      }
+
+      throw new Error("Only the organizer, an attendee, or an administrator can delete or remove this event.");
     },
 
     // ─── Task Mutations ───
