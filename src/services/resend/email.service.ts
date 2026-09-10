@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import { env } from "../../config/env.js";
 
-export const BRAND_LOGO_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/favicon.png";
+export const BRAND_LOGO_URL = "/images/logo/favicon.png";
 export const ADVERT_BANNER_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png";
 export const FOOTER_BANNER_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/footer-banner.png";
 
