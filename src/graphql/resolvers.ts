@@ -634,7 +634,7 @@ export const resolvers = {
       });
       if (!email) throw new Error("Email not found");
 
-      if (!email.isRead && email.folder === "inbox") {
+      if (!email.isRead) {
         email.isRead = true;
         await email.save();
       }
