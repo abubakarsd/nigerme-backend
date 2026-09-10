@@ -2147,12 +2147,23 @@ export const resolvers = {
         html: input.bodyHtml,
         text: input.bodyText || input.bodyHtml.replace(/<[^>]*>?/gm, ""),
         attachments: (input.attachments || [])
-          .filter((a: any) => a && (a.content || a.downloadUrl))
-          .map((a: any) => ({
-            filename: a.name || "attachment",
-            content: a.content,
-            path: a.downloadUrl,
-          })),
+          .filter((a: any) => a && (a.content || (a.downloadUrl && (a.downloadUrl.startsWith("http://") || a.downloadUrl.startsWith("https://")) && !a.downloadUrl.startsWith("blob:"))))
+          .map((a: any) => {
+            const att: any = {
+              filename: a.name || "attachment",
+            };
+            if (a.content) {
+              att.content = a.content.includes("base64,") ? a.content.split("base64,")[1] : a.content;
+            } else if (
+              a.downloadUrl &&
+              (a.downloadUrl.startsWith("http://") || a.downloadUrl.startsWith("https://")) &&
+              !a.downloadUrl.startsWith("blob:")
+            ) {
+              att.path = a.downloadUrl;
+            }
+            return att;
+          })
+          .filter((a: any) => a.content || a.path),
       });
 
       if (!resendResult.success) {
@@ -2207,7 +2218,12 @@ export const resolvers = {
           name: a.name,
           sizeBytes: a.sizeBytes || 0,
           contentType: a.contentType || "application/octet-stream",
-          downloadUrl: a.downloadUrl,
+          downloadUrl:
+            a.downloadUrl && !a.downloadUrl.startsWith("blob:")
+              ? a.downloadUrl
+              : a.content
+              ? `data:${a.contentType || "application/octet-stream"};base64,${a.content.includes("base64,") ? a.content.split("base64,")[1] : a.content}`
+              : "",
           contentId: a.contentId,
         })),
         isRead: true,

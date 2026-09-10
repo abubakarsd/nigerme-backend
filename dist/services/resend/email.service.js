@@ -884,15 +884,18 @@ class ResendEmailService {
                 payload.replyTo = options.replyTo;
             if (options.attachments && options.attachments.length > 0) {
                 const validAttachments = options.attachments
-                    .filter((a) => a && (a.content || a.path))
+                    .filter((a) => a && (a.content || (a.path && (a.path.startsWith("http://") || a.path.startsWith("https://")) && !a.path.startsWith("blob:"))))
                     .map((a) => {
                     const att = { filename: a.filename || "attachment" };
-                    if (a.content)
-                        att.content = a.content;
-                    if (a.path)
+                    if (a.content) {
+                        att.content = a.content.includes("base64,") ? a.content.split("base64,")[1] : a.content;
+                    }
+                    else if (a.path && (a.path.startsWith("http://") || a.path.startsWith("https://")) && !a.path.startsWith("blob:")) {
                         att.path = a.path;
+                    }
                     return att;
-                });
+                })
+                    .filter((a) => a.content || a.path);
                 if (validAttachments.length > 0) {
                     payload.attachments = validAttachments;
                 }

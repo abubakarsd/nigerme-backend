@@ -1879,12 +1879,22 @@ exports.resolvers = {
                 html: input.bodyHtml,
                 text: input.bodyText || input.bodyHtml.replace(/<[^>]*>?/gm, ""),
                 attachments: (input.attachments || [])
-                    .filter((a) => a && (a.content || a.downloadUrl))
-                    .map((a) => ({
-                    filename: a.name || "attachment",
-                    content: a.content,
-                    path: a.downloadUrl,
-                })),
+                    .filter((a) => a && (a.content || (a.downloadUrl && (a.downloadUrl.startsWith("http://") || a.downloadUrl.startsWith("https://")) && !a.downloadUrl.startsWith("blob:"))))
+                    .map((a) => {
+                    const att = {
+                        filename: a.name || "attachment",
+                    };
+                    if (a.content) {
+                        att.content = a.content.includes("base64,") ? a.content.split("base64,")[1] : a.content;
+                    }
+                    else if (a.downloadUrl &&
+                        (a.downloadUrl.startsWith("http://") || a.downloadUrl.startsWith("https://")) &&
+                        !a.downloadUrl.startsWith("blob:")) {
+                        att.path = a.downloadUrl;
+                    }
+                    return att;
+                })
+                    .filter((a) => a.content || a.path),
             });
             if (!resendResult.success) {
                 throw new Error(resendResult.error || "Failed to dispatch email via Resend.");
@@ -1935,7 +1945,11 @@ exports.resolvers = {
                     name: a.name,
                     sizeBytes: a.sizeBytes || 0,
                     contentType: a.contentType || "application/octet-stream",
-                    downloadUrl: a.downloadUrl,
+                    downloadUrl: a.downloadUrl && !a.downloadUrl.startsWith("blob:")
+                        ? a.downloadUrl
+                        : a.content
+                            ? `data:${a.contentType || "application/octet-stream"};base64,${a.content.includes("base64,") ? a.content.split("base64,")[1] : a.content}`
+                            : "",
                     contentId: a.contentId,
                 })),
                 isRead: true,
