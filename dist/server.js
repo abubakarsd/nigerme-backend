@@ -29,10 +29,25 @@ const app = (0, express_1.default)();
 const httpServer = http_1.default.createServer(app);
 // ─── Trust Proxy for Render / Cloudflare Reverse Proxies ───
 app.set("trust proxy", 1);
+// ─── Enforce HTTPS in Production (Reverse Proxy Header Aware) ───
+if (env_js_1.env.NODE_ENV === "production") {
+    app.use((req, res, next) => {
+        const proto = req.headers["x-forwarded-proto"];
+        if (proto && proto !== "https") {
+            return res.redirect(301, `https://${req.hostname}${req.originalUrl}`);
+        }
+        next();
+    });
+}
 // ─── 1. Security & Hardening Middlewares ───
 app.use((0, helmet_1.default)({
     crossOriginResourcePolicy: { policy: "cross-origin" },
     contentSecurityPolicy: env_js_1.env.NODE_ENV === "production" ? undefined : false, // Allows Apollo Sandbox in dev
+    hsts: {
+        maxAge: 31536000, // 1 year
+        includeSubDomains: true,
+        preload: true,
+    },
 }));
 const corsOriginValidator = (origin, callback) => {
     if (!origin)
