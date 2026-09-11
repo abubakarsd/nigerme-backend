@@ -932,7 +932,7 @@ exports.resolvers = {
         signup: async (_, { input }) => {
             return index_js_1.AuthService.signup(input);
         },
-        login: async (_, { input }) => {
+        login: async (_, { input }, context) => {
             const result = await index_js_1.AuthService.login(input);
             if (result.requiresTwoFactor) {
                 return {
@@ -945,6 +945,14 @@ exports.resolvers = {
                     tokens: null,
                 };
             }
+            // Record successful login audit event
+            audit_service_js_1.AuditService.record({
+                actorEmail: input.email || "unknown",
+                actorRole: result.tokens ? "user" : "unknown",
+                action: "LOGIN",
+                targetResource: `auth/login`,
+                details: `Successful login for ${input.email}`,
+            }).catch(() => { });
             return {
                 requiresTwoFactor: false,
                 mustChangePassword: false,
@@ -965,6 +973,14 @@ exports.resolvers = {
                     tokens: null,
                 };
             }
+            // Record mail login audit event
+            audit_service_js_1.AuditService.record({
+                actorEmail: input.email || "unknown",
+                actorRole: "user",
+                action: "LOGIN",
+                targetResource: `auth/mail-login`,
+                details: `Mail login for ${input.email}`,
+            }).catch(() => { });
             return {
                 requiresTwoFactor: false,
                 mustChangePassword: result.mustChangePassword,
@@ -1519,6 +1535,16 @@ exports.resolvers = {
                 throw new Error("No organization found");
             const res = await organization_service_js_1.OrganizationService.inviteMember(authUser.organizationId, input);
             const formattedUser = await formatUserWithPermissions(res.user);
+            // Record user invite audit event
+            audit_service_js_1.AuditService.record({
+                actorId: authUser.userId,
+                actorEmail: authUser.email || "unknown",
+                actorRole: authUser.role || "admin",
+                action: "USER_CREATED",
+                targetResource: `users/${input.email}`,
+                organizationId: authUser.organizationId,
+                details: `Admin invited new member: ${input.name || input.email} (${input.email}) with role ${input.role || "user"}`,
+            }).catch(() => { });
             return {
                 user: formattedUser,
                 temporaryPassword: res.temporaryPassword,
@@ -1535,6 +1561,17 @@ exports.resolvers = {
             const user = await index_js_7.UserModel.findOneAndUpdate({ _id: userId, organizationId: authUser.organizationId }, { $set: { status: status.toLowerCase() } }, { new: true });
             if (!user)
                 throw new Error("User not found in this organization");
+            // Record user status change audit event
+            const auditAction = status.toLowerCase() === "suspended" ? "ACCOUNT_SUSPENDED" : "USER_STATUS_CHANGED";
+            audit_service_js_1.AuditService.record({
+                actorId: authUser.userId,
+                actorEmail: authUser.email || "unknown",
+                actorRole: authUser.role || "admin",
+                action: auditAction,
+                targetResource: `users/${user.email}`,
+                organizationId: authUser.organizationId,
+                details: `Admin changed status of ${user.email} to ${status}`,
+            }).catch(() => { });
             return {
                 ...user.toObject(),
                 id: user._id.toString(),
@@ -1547,6 +1584,17 @@ exports.resolvers = {
                 throw new Error("Cannot delete the organization primary administrator account.");
             }
             const res = await index_js_7.UserModel.findOneAndDelete({ _id: userId, organizationId: authUser.organizationId });
+            if (res) {
+                audit_service_js_1.AuditService.record({
+                    actorId: authUser.userId,
+                    actorEmail: authUser.email || "unknown",
+                    actorRole: authUser.role || "admin",
+                    action: "USER_DELETED",
+                    targetResource: `users/${res.email}`,
+                    organizationId: authUser.organizationId,
+                    details: `Admin deleted member account: ${res.name || res.email} (${res.email})`,
+                }).catch(() => { });
+            }
             return !!res;
         },
         // ─── Department Mutations ───
@@ -2249,6 +2297,16 @@ exports.resolvers = {
             // Increment org daily count
             org.emailsSentToday = (org.emailsSentToday || 0) + 1;
             await org.save();
+            // Record email sent audit event (fire-and-forget)
+            audit_service_js_1.AuditService.record({
+                actorId: authUser.userId,
+                actorEmail: senderEmail,
+                actorRole: authUser.role || "user",
+                action: "EMAIL_SENT",
+                targetResource: `mail/${newEmail._id}`,
+                organizationId: authUser.organizationId,
+                details: `Email sent to ${toEmails.join(", ")} · Subject: ${input.subject || "(No subject)"}`,
+            }).catch(() => { });
             return {
                 id: newEmail._id.toString(),
                 threadId: newEmail.threadId,

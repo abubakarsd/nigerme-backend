@@ -1013,7 +1013,7 @@ export const resolvers = {
       return AuthService.signup(input);
     },
 
-    login: async (_: any, { input }: { input: any }) => {
+    login: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       const result = await AuthService.login(input);
       if (result.requiresTwoFactor) {
         return {
@@ -1026,6 +1026,14 @@ export const resolvers = {
           tokens: null,
         };
       }
+      // Record successful login audit event
+      AuditService.record({
+        actorEmail: input.email || "unknown",
+        actorRole: (result as any).tokens ? "user" : "unknown",
+        action: "LOGIN",
+        targetResource: `auth/login`,
+        details: `Successful login for ${input.email}`,
+      }).catch(() => {});
       return {
         requiresTwoFactor: false,
         mustChangePassword: false,
@@ -1047,6 +1055,14 @@ export const resolvers = {
           tokens: null,
         };
       }
+      // Record mail login audit event
+      AuditService.record({
+        actorEmail: input.email || "unknown",
+        actorRole: "user",
+        action: "LOGIN",
+        targetResource: `auth/mail-login`,
+        details: `Mail login for ${input.email}`,
+      }).catch(() => {});
       return {
         requiresTwoFactor: false,
         mustChangePassword: result.mustChangePassword,
@@ -1699,6 +1715,16 @@ export const resolvers = {
       if (!authUser.organizationId) throw new Error("No organization found");
       const res = await OrganizationService.inviteMember(authUser.organizationId, input);
       const formattedUser = await formatUserWithPermissions(res.user);
+      // Record user invite audit event
+      AuditService.record({
+        actorId: authUser.userId,
+        actorEmail: authUser.email || "unknown",
+        actorRole: authUser.role || "admin",
+        action: "USER_CREATED",
+        targetResource: `users/${input.email}`,
+        organizationId: authUser.organizationId,
+        details: `Admin invited new member: ${input.name || input.email} (${input.email}) with role ${input.role || "user"}`,
+      }).catch(() => {});
       return {
         user: formattedUser,
         temporaryPassword: res.temporaryPassword,
@@ -1723,6 +1749,17 @@ export const resolvers = {
         { new: true }
       );
       if (!user) throw new Error("User not found in this organization");
+      // Record user status change audit event
+      const auditAction = status.toLowerCase() === "suspended" ? "ACCOUNT_SUSPENDED" : "USER_STATUS_CHANGED";
+      AuditService.record({
+        actorId: authUser.userId,
+        actorEmail: authUser.email || "unknown",
+        actorRole: authUser.role || "admin",
+        action: auditAction,
+        targetResource: `users/${user.email}`,
+        organizationId: authUser.organizationId,
+        details: `Admin changed status of ${user.email} to ${status}`,
+      }).catch(() => {});
       return {
         ...user.toObject(),
         id: user._id.toString(),
@@ -1736,6 +1773,17 @@ export const resolvers = {
         throw new Error("Cannot delete the organization primary administrator account.");
       }
       const res = await UserModel.findOneAndDelete({ _id: userId, organizationId: authUser.organizationId });
+      if (res) {
+        AuditService.record({
+          actorId: authUser.userId,
+          actorEmail: authUser.email || "unknown",
+          actorRole: authUser.role || "admin",
+          action: "USER_DELETED",
+          targetResource: `users/${res.email}`,
+          organizationId: authUser.organizationId,
+          details: `Admin deleted member account: ${res.name || res.email} (${res.email})`,
+        }).catch(() => {});
+      }
       return !!res;
     },
 
@@ -2560,6 +2608,17 @@ export const resolvers = {
       // Increment org daily count
       org.emailsSentToday = (org.emailsSentToday || 0) + 1;
       await org.save();
+
+      // Record email sent audit event (fire-and-forget)
+      AuditService.record({
+        actorId: authUser.userId,
+        actorEmail: senderEmail,
+        actorRole: authUser.role || "user",
+        action: "EMAIL_SENT",
+        targetResource: `mail/${newEmail._id}`,
+        organizationId: authUser.organizationId,
+        details: `Email sent to ${toEmails.join(", ")} · Subject: ${input.subject || "(No subject)"}`,
+      }).catch(() => {});
 
       return {
         id: newEmail._id.toString(),
