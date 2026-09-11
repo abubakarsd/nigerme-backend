@@ -327,6 +327,13 @@ export const typeDefs = gql`
     createdAt: String!
   }
 
+  type PaystackConfigStatus {
+    configured: Boolean!
+    keyPrefix: String!
+    keyType: String!
+    publicKeyConfigured: Boolean!
+  }
+
   type SubFeature {
     id: String!
     name: String!
@@ -508,6 +515,9 @@ export const typeDefs = gql`
     # Audit & Security
     getAuditLogs(limit: Int): [AuditLog!]!
     getAbuseCases: [AbuseCase!]!
+
+    # Paystack config check
+    checkPaystackConfig: PaystackConfigStatus!
 
     # Product Packages & Pricing
     getPackages: [ProductPackage!]!

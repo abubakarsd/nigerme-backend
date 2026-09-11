@@ -25,6 +25,7 @@ const package_seed_js_1 = require("../infrastructure/database/seeds/package.seed
 const role_seed_js_1 = require("../infrastructure/database/seeds/role.seed.js");
 const encryption_js_1 = require("../infrastructure/security/encryption.js");
 const mongoose_1 = __importDefault(require("mongoose"));
+const env_js_1 = require("../config/env.js");
 function formatSenderParticipant(participant) {
     if (!participant)
         return { name: "Unknown", email: "", avatar: null };
@@ -355,6 +356,22 @@ exports.resolvers = {
         getAbuseCases: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
             return abuse_service_js_1.AbuseService.listCases(authUser.organizationId);
+        },
+        checkPaystackConfig: async (_, __, context) => {
+            (0, context_js_1.requireAuth)(context);
+            const secretKey = process.env.PAYSTACK_SECRET_KEY || env_js_1.env.PAYSTACK_SECRET_KEY || "";
+            const publicKey = process.env.PAYSTACK_PUBLIC_KEY || env_js_1.env.PAYSTACK_PUBLIC_KEY || "";
+            const cleanSecret = secretKey.trim().replace(/^["']|["']$/g, "").trim();
+            const cleanPublic = publicKey.trim().replace(/^["']|["']$/g, "").trim();
+            const configured = cleanSecret.length > 10;
+            const prefix = configured ? cleanSecret.slice(0, 10) + "..." : "(empty)";
+            const keyType = cleanSecret.startsWith("sk_live_") ? "LIVE" : cleanSecret.startsWith("sk_test_") ? "TEST" : configured ? "UNKNOWN_FORMAT" : "NOT_SET";
+            return {
+                configured,
+                keyPrefix: prefix,
+                keyType,
+                publicKeyConfigured: cleanPublic.length > 10,
+            };
         },
         // ─── Product Packages Queries ───
         getPackages: async () => {

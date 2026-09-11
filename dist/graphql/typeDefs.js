@@ -332,6 +332,13 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     createdAt: String!
   }
 
+  type PaystackConfigStatus {
+    configured: Boolean!
+    keyPrefix: String!
+    keyType: String!
+    publicKeyConfigured: Boolean!
+  }
+
   type SubFeature {
     id: String!
     name: String!
@@ -513,6 +520,9 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     # Audit & Security
     getAuditLogs(limit: Int): [AuditLog!]!
     getAbuseCases: [AbuseCase!]!
+
+    # Paystack config check
+    checkPaystackConfig: PaystackConfigStatus!
 
     # Product Packages & Pricing
     getPackages: [ProductPackage!]!

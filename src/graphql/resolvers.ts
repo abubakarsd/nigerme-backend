@@ -20,6 +20,7 @@ import { seedPermissions } from "../infrastructure/database/seeds/permission.see
 import { seedOrganizationDefaultRoles, seedOrganizationDefaultDepartments } from "../infrastructure/database/seeds/role.seed.js";
 import { encryptData, maskIdentifier } from "../infrastructure/security/encryption.js";
 import mongoose from "mongoose";
+import { env } from "../config/env.js";
 
 function formatSenderParticipant(participant: any) {
   if (!participant) return { name: "Unknown", email: "", avatar: null };
@@ -363,6 +364,23 @@ export const resolvers = {
     getAbuseCases: async (_: any, __: any, context: GraphQLContext) => {
       const authUser = requireAuth(context);
       return AbuseService.listCases(authUser.organizationId);
+    },
+
+    checkPaystackConfig: async (_: any, __: any, context: GraphQLContext) => {
+      requireAuth(context);
+      const secretKey = process.env.PAYSTACK_SECRET_KEY || env.PAYSTACK_SECRET_KEY || "";
+      const publicKey = process.env.PAYSTACK_PUBLIC_KEY || env.PAYSTACK_PUBLIC_KEY || "";
+      const cleanSecret = secretKey.trim().replace(/^["']|["']$/g, "").trim();
+      const cleanPublic = publicKey.trim().replace(/^["']|["']$/g, "").trim();
+      const configured = cleanSecret.length > 10;
+      const prefix = configured ? cleanSecret.slice(0, 10) + "..." : "(empty)";
+      const keyType = cleanSecret.startsWith("sk_live_") ? "LIVE" : cleanSecret.startsWith("sk_test_") ? "TEST" : configured ? "UNKNOWN_FORMAT" : "NOT_SET";
+      return {
+        configured,
+        keyPrefix: prefix,
+        keyType,
+        publicKeyConfigured: cleanPublic.length > 10,
+      };
     },
 
     // ─── Product Packages Queries ───
