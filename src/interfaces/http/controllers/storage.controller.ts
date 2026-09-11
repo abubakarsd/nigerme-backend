@@ -5,7 +5,7 @@ import { ResendEmailService } from "../../../services/resend/email.service.js";
 import { EmailModel } from "../../../infrastructure/database/models/email.model.js";
 
 export const presignedUploadSchema = z.object({
-  folder: z.enum(["kyc-documents", "avatars", "attachments", "receipts"]),
+  folder: z.enum(["kyc-documents", "avatars", "attachments", "receipts", "branding"]),
   fileName: z.string().min(1),
   contentType: z.string().min(1),
 });
@@ -14,7 +14,22 @@ export class StorageController {
   static async getPresignedUploadUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { folder, fileName, contentType } = req.body;
-      const result = await StorageService.requestUploadUrl(folder, fileName, contentType);
+      const orgId = req.user?.organizationId;
+
+      if (folder === "branding") {
+        const role = req.user?.role;
+        const userType = req.user?.userType;
+        const isAdmin = userType === "saas_admin" || role === "admin" || role === "owner" || role === "superadmin";
+        if (!isAdmin) {
+          res.status(403).json({
+            success: false,
+            error: { message: "Forbidden: Only organization administrators can upload organization branding logos." },
+          });
+          return;
+        }
+      }
+
+      const result = await StorageService.requestUploadUrl(folder, fileName, contentType, orgId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);

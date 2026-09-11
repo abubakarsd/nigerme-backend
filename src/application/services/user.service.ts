@@ -5,6 +5,13 @@ export interface UpdateProfileDto {
   name?: string;
   phone?: string;
   avatarUrl?: string;
+  jobTitle?: string;
+  website?: string;
+  signaturePreferences?: {
+    includeOrgLogo?: boolean;
+    jobTitle?: string;
+    website?: string;
+  };
 }
 
 export class UserService {

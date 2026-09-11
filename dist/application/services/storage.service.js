@@ -6,19 +6,23 @@ class StorageService {
     /**
      * Request a pre-signed URL to upload KYC documents, profile avatars, or email attachments directly to AWS S3.
      */
-    static async requestUploadUrl(folder, fileName, contentType) {
+    static async requestUploadUrl(folder, fileName, contentType, organizationId) {
         const allowedTypes = [
             "image/jpeg",
             "image/png",
             "image/webp",
+            "image/svg+xml",
             "application/pdf",
             "application/vnd.ms-excel",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ];
         if (!allowedTypes.includes(contentType)) {
-            throw new Error(`File format '${contentType}' is not supported. Allowed formats: JPEG, PNG, WEBP, PDF, XLSX.`);
+            throw new Error(`File format '${contentType}' is not supported. Allowed formats: JPEG, PNG, WEBP, SVG, PDF, XLSX.`);
         }
-        return s3_adapter_js_1.S3StorageAdapter.generatePresignedUploadUrl(folder, fileName, contentType, 900);
+        const targetFolder = folder === "branding" && organizationId
+            ? `organizations/${organizationId}/branding`
+            : folder;
+        return s3_adapter_js_1.S3StorageAdapter.generatePresignedUploadUrl(targetFolder, fileName, contentType, 900);
     }
     /**
      * Generates a temporary pre-signed read URL for private KYC documents

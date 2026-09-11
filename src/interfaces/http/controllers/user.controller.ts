@@ -7,6 +7,15 @@ export const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().optional(),
   avatarUrl: z.string().url().optional(),
+  jobTitle: z.string().optional(),
+  website: z.string().optional(),
+  signaturePreferences: z
+    .object({
+      includeOrgLogo: z.boolean().optional(),
+      jobTitle: z.string().optional(),
+      website: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const changePasswordSchema = z.object({

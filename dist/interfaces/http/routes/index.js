@@ -59,6 +59,9 @@ orgRouter.post("/verify-dns", organization_controller_js_1.OrganizationControlle
 orgRouter.get("/members", organization_controller_js_1.OrganizationController.getMembers);
 orgRouter.post("/invite", (0, validate_middleware_js_1.validate)(organization_controller_js_1.inviteMemberSchema), organization_controller_js_1.OrganizationController.inviteMember);
 orgRouter.get("/stats", organization_controller_js_1.OrganizationController.getUsageStats);
+orgRouter.get("/branding", organization_controller_js_1.OrganizationController.getBranding);
+orgRouter.post("/branding/logo", organization_controller_js_1.OrganizationController.updateLogo);
+orgRouter.delete("/branding/logo", organization_controller_js_1.OrganizationController.deleteLogo);
 apiRouter.use("/organization", orgRouter);
 // ─── 4. KYC Identity Verification Routes (Provn) ───
 const kycRouter = (0, express_1.Router)();

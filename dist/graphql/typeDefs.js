@@ -34,9 +34,24 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     canAccessAdminConsole: Boolean
     accessiblePackages: [String!]
     avatarUrl: String
+    jobTitle: String
+    website: String
+    signaturePreferences: SignaturePreferences
     status: String!
     lastLoginAt: String
     createdAt: String!
+  }
+
+  type SignaturePreferences {
+    includeOrgLogo: Boolean
+    jobTitle: String
+    website: String
+  }
+
+  type OrganizationBranding {
+    name: String!
+    domain: String!
+    logoUrl: String
   }
 
   type DnsStatus {
@@ -209,6 +224,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     industry: String
     phone: String
     supportEmail: String
+    logoUrl: String
     departments: [Department!]!
     roles: [WorkspaceRole!]!
     createdAt: String!
@@ -448,6 +464,13 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     industry: String
     phone: String
     supportEmail: String
+    logoUrl: String
+  }
+
+  input UpdateSignaturePreferencesInput {
+    includeOrgLogo: Boolean
+    jobTitle: String
+    website: String
   }
 
   # ─── Queries & Mutations ───
@@ -460,6 +483,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     me: User!
     myOrganization: Organization
     getOrganizationMembers: [User!]!
+    getOrganizationBranding: OrganizationBranding!
 
     # KYC Verification
     getKycStatus: KycRecord
@@ -550,6 +574,8 @@ exports.typeDefs = (0, graphql_tag_1.default) `
 
     # ── Organization & Domain & Users ──
     updateOrganization(input: UpdateOrganizationInput!): Organization!
+    removeOrganizationLogo: Organization!
+    updateSignaturePreferences(input: UpdateSignaturePreferencesInput!): User!
     addOrUpdateDomain(domain: String!, enableReceiving: Boolean): Organization!
     enableDomainReceiving: Organization!
     subscribePackage(packageId: String!): Organization!

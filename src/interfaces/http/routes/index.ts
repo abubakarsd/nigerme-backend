@@ -83,6 +83,9 @@ orgRouter.post("/verify-dns", OrganizationController.verifyDns);
 orgRouter.get("/members", OrganizationController.getMembers);
 orgRouter.post("/invite", validate(inviteMemberSchema), OrganizationController.inviteMember);
 orgRouter.get("/stats", OrganizationController.getUsageStats);
+orgRouter.get("/branding", OrganizationController.getBranding);
+orgRouter.post("/branding/logo", OrganizationController.updateLogo);
+orgRouter.delete("/branding/logo", OrganizationController.deleteLogo);
 apiRouter.use("/organization", orgRouter);
 
 // ─── 4. KYC Identity Verification Routes (Provn) ───

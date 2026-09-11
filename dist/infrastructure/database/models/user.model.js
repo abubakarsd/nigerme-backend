@@ -129,6 +129,19 @@ const UserSchema = new mongoose_1.Schema({
     avatarUrl: {
         type: String,
     },
+    jobTitle: {
+        type: String,
+        trim: true,
+    },
+    website: {
+        type: String,
+        trim: true,
+    },
+    signaturePreferences: {
+        includeOrgLogo: { type: Boolean, default: true },
+        jobTitle: { type: String, trim: true },
+        website: { type: String, trim: true },
+    },
     status: {
         type: String,
         enum: ["active", "suspended", "pending"],

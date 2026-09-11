@@ -5,24 +5,30 @@ export class StorageService {
    * Request a pre-signed URL to upload KYC documents, profile avatars, or email attachments directly to AWS S3.
    */
   static async requestUploadUrl(
-    folder: "kyc-documents" | "avatars" | "attachments" | "receipts",
+    folder: "kyc-documents" | "avatars" | "attachments" | "receipts" | "branding",
     fileName: string,
-    contentType: string
+    contentType: string,
+    organizationId?: string
   ): Promise<PresignedUploadResponse> {
     const allowedTypes = [
       "image/jpeg",
       "image/png",
       "image/webp",
+      "image/svg+xml",
       "application/pdf",
       "application/vnd.ms-excel",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ];
 
     if (!allowedTypes.includes(contentType)) {
-      throw new Error(`File format '${contentType}' is not supported. Allowed formats: JPEG, PNG, WEBP, PDF, XLSX.`);
+      throw new Error(`File format '${contentType}' is not supported. Allowed formats: JPEG, PNG, WEBP, SVG, PDF, XLSX.`);
     }
 
-    return S3StorageAdapter.generatePresignedUploadUrl(folder, fileName, contentType, 900);
+    const targetFolder = folder === "branding" && organizationId
+      ? `organizations/${organizationId}/branding`
+      : folder;
+
+    return S3StorageAdapter.generatePresignedUploadUrl(targetFolder, fileName, contentType, 900);
   }
 
   /**

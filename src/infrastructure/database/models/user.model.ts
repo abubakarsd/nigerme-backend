@@ -21,6 +21,13 @@ export interface IUser extends Document {
   mailboxQuotaMb: number;
   mailboxUsedMb: number;
   avatarUrl?: string;
+  jobTitle?: string;
+  website?: string;
+  signaturePreferences?: {
+    includeOrgLogo?: boolean;
+    jobTitle?: string;
+    website?: string;
+  };
   status: "active" | "suspended" | "pending";
   lastLoginAt?: Date;
   createdAt: Date;
@@ -121,6 +128,19 @@ const UserSchema = new Schema<IUser>(
     },
     avatarUrl: {
       type: String,
+    },
+    jobTitle: {
+      type: String,
+      trim: true,
+    },
+    website: {
+      type: String,
+      trim: true,
+    },
+    signaturePreferences: {
+      includeOrgLogo: { type: Boolean, default: true },
+      jobTitle: { type: String, trim: true },
+      website: { type: String, trim: true },
     },
     status: {
       type: String,

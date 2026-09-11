@@ -70,6 +70,7 @@ export interface IOrganization extends Document {
   industry?: string;
   phone?: string;
   supportEmail?: string;
+  logoUrl?: string;
   departments?: any[];
   roles?: any[];
   createdAt: Date;
@@ -237,6 +238,11 @@ const OrganizationSchema = new Schema<IOrganization>(
     supportEmail: {
       type: String,
       default: "support@busmailer.com",
+    },
+    logoUrl: {
+      type: String,
+      trim: true,
+      default: null,
     },
     departments: {
       type: [Schema.Types.Mixed],

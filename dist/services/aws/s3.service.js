@@ -19,24 +19,29 @@ class AwsS3Service {
     /**
      * Generates a pre-signed URL for direct client-to-S3 file uploads.
      */
-    static async getPresignedUploadUrl(folder, fileName, contentType, expiresIn = 900 // 15 mins
-    ) {
+    static async getPresignedUploadUrl(folder, fileName, contentType, expiresIn = 900, // 15 mins
+    organizationId) {
         if (folder !== "attachments") {
             const allowedTypes = [
                 "image/jpeg",
                 "image/png",
                 "image/webp",
+                "image/svg+xml",
                 "application/pdf",
                 "application/vnd.ms-excel",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             ];
             if (contentType && !allowedTypes.includes(contentType)) {
-                throw new Error(`Unsupported file type '${contentType}'. Allowed types: JPEG, PNG, WEBP, PDF, XLSX.`);
+                throw new Error(`Unsupported file type '${contentType}'. Allowed types: JPEG, PNG, WEBP, SVG, PDF, XLSX.`);
             }
         }
         const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
         const uniquePrefix = `${Date.now()}-${crypto_1.default.randomBytes(6).toString("hex")}`;
-        const fileKey = `${env_js_1.env.AWS_S3_BASE_FOLDER}/${folder}/${uniquePrefix}-${cleanFileName}`;
+        let targetFolder = folder;
+        if (folder === "branding" && organizationId) {
+            targetFolder = `organizations/${organizationId}/branding`;
+        }
+        const fileKey = `${env_js_1.env.AWS_S3_BASE_FOLDER}/${targetFolder}/${uniquePrefix}-${cleanFileName}`;
         const command = new client_s3_1.PutObjectCommand({
             Bucket: env_js_1.env.AWS_S3_BUCKET,
             Key: fileKey,
@@ -52,6 +57,24 @@ class AwsS3Service {
             publicUrl,
             expiresInSeconds: expiresIn,
         };
+    }
+    /**
+     * Safely removes a file from AWS S3 bucket by its public URL or fileKey
+     */
+    static async deleteFileByUrlOrKey(urlOrKey) {
+        if (!urlOrKey)
+            return;
+        try {
+            let fileKey = urlOrKey;
+            if (urlOrKey.startsWith("http://") || urlOrKey.startsWith("https://")) {
+                const parsed = new URL(urlOrKey);
+                fileKey = parsed.pathname.replace(/^\/+/, "");
+            }
+            await this.deleteFile(fileKey);
+        }
+        catch (err) {
+            console.warn("Could not delete S3 file:", err?.message || err);
+        }
     }
     /**
      * Generates a temporary secure pre-signed read URL for private KYC documents

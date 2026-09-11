@@ -29,9 +29,24 @@ export const typeDefs = gql`
     canAccessAdminConsole: Boolean
     accessiblePackages: [String!]
     avatarUrl: String
+    jobTitle: String
+    website: String
+    signaturePreferences: SignaturePreferences
     status: String!
     lastLoginAt: String
     createdAt: String!
+  }
+
+  type SignaturePreferences {
+    includeOrgLogo: Boolean
+    jobTitle: String
+    website: String
+  }
+
+  type OrganizationBranding {
+    name: String!
+    domain: String!
+    logoUrl: String
   }
 
   type DnsStatus {
@@ -204,6 +219,7 @@ export const typeDefs = gql`
     industry: String
     phone: String
     supportEmail: String
+    logoUrl: String
     departments: [Department!]!
     roles: [WorkspaceRole!]!
     createdAt: String!
@@ -443,6 +459,13 @@ export const typeDefs = gql`
     industry: String
     phone: String
     supportEmail: String
+    logoUrl: String
+  }
+
+  input UpdateSignaturePreferencesInput {
+    includeOrgLogo: Boolean
+    jobTitle: String
+    website: String
   }
 
   # ─── Queries & Mutations ───
@@ -455,6 +478,7 @@ export const typeDefs = gql`
     me: User!
     myOrganization: Organization
     getOrganizationMembers: [User!]!
+    getOrganizationBranding: OrganizationBranding!
 
     # KYC Verification
     getKycStatus: KycRecord
@@ -545,6 +569,8 @@ export const typeDefs = gql`
 
     # ── Organization & Domain & Users ──
     updateOrganization(input: UpdateOrganizationInput!): Organization!
+    removeOrganizationLogo: Organization!
+    updateSignaturePreferences(input: UpdateSignaturePreferencesInput!): User!
     addOrUpdateDomain(domain: String!, enableReceiving: Boolean): Organization!
     enableDomainReceiving: Organization!
     subscribePackage(packageId: String!): Organization!

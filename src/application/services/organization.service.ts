@@ -9,6 +9,7 @@ export interface UpdateOrganizationDto {
   name?: string;
   plan?: "tier1" | "tier2" | "tier3" | "enterprise";
   dailySendingLimit?: number;
+  logoUrl?: string | null;
 }
 
 export interface InviteMemberDto {

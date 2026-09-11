@@ -196,6 +196,11 @@ const OrganizationSchema = new mongoose_1.Schema({
         type: String,
         default: "support@busmailer.com",
     },
+    logoUrl: {
+        type: String,
+        trim: true,
+        default: null,
+    },
     departments: {
         type: [mongoose_1.Schema.Types.Mixed],
         default: [],

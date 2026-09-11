@@ -23,29 +23,37 @@ export class AwsS3Service {
    * Generates a pre-signed URL for direct client-to-S3 file uploads.
    */
   static async getPresignedUploadUrl(
-    folder: "kyc-documents" | "avatars" | "attachments" | "receipts" | string,
+    folder: "kyc-documents" | "avatars" | "attachments" | "receipts" | "branding" | string,
     fileName: string,
     contentType: string,
-    expiresIn = 900 // 15 mins
+    expiresIn = 900, // 15 mins
+    organizationId?: string
   ): Promise<PresignedUploadResponse> {
     if (folder !== "attachments") {
       const allowedTypes = [
         "image/jpeg",
         "image/png",
         "image/webp",
+        "image/svg+xml",
         "application/pdf",
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       ];
 
       if (contentType && !allowedTypes.includes(contentType)) {
-        throw new Error(`Unsupported file type '${contentType}'. Allowed types: JPEG, PNG, WEBP, PDF, XLSX.`);
+        throw new Error(`Unsupported file type '${contentType}'. Allowed types: JPEG, PNG, WEBP, SVG, PDF, XLSX.`);
       }
     }
 
     const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
     const uniquePrefix = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
-    const fileKey = `${env.AWS_S3_BASE_FOLDER}/${folder}/${uniquePrefix}-${cleanFileName}`;
+    
+    let targetFolder = folder;
+    if (folder === "branding" && organizationId) {
+      targetFolder = `organizations/${organizationId}/branding`;
+    }
+
+    const fileKey = `${env.AWS_S3_BASE_FOLDER}/${targetFolder}/${uniquePrefix}-${cleanFileName}`;
 
     const command = new PutObjectCommand({
       Bucket: env.AWS_S3_BUCKET,
@@ -65,6 +73,23 @@ export class AwsS3Service {
       publicUrl,
       expiresInSeconds: expiresIn,
     };
+  }
+
+  /**
+   * Safely removes a file from AWS S3 bucket by its public URL or fileKey
+   */
+  static async deleteFileByUrlOrKey(urlOrKey: string): Promise<void> {
+    if (!urlOrKey) return;
+    try {
+      let fileKey = urlOrKey;
+      if (urlOrKey.startsWith("http://") || urlOrKey.startsWith("https://")) {
+        const parsed = new URL(urlOrKey);
+        fileKey = parsed.pathname.replace(/^\/+/, "");
+      }
+      await this.deleteFile(fileKey);
+    } catch (err: any) {
+      console.warn("Could not delete S3 file:", err?.message || err);
+    }
   }
 
   /**

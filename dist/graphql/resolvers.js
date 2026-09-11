@@ -109,6 +109,13 @@ async function formatUserWithPermissions(userDoc) {
         canManageUsers,
         canManageDomains,
         accessiblePackages,
+        jobTitle: user.jobTitle || null,
+        website: user.website || null,
+        signaturePreferences: user.signaturePreferences || {
+            includeOrgLogo: true,
+            jobTitle: user.jobTitle || null,
+            website: user.website || null,
+        },
     };
 }
 exports.resolvers = {
@@ -247,6 +254,19 @@ exports.resolvers = {
                 return [];
             const users = await index_js_7.UserModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: -1 });
             return Promise.all(users.map((u) => formatUserWithPermissions(u)));
+        },
+        getOrganizationBranding: async (_, __, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found for account");
+            const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            if (!org)
+                throw new Error("Organization not found");
+            return {
+                name: org.name,
+                domain: org.domain,
+                logoUrl: org.logoUrl || null,
+            };
         },
         getKycStatus: async (_, __, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
@@ -979,7 +999,7 @@ exports.resolvers = {
         },
         // ─── Organization & Domain & Users ───
         updateOrganization: async (_, { input }, context) => {
-            const authUser = (0, context_js_1.requireAuth)(context);
+            const authUser = (0, context_js_1.requireAdmin)(context);
             if (!authUser.organizationId)
                 throw new Error("No organization found");
             const updated = await index_js_7.OrganizationModel.findByIdAndUpdate(authUser.organizationId, { $set: input }, { new: true });
@@ -990,6 +1010,42 @@ exports.resolvers = {
                 id: updated._id.toString(),
                 walletBalance: updated.walletBalance / 100,
             };
+        },
+        removeOrganizationLogo: async (_, __, context) => {
+            const authUser = (0, context_js_1.requireAdmin)(context);
+            if (!authUser.organizationId)
+                throw new Error("No organization found");
+            const org = await index_js_7.OrganizationModel.findById(authUser.organizationId);
+            if (!org)
+                throw new Error("Organization not found");
+            if (org.logoUrl) {
+                index_js_4.AwsS3Service.deleteFileByUrlOrKey(org.logoUrl).catch((err) => console.warn("Could not delete old logo from S3:", err?.message || err));
+            }
+            org.logoUrl = undefined;
+            await org.save();
+            return {
+                ...org.toObject(),
+                id: org._id.toString(),
+                walletBalance: org.walletBalance / 100,
+            };
+        },
+        updateSignaturePreferences: async (_, { input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            const user = await index_js_7.UserModel.findById(authUser.userId);
+            if (!user)
+                throw new Error("User not found");
+            const existing = user.signaturePreferences || { includeOrgLogo: true };
+            user.signaturePreferences = {
+                includeOrgLogo: input.includeOrgLogo !== undefined ? input.includeOrgLogo : existing.includeOrgLogo,
+                jobTitle: input.jobTitle !== undefined ? input.jobTitle : (existing.jobTitle || user.jobTitle),
+                website: input.website !== undefined ? input.website : (existing.website || user.website),
+            };
+            if (input.jobTitle !== undefined)
+                user.jobTitle = input.jobTitle;
+            if (input.website !== undefined)
+                user.website = input.website;
+            await user.save();
+            return formatUserWithPermissions(user);
         },
         subscribePackage: async (_, { packageId }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);
@@ -1685,8 +1741,11 @@ exports.resolvers = {
         },
         // ─── Storage Mutations (AWS S3) ───
         getPresignedUploadUrl: async (_, { input }, context) => {
-            (0, context_js_1.requireAuth)(context);
-            return index_js_4.AwsS3Service.getPresignedUploadUrl(input.folder, input.fileName, input.contentType);
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (input.folder === "branding") {
+                (0, context_js_1.requireAdmin)(context);
+            }
+            return index_js_4.AwsS3Service.getPresignedUploadUrl(input.folder, input.fileName, input.contentType, 900, authUser.organizationId);
         },
         // ─── KYC Mutations (Provn) ───
         submitKyc: async (_, { input }, context) => {

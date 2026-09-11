@@ -1,4 +1,4 @@
-import { GraphQLContext, requireAuth } from "./context.js";
+import { GraphQLContext, requireAuth, requireAdmin } from "./context.js";
 import { AuthService } from "../services/auth/index.js";
 import { TermiiOtpService } from "../services/termii/index.js";
 import { ProvnKycService } from "../services/provn/index.js";
@@ -103,6 +103,13 @@ async function formatUserWithPermissions(userDoc: any) {
     canManageUsers,
     canManageDomains,
     accessiblePackages,
+    jobTitle: user.jobTitle || null,
+    website: user.website || null,
+    signaturePreferences: user.signaturePreferences || {
+      includeOrgLogo: true,
+      jobTitle: user.jobTitle || null,
+      website: user.website || null,
+    },
   };
 }
 
@@ -252,6 +259,18 @@ export const resolvers = {
       if (!authUser.organizationId) return [];
       const users = await UserModel.find({ organizationId: authUser.organizationId }).sort({ createdAt: -1 });
       return Promise.all(users.map((u) => formatUserWithPermissions(u)));
+    },
+
+    getOrganizationBranding: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No organization found for account");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+      return {
+        name: org.name,
+        domain: org.domain,
+        logoUrl: org.logoUrl || null,
+      };
     },
 
     getKycStatus: async (_: any, __: any, context: GraphQLContext) => {
@@ -1079,7 +1098,7 @@ export const resolvers = {
 
     // ─── Organization & Domain & Users ───
     updateOrganization: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
-      const authUser = requireAuth(context);
+      const authUser = requireAdmin(context);
       if (!authUser.organizationId) throw new Error("No organization found");
       const updated = await OrganizationModel.findByIdAndUpdate(
         authUser.organizationId,
@@ -1092,6 +1111,47 @@ export const resolvers = {
         id: updated._id.toString(),
         walletBalance: updated.walletBalance / 100,
       };
+    },
+
+    removeOrganizationLogo: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAdmin(context);
+      if (!authUser.organizationId) throw new Error("No organization found");
+      const org = await OrganizationModel.findById(authUser.organizationId);
+      if (!org) throw new Error("Organization not found");
+      if (org.logoUrl) {
+        AwsS3Service.deleteFileByUrlOrKey(org.logoUrl).catch((err) =>
+          console.warn("Could not delete old logo from S3:", err?.message || err)
+        );
+      }
+      org.logoUrl = undefined as any;
+      await org.save();
+      return {
+        ...org.toObject(),
+        id: org._id.toString(),
+        walletBalance: org.walletBalance / 100,
+      };
+    },
+
+    updateSignaturePreferences: async (
+      _: any,
+      { input }: { input: { includeOrgLogo?: boolean; jobTitle?: string; website?: string } },
+      context: GraphQLContext
+    ) => {
+      const authUser = requireAuth(context);
+      const user = await UserModel.findById(authUser.userId);
+      if (!user) throw new Error("User not found");
+
+      const existing = user.signaturePreferences || { includeOrgLogo: true };
+      user.signaturePreferences = {
+        includeOrgLogo: input.includeOrgLogo !== undefined ? input.includeOrgLogo : existing.includeOrgLogo,
+        jobTitle: input.jobTitle !== undefined ? input.jobTitle : (existing.jobTitle || user.jobTitle),
+        website: input.website !== undefined ? input.website : (existing.website || user.website),
+      };
+      if (input.jobTitle !== undefined) user.jobTitle = input.jobTitle;
+      if (input.website !== undefined) user.website = input.website;
+
+      await user.save();
+      return formatUserWithPermissions(user);
     },
 
     subscribePackage: async (
@@ -1911,8 +1971,17 @@ export const resolvers = {
 
     // ─── Storage Mutations (AWS S3) ───
     getPresignedUploadUrl: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
-      requireAuth(context);
-      return AwsS3Service.getPresignedUploadUrl(input.folder, input.fileName, input.contentType);
+      const authUser = requireAuth(context);
+      if (input.folder === "branding") {
+        requireAdmin(context);
+      }
+      return AwsS3Service.getPresignedUploadUrl(
+        input.folder,
+        input.fileName,
+        input.contentType,
+        900,
+        authUser.organizationId
+      );
     },
 
     // ─── KYC Mutations (Provn) ───
