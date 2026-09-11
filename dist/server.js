@@ -24,6 +24,7 @@ const mail_controller_js_1 = require("./interfaces/http/controllers/mail.control
 const index_js_1 = __importDefault(require("./interfaces/http/routes/index.js"));
 const subscription_cron_service_js_1 = require("./services/billing/subscription-cron.service.js");
 const email_service_js_1 = require("./services/resend/email.service.js");
+const realtime_controller_js_1 = require("./interfaces/http/controllers/realtime.controller.js");
 const app = (0, express_1.default)();
 const httpServer = http_1.default.createServer(app);
 // ─── Trust Proxy for Render / Cloudflare Reverse Proxies ───
@@ -111,6 +112,10 @@ if (env_js_1.env.NODE_ENV !== "test") {
 app.post("/webhooks/paystack", payment_controller_js_1.PaymentController.handleWebhook);
 app.post("/webhooks/resend", mail_controller_js_1.MailWebhookController.handleResendWebhook);
 app.post("/api/webhooks/resend", mail_controller_js_1.MailWebhookController.handleResendWebhook);
+// ─── Realtime Server-Sent Events (SSE) Stream ───
+app.get("/api/realtime/stream", realtime_controller_js_1.RealtimeController.handleStream);
+app.get("/realtime/stream", realtime_controller_js_1.RealtimeController.handleStream);
+app.get("/api/realtime/stats", realtime_controller_js_1.RealtimeController.getStats);
 // ─── Favicon Handler ───
 app.get("/favicon.ico", (_req, res) => {
     res.status(204).end();

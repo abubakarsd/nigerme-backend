@@ -5,6 +5,7 @@ import { EmailModel } from "../../../infrastructure/database/models/email.model.
 import { ResendEmailService } from "../../../services/resend/email.service.js";
 import { AuditLogModel } from "../../../infrastructure/database/models/audit-log.model.js";
 import { EmailClassifierService } from "../../../services/mail/classifier.service.js";
+import { RealtimeService } from "../../../services/realtime/realtime.service.js";
 
 export class MailWebhookController {
   /**
@@ -24,11 +25,26 @@ export class MailWebhookController {
       ) {
         const emailData = payload.data || payload;
         const resendEmailId = emailData.id || emailData.email_id;
-        const toRecipients: string[] = Array.isArray(emailData.to)
+
+        const rawRecipients: any[] = Array.isArray(emailData.to)
           ? emailData.to
           : emailData.to
             ? [emailData.to]
             : [];
+
+        const toRecipients: string[] = rawRecipients
+          .map((r: any) => {
+            if (typeof r === "string") {
+              const match = r.match(/<([^>]+)>/);
+              return (match ? match[1] : r).trim().toLowerCase();
+            }
+            if (r && typeof r === "object" && r.email) {
+              return String(r.email).trim().toLowerCase();
+            }
+            return "";
+          })
+          .filter(Boolean);
+
         const fromAddress: string = emailData.from || "unknown@unknown.com";
         const subject: string = emailData.subject || "(No subject)";
 
@@ -99,15 +115,15 @@ export class MailWebhookController {
         );
 
         // Process for each recipient mailbox
-        for (const recipient of toRecipients) {
-          const cleanRecipient = recipient.toLowerCase().trim();
+        for (const cleanRecipient of toRecipients) {
           const parts = cleanRecipient.split("@");
           if (parts.length !== 2) continue;
           const domain = parts[1];
 
-          // Lookup organization by domain
+          // Lookup organization by domain (case-insensitive regex)
+          const domainRegex = new RegExp(`^${domain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
           const org = await OrganizationModel.findOne({
-            $or: [{ domain }, { "dnsVerification.spfStatus": "verified", domain }],
+            $or: [{ domain: domainRegex }, { "dnsVerification.spfStatus": "verified", domain: domainRegex }],
           });
 
           if (!org) {
@@ -149,9 +165,10 @@ export class MailWebhookController {
             continue;
           }
 
-          // Lookup user mailbox
+          // Lookup user mailbox (case-insensitive regex)
+          const emailRegex = new RegExp(`^${cleanRecipient.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
           const user = await UserModel.findOne({
-            email: cleanRecipient,
+            email: emailRegex,
             organizationId: org._id,
           });
 
@@ -190,7 +207,7 @@ export class MailWebhookController {
           }
 
           // Create inbox record
-          await EmailModel.create({
+          const createdEmail = await EmailModel.create({
             organizationId: org._id,
             userId: user._id,
             threadId,
@@ -216,6 +233,52 @@ export class MailWebhookController {
           });
 
           console.log(`📬 Inbound email delivered to ${user.email} (Org: ${org.name})`);
+
+          // ─── Real-Time Push to Active Frontend Sessions (Zero Page Refresh) ───
+          const realtimeEmailPayload = {
+            id: createdEmail._id.toString(),
+            threadId: createdEmail.threadId,
+            folder: createdEmail.folder,
+            category: createdEmail.category,
+            from: createdEmail.from,
+            to: createdEmail.to,
+            cc: createdEmail.cc || [],
+            bcc: createdEmail.bcc || [],
+            subject: createdEmail.subject,
+            preview: createdEmail.preview,
+            body: createdEmail.bodyHtml || createdEmail.bodyText,
+            bodyHtml: createdEmail.bodyHtml,
+            bodyText: createdEmail.bodyText,
+            date: createdEmail.receivedAt || createdEmail.createdAt,
+            timestamp: createdEmail.createdAt,
+            read: createdEmail.isRead,
+            starred: createdEmail.isStarred,
+            important: createdEmail.isImportant,
+            labels: createdEmail.labels,
+            attachments: (createdEmail.attachments || []).map((a: any) => {
+              const ext = (a.name || "").split(".").pop()?.toLowerCase() || "";
+              const isImg = a.contentType?.includes("image") || ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext);
+              const isPdf = a.contentType?.includes("pdf") || ext === "pdf";
+              const isDoc = a.contentType?.includes("word") || a.contentType?.includes("document") || ["doc", "docx", "txt", "rtf"].includes(ext);
+              const isSheet = a.contentType?.includes("sheet") || ["xlsx", "xls", "csv"].includes(ext);
+
+              return {
+                id: a.id,
+                name: a.name,
+                sizeBytes: a.sizeBytes || 0,
+                formattedSize: `${Math.max(1, Math.round((a.sizeBytes || 0) / 1024))} KB`,
+                type: isPdf ? "pdf" : isImg ? "image" : isDoc ? "doc" : isSheet ? "doc" : "other",
+                contentType: a.contentType,
+                contentId: a.contentId,
+                url: a.downloadUrl,
+                downloadUrl: a.downloadUrl,
+              };
+            }),
+            status: createdEmail.status,
+          };
+
+          RealtimeService.emitToUser(user._id.toString(), "mail:received", realtimeEmailPayload);
+          RealtimeService.emitToOrganization(org._id.toString(), "mail:received", realtimeEmailPayload);
         }
       }
 
@@ -224,40 +287,92 @@ export class MailWebhookController {
         const emailData = payload.data || payload;
         const resendEmailId = emailData.email_id || emailData.id;
         if (resendEmailId) {
-          await EmailModel.findOneAndUpdate(
+          const updated = await EmailModel.findOneAndUpdate(
             { resendId: resendEmailId },
-            { $set: { status: "SENT", sentAt: new Date() } }
+            { $set: { status: "SENT", sentAt: new Date() } },
+            { new: true }
           );
+          if (updated) {
+            RealtimeService.emitToUser(updated.userId.toString(), "mail:status_updated", {
+              id: updated._id.toString(),
+              resendId: resendEmailId,
+              status: "SENT",
+            });
+            RealtimeService.emitToOrganization(updated.organizationId.toString(), "mail:status_updated", {
+              id: updated._id.toString(),
+              resendId: resendEmailId,
+              status: "SENT",
+            });
+          }
           console.log(`🚀 Email marked SENT: ${resendEmailId}`);
         }
       } else if (eventType === "email.delivered") {
         const emailData = payload.data || payload;
         const resendEmailId = emailData.email_id || emailData.id;
         if (resendEmailId) {
-          await EmailModel.findOneAndUpdate(
+          const updated = await EmailModel.findOneAndUpdate(
             { resendId: resendEmailId },
-            { $set: { status: "DELIVERED", deliveredAt: new Date() } }
+            { $set: { status: "DELIVERED", deliveredAt: new Date() } },
+            { new: true }
           );
+          if (updated) {
+            RealtimeService.emitToUser(updated.userId.toString(), "mail:status_updated", {
+              id: updated._id.toString(),
+              resendId: resendEmailId,
+              status: "DELIVERED",
+            });
+            RealtimeService.emitToOrganization(updated.organizationId.toString(), "mail:status_updated", {
+              id: updated._id.toString(),
+              resendId: resendEmailId,
+              status: "DELIVERED",
+            });
+          }
           console.log(`✅ Email marked DELIVERED: ${resendEmailId}`);
         }
       } else if (eventType === "email.bounced") {
         const emailData = payload.data || payload;
         const resendEmailId = emailData.email_id || emailData.id;
         if (resendEmailId) {
-          await EmailModel.findOneAndUpdate(
+          const updated = await EmailModel.findOneAndUpdate(
             { resendId: resendEmailId },
-            { $set: { status: "BOUNCED" } }
+            { $set: { status: "BOUNCED" } },
+            { new: true }
           );
+          if (updated) {
+            RealtimeService.emitToUser(updated.userId.toString(), "mail:status_updated", {
+              id: updated._id.toString(),
+              resendId: resendEmailId,
+              status: "BOUNCED",
+            });
+            RealtimeService.emitToOrganization(updated.organizationId.toString(), "mail:status_updated", {
+              id: updated._id.toString(),
+              resendId: resendEmailId,
+              status: "BOUNCED",
+            });
+          }
           console.warn(`⚠️ Email marked BOUNCED: ${resendEmailId}`);
         }
       } else if (eventType === "email.complained") {
         const emailData = payload.data || payload;
         const resendEmailId = emailData.email_id || emailData.id;
         if (resendEmailId) {
-          await EmailModel.findOneAndUpdate(
+          const updated = await EmailModel.findOneAndUpdate(
             { resendId: resendEmailId },
-            { $set: { status: "COMPLAINED" } }
+            { $set: { status: "COMPLAINED" } },
+            { new: true }
           );
+          if (updated) {
+            RealtimeService.emitToUser(updated.userId.toString(), "mail:status_updated", {
+              id: updated._id.toString(),
+              resendId: resendEmailId,
+              status: "COMPLAINED",
+            });
+            RealtimeService.emitToOrganization(updated.organizationId.toString(), "mail:status_updated", {
+              id: updated._id.toString(),
+              resendId: resendEmailId,
+              status: "COMPLAINED",
+            });
+          }
           console.warn(`🚨 Email marked COMPLAINED: ${resendEmailId}`);
         }
       }
@@ -266,6 +381,41 @@ export class MailWebhookController {
     } catch (err: any) {
       console.error("❌ Error in Resend Webhook:", err?.message || err);
       return res.status(500).json({ success: false, error: err?.message || "Internal server error" });
+    }
+  }
+
+  /**
+   * Helper endpoint to test and verify incoming email delivery & real-time push
+   * POST /api/mail/test-inbound
+   */
+  static async testInboundEmail(req: Request, res: Response) {
+    try {
+      const { to, from, subject, text, html } = req.body;
+
+      if (!to) {
+        return res.status(400).json({ error: "Missing required 'to' email address." });
+      }
+
+      // Simulate a standard Resend inbound webhook payload
+      const simulatedPayload = {
+        type: "email.received",
+        data: {
+          id: `sim-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          email_id: `sim-${Date.now()}`,
+          to: Array.isArray(to) ? to : [to],
+          from: from || "Client Inquiry <client@externalpartner.com>",
+          subject: subject || "Test Inbound Inquiry — Realtime Delivery Check",
+          text: text || "Hello! This is a test incoming email dispatched to verify real-time inbound updates without page refreshing.",
+          html: html || `<p>${text || "Hello! This is a test incoming email dispatched to verify real-time inbound updates without page refreshing."}</p>`,
+          created_at: new Date().toISOString(),
+        },
+      };
+
+      // Reuse the webhook handler logic
+      req.body = simulatedPayload;
+      return await MailWebhookController.handleResendWebhook(req, res);
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || "Failed to process test inbound email." });
     }
   }
 }

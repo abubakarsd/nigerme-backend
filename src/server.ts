@@ -19,6 +19,7 @@ import { MailWebhookController } from "./interfaces/http/controllers/mail.contro
 import apiRouter from "./interfaces/http/routes/index.js";
 import { SubscriptionCronService } from "./services/billing/subscription-cron.service.js";
 import { ResendEmailService } from "./services/resend/email.service.js";
+import { RealtimeController } from "./interfaces/http/controllers/realtime.controller.js";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -130,6 +131,11 @@ if (env.NODE_ENV !== "test") {
 app.post("/webhooks/paystack", PaymentController.handleWebhook);
 app.post("/webhooks/resend", MailWebhookController.handleResendWebhook);
 app.post("/api/webhooks/resend", MailWebhookController.handleResendWebhook);
+
+// ─── Realtime Server-Sent Events (SSE) Stream ───
+app.get("/api/realtime/stream", RealtimeController.handleStream);
+app.get("/realtime/stream", RealtimeController.handleStream);
+app.get("/api/realtime/stats", RealtimeController.getStats);
 
 // ─── Favicon Handler ───
 app.get("/favicon.ico", (_req, res) => {

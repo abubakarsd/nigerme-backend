@@ -96,4 +96,10 @@ abuseRouter.post("/update-status", (0, validate_middleware_js_1.validate)(abuse_
 apiRouter.use("/abuse", abuseRouter);
 // ─── 9. Product Packages & Pricing Routes ───
 apiRouter.use("/packages", package_routes_js_1.default);
+// ─── 10. Real-time Push Streams (SSE) ───
+const realtime_controller_js_1 = require("../controllers/realtime.controller.js");
+const mail_controller_js_1 = require("../controllers/mail.controller.js");
+apiRouter.get("/realtime/stream", realtime_controller_js_1.RealtimeController.handleStream);
+apiRouter.get("/realtime/stats", realtime_controller_js_1.RealtimeController.getStats);
+apiRouter.post("/mail/test-inbound", mail_controller_js_1.MailWebhookController.testInboundEmail);
 exports.default = apiRouter;

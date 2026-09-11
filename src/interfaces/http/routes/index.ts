@@ -127,4 +127,12 @@ apiRouter.use("/abuse", abuseRouter);
 // ─── 9. Product Packages & Pricing Routes ───
 apiRouter.use("/packages", packageRouter);
 
+// ─── 10. Real-time Push Streams (SSE) ───
+import { RealtimeController } from "../controllers/realtime.controller.js";
+import { MailWebhookController } from "../controllers/mail.controller.js";
+
+apiRouter.get("/realtime/stream", RealtimeController.handleStream);
+apiRouter.get("/realtime/stats", RealtimeController.getStats);
+apiRouter.post("/mail/test-inbound", MailWebhookController.testInboundEmail);
+
 export default apiRouter;
