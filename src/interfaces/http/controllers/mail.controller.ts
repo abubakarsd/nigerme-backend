@@ -46,7 +46,6 @@ export class MailWebhookController {
           })
           .filter(Boolean);
 
-        const fromAddress: string = emailData.from || "unknown@unknown.com";
         const subject: string = emailData.subject || "(No subject)";
 
         // Fetch complete email details from Resend Receiving API if needed
@@ -66,18 +65,83 @@ export class MailWebhookController {
         const bodyText = fullEmail.text || "";
         const preview = (bodyText || bodyHtml.replace(/<[^>]*>?/gm, "")).slice(0, 160).trim();
 
-        // Extract sender name and clean email
-        let cleanFromEmail = fromAddress;
-        let senderName = "External Sender";
-        if (fromAddress.includes("<") && fromAddress.includes(">")) {
-          const match = fromAddress.match(/^(.*?)\s*<(.+?)>$/);
-          if (match) {
-            senderName = match[1].replace(/['"]/g, "").trim() || match[2].split("@")[0];
-            cleanFromEmail = match[2].trim();
+        // Robust extraction of sender name and clean email
+        let rawFrom: any =
+          fullEmail.headers?.from ||
+          fullEmail.headers?.From ||
+          fullEmail.from ||
+          emailData.headers?.from ||
+          emailData.headers?.From ||
+          emailData.from ||
+          emailData.sender ||
+          "";
+
+        if (Array.isArray(rawFrom)) {
+          rawFrom = rawFrom[0];
+        }
+
+        let parsedSenderName = "";
+        let cleanFromEmail = "";
+
+        if (rawFrom && typeof rawFrom === "object") {
+          parsedSenderName = (rawFrom.name || "").replace(/['"]/g, "").trim();
+          cleanFromEmail = String(rawFrom.email || rawFrom.address || "").trim().toLowerCase();
+        } else if (typeof rawFrom === "string" && rawFrom.trim()) {
+          const str = rawFrom.trim();
+          if (str.includes("<") && str.includes(">")) {
+            const match = str.match(/^(.*?)\s*<([^>]+)>/);
+            if (match) {
+              parsedSenderName = match[1].replace(/['"]/g, "").trim();
+              cleanFromEmail = match[2].trim().toLowerCase();
+            } else {
+              cleanFromEmail = str.replace(/[<>]/g, "").trim().toLowerCase();
+            }
+          } else {
+            cleanFromEmail = str.trim().toLowerCase();
           }
-        } else {
-          senderName = fromAddress.split("@")[0];
-          cleanFromEmail = fromAddress.trim();
+        }
+
+        if (!cleanFromEmail) {
+          cleanFromEmail = "unknown@unknown.com";
+        }
+
+        let senderName = parsedSenderName;
+        let matchedUserAvatar: string | null = null;
+
+        // If senderName is missing, empty, generic, or equal to the email address:
+        const lowerSenderName = (senderName || "").toLowerCase();
+        const isGenericName =
+          !senderName ||
+          lowerSenderName === "external sender" ||
+          lowerSenderName === "sovereign workspace" ||
+          lowerSenderName === "unknown" ||
+          senderName === "[object Object]" ||
+          lowerSenderName === cleanFromEmail;
+
+        if (isGenericName && cleanFromEmail && cleanFromEmail.includes("@")) {
+          // 1. Check if sender exists in our database as a registered user (e.g. colleague or customer)
+          try {
+            const matchedUser = await UserModel.findOne({ email: cleanFromEmail });
+            if (matchedUser?.name) {
+              senderName = matchedUser.name.trim();
+              matchedUserAvatar = matchedUser.avatarUrl || null;
+            }
+          } catch {}
+
+          // 2. If still missing, derive a clean human name from the email (e.g. "abubakar.sadiq" -> "Abubakar Sadiq")
+          if (!senderName || senderName.toLowerCase() === "external sender") {
+            const localPart = cleanFromEmail.split("@")[0].replace(/[._-]/g, " ");
+            const formatted = localPart
+              .split(" ")
+              .filter(Boolean)
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+              .join(" ");
+            if (formatted) senderName = formatted;
+          }
+        }
+
+        if (!senderName) {
+          senderName = "Sender";
         }
 
         // Fetch attachments list if not embedded
@@ -214,11 +278,11 @@ export class MailWebhookController {
             "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com",
             "zoho.com", "mail.com", "gmx.com", "yandex.com"
           ]);
-          const senderAvatar = senderDomain
+          const senderAvatar = matchedUserAvatar || (senderDomain
             ? (!freeDomains.has(senderDomain)
                 ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(senderDomain)}&sz=128`
                 : `https://unavatar.io/${encodeURIComponent(cleanFromEmail)}?fallback=false`)
-            : undefined;
+            : undefined);
 
           // Create inbox record
           const createdEmail = await EmailModel.create({
@@ -229,7 +293,7 @@ export class MailWebhookController {
             folder: "inbox",
             category,
             from: {
-              name: senderName || "External Sender",
+              name: senderName,
               email: cleanFromEmail,
               avatar: senderAvatar,
             },

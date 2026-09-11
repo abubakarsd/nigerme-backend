@@ -21,6 +21,35 @@ import { seedOrganizationDefaultRoles, seedOrganizationDefaultDepartments } from
 import { encryptData, maskIdentifier } from "../infrastructure/security/encryption.js";
 import mongoose from "mongoose";
 
+function formatSenderParticipant(participant: any) {
+  if (!participant) return { name: "Unknown", email: "", avatar: null };
+  let name = (participant.name || "").replace(/['"]/g, "").trim();
+  const email = (participant.email || "").trim();
+  const lowerName = name.toLowerCase();
+  const isGeneric =
+    !name ||
+    lowerName === "external sender" ||
+    lowerName === "sovereign workspace" ||
+    lowerName === "unknown" ||
+    name === "[object Object]" ||
+    lowerName === email.toLowerCase();
+
+  if (isGeneric && email.includes("@")) {
+    const local = email.split("@")[0].replace(/[._-]/g, " ");
+    const formatted = local
+      .split(" ")
+      .filter(Boolean)
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+    if (formatted) name = formatted;
+  }
+  return {
+    name: name || email || "Unknown",
+    email,
+    avatar: participant.avatar || null,
+  };
+}
+
 async function formatUserWithPermissions(userDoc: any) {
   if (!userDoc) return null;
   const user = userDoc.toObject ? userDoc.toObject() : userDoc;
@@ -622,7 +651,7 @@ export const resolvers = {
         threadId: m.threadId,
         folder: m.folder,
         category: m.category || "primary",
-        from: m.from,
+        from: formatSenderParticipant(m.from),
         to: m.to || [],
         cc: m.cc || [],
         bcc: m.bcc || [],
@@ -699,7 +728,7 @@ export const resolvers = {
         threadId: email.threadId,
         folder: email.folder,
         category: email.category,
-        from: email.from,
+        from: formatSenderParticipant(email.from),
         to: email.to,
         cc: email.cc,
         bcc: email.bcc,
@@ -1134,12 +1163,31 @@ export const resolvers = {
 
     updateSignaturePreferences: async (
       _: any,
-      { input }: { input: { includeOrgLogo?: boolean; jobTitle?: string; website?: string } },
+      { input }: { input: { userId?: string; includeOrgLogo?: boolean; jobTitle?: string; website?: string } },
       context: GraphQLContext
     ) => {
       const authUser = requireAuth(context);
-      const user = await UserModel.findById(authUser.userId);
+      const isAdmin =
+        authUser.role === "admin" ||
+        authUser.role === "owner" ||
+        authUser.role === "superadmin" ||
+        authUser.userType === "saas_admin";
+
+      if (!isAdmin) {
+        throw new Error("Access denied: Normal users are not allowed to customize email signature and branding. Only organization administrators can manage signatures.");
+      }
+
+      const targetUserId = input.userId || authUser.userId;
+      let user = await UserModel.findById(targetUserId);
+      if (!user && (authUser as any).id && !input.userId) {
+        user = await UserModel.findById((authUser as any).id);
+      }
       if (!user) throw new Error("User not found");
+
+      // Multi-tenant check: ensure target user belongs to the same organization
+      if (input.userId && authUser.organizationId && user.organizationId?.toString() !== authUser.organizationId) {
+        throw new Error("Access denied: You can only customize signatures for members within your organization.");
+      }
 
       const existing = user.signaturePreferences || { includeOrgLogo: true };
       user.signaturePreferences = {
@@ -2318,9 +2366,34 @@ export const resolvers = {
       const bccEmails = (input.bcc || []).map((p: any) => p.email.trim().toLowerCase()).filter(Boolean);
 
       // Fetch the actual sender user record from DB to guarantee the person's real display name
-      const user = await UserModel.findById(authUser.userId);
-      const rawSenderName = (input.fromName || user?.name || authUser.name || "").trim();
-      const senderName = rawSenderName || "Sovereign Workspace";
+      let user = null;
+      if (authUser.userId) {
+        try {
+          user = await UserModel.findById(authUser.userId);
+        } catch {}
+      }
+      if (!user && (authUser as any).id) {
+        try {
+          user = await UserModel.findById((authUser as any).id);
+        } catch {}
+      }
+      if (!user && authUser.email) {
+        user = await UserModel.findOne({ email: authUser.email.toLowerCase() });
+      }
+
+      let senderName = (input.fromName || user?.name || authUser.name || "").replace(/["<>\r\n]/g, "").trim();
+      if (!senderName && authUser.email?.includes("@")) {
+        const username = authUser.email.split("@")[0].replace(/[._-]/g, " ");
+        senderName = username
+          .split(" ")
+          .filter(Boolean)
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(" ");
+      }
+      if (!senderName) {
+        senderName = org?.name || "Workspace Member";
+      }
+
       let senderEmail = authUser.email;
       const userReplyTo = input.replyTo || authUser.email;
 
@@ -2331,9 +2404,9 @@ export const resolvers = {
         senderEmail = `${username}@${org.domain.toLowerCase()}`;
       }
 
-      // Format RFC 5322 standard: "Display Name" <email@domain.com>
+      // Format for Resend API dispatch: Friendly Name <email@domain.com> (NO surrounding double quotes)
       const cleanSenderName = senderName.replace(/["<>\r\n]/g, "").trim();
-      const fromFormatted = `"${cleanSenderName}" <${senderEmail}>`;
+      const fromFormatted = cleanSenderName ? `${cleanSenderName} <${senderEmail}>` : senderEmail;
 
       // ── 4. Dispatch via Resend ──
       const resendResult = await ResendEmailService.sendUserEmail({
@@ -2411,6 +2484,7 @@ export const resolvers = {
         from: {
           name: cleanSenderName,
           email: senderEmail,
+          avatar: user?.avatarUrl || undefined,
         },
         to: input.to.map((p: any) => ({ name: p.name || p.email.split("@")[0], email: p.email })),
         cc: (input.cc || []).map((p: any) => ({ name: p.name || p.email.split("@")[0], email: p.email })),

@@ -463,6 +463,7 @@ export const typeDefs = gql`
   }
 
   input UpdateSignaturePreferencesInput {
+    userId: ID
     includeOrgLogo: Boolean
     jobTitle: String
     website: String

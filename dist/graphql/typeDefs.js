@@ -468,6 +468,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
   }
 
   input UpdateSignaturePreferencesInput {
+    userId: ID
     includeOrgLogo: Boolean
     jobTitle: String
     website: String
