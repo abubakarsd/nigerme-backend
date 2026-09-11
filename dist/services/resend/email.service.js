@@ -3,9 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResendEmailService = exports.FOOTER_BANNER_URL = exports.ADVERT_BANNER_URL = exports.BRAND_LOGO_URL = void 0;
 const resend_1 = require("resend");
 const env_js_1 = require("../../config/env.js");
-exports.BRAND_LOGO_URL = "/images/logo/favicon.png";
-exports.ADVERT_BANNER_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png";
-exports.FOOTER_BANNER_URL = "https://busmailer-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/footer-banner.png";
+exports.BRAND_LOGO_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/busmailer-logo.png";
+exports.ADVERT_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/advert-banner.png";
+exports.FOOTER_BANNER_URL = "https://nigerme-172147427546-us-east-1-an.s3.us-east-1.amazonaws.com/footer-banner.png";
 class ResendEmailService {
     static systemResendClient = null;
     static orgResendClient = null;

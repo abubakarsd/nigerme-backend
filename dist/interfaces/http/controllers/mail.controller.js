@@ -182,6 +182,18 @@ class MailWebhookController {
                     if (!threadId) {
                         threadId = `thread-inbound-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
                     }
+                    const senderDomain = cleanFromEmail.split("@")[1]?.toLowerCase();
+                    const freeDomains = new Set([
+                        "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "yahoo.fr",
+                        "hotmail.com", "outlook.com", "live.com", "msn.com", "icloud.com",
+                        "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com",
+                        "zoho.com", "mail.com", "gmx.com", "yandex.com"
+                    ]);
+                    const senderAvatar = senderDomain
+                        ? (!freeDomains.has(senderDomain)
+                            ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(senderDomain)}&sz=128`
+                            : `https://unavatar.io/${encodeURIComponent(cleanFromEmail)}?fallback=false`)
+                        : undefined;
                     // Create inbox record
                     const createdEmail = await email_model_js_1.EmailModel.create({
                         organizationId: org._id,
@@ -193,6 +205,7 @@ class MailWebhookController {
                         from: {
                             name: senderName || "External Sender",
                             email: cleanFromEmail,
+                            avatar: senderAvatar,
                         },
                         to: [{ name: user.name, email: user.email }],
                         subject,
