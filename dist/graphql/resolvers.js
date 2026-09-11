@@ -1790,6 +1790,18 @@ exports.resolvers = {
             }
             return index_js_4.AwsS3Service.getPresignedUploadUrl(input.folder, input.fileName, input.contentType, 900, authUser.organizationId);
         },
+        uploadDirectFile: async (_, { input }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            if (input.folder === "branding") {
+                (0, context_js_1.requireAdmin)(context);
+            }
+            let base64 = input.base64Data || "";
+            if (base64.includes("base64,")) {
+                base64 = base64.split("base64,")[1];
+            }
+            const buffer = Buffer.from(base64, "base64");
+            return index_js_4.AwsS3Service.uploadFileBuffer(input.folder, input.fileName, input.contentType, buffer, authUser.organizationId);
+        },
         // ─── KYC Mutations (Provn) ───
         submitKyc: async (_, { input }, context) => {
             const authUser = (0, context_js_1.requireAuth)(context);

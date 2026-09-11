@@ -273,6 +273,11 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     expiresInSeconds: Int!
   }
 
+  type UploadDirectFilePayload {
+    fileKey: String!
+    publicUrl: String!
+  }
+
   type KycRecord {
     id: ID!
     idType: String!
@@ -427,6 +432,13 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     folder: String!
     fileName: String!
     contentType: String!
+  }
+
+  input UploadDirectFileInput {
+    folder: String!
+    fileName: String!
+    contentType: String!
+    base64Data: String!
   }
 
   input PresignedUploadInput {
@@ -605,6 +617,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
 
     # ── Storage (AWS S3) ──
     getPresignedUploadUrl(input: RequestUploadUrlInput!): PresignedUploadPayload!
+    uploadDirectFile(input: UploadDirectFileInput!): UploadDirectFilePayload!
 
     # ── KYC (Provn) ──
     submitKyc(input: SubmitKycInput!): KycRecord!

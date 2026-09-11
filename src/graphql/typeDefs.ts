@@ -268,6 +268,11 @@ export const typeDefs = gql`
     expiresInSeconds: Int!
   }
 
+  type UploadDirectFilePayload {
+    fileKey: String!
+    publicUrl: String!
+  }
+
   type KycRecord {
     id: ID!
     idType: String!
@@ -422,6 +427,13 @@ export const typeDefs = gql`
     folder: String!
     fileName: String!
     contentType: String!
+  }
+
+  input UploadDirectFileInput {
+    folder: String!
+    fileName: String!
+    contentType: String!
+    base64Data: String!
   }
 
   input PresignedUploadInput {
@@ -600,6 +612,7 @@ export const typeDefs = gql`
 
     # ── Storage (AWS S3) ──
     getPresignedUploadUrl(input: RequestUploadUrlInput!): PresignedUploadPayload!
+    uploadDirectFile(input: UploadDirectFileInput!): UploadDirectFilePayload!
 
     # ── KYC (Provn) ──
     submitKyc(input: SubmitKycInput!): KycRecord!

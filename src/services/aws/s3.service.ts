@@ -105,6 +105,42 @@ export class AwsS3Service {
   }
 
   /**
+   * Directly uploads file buffer to AWS S3 (server-side, bypassing browser CORS restrictions)
+   */
+  static async uploadFileBuffer(
+    folder: "kyc-documents" | "avatars" | "attachments" | "receipts" | "branding" | string,
+    fileName: string,
+    contentType: string,
+    buffer: Buffer,
+    organizationId?: string
+  ): Promise<{ fileKey: string; publicUrl: string }> {
+    const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const uniquePrefix = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
+
+    let targetFolder = folder;
+    if (folder === "branding" && organizationId) {
+      targetFolder = `organizations/${organizationId}/branding`;
+    }
+
+    const fileKey = `${env.AWS_S3_BASE_FOLDER}/${targetFolder}/${uniquePrefix}-${cleanFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: env.AWS_S3_BUCKET,
+      Key: fileKey,
+      ContentType: contentType,
+      Body: buffer,
+    });
+
+    await s3Client.send(command);
+
+    const publicUrl = env.AWS_S3_CUSTOM_DOMAIN
+      ? `https://${env.AWS_S3_CUSTOM_DOMAIN}/${fileKey}`
+      : `https://${env.AWS_S3_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com/${fileKey}`;
+
+    return { fileKey, publicUrl };
+  }
+
+  /**
    * Deletes a file from AWS S3 bucket
    */
   static async deleteFile(fileKey: string): Promise<void> {

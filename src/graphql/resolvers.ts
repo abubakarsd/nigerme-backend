@@ -2032,6 +2032,25 @@ export const resolvers = {
       );
     },
 
+    uploadDirectFile: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (input.folder === "branding") {
+        requireAdmin(context);
+      }
+      let base64 = input.base64Data || "";
+      if (base64.includes("base64,")) {
+        base64 = base64.split("base64,")[1];
+      }
+      const buffer = Buffer.from(base64, "base64");
+      return AwsS3Service.uploadFileBuffer(
+        input.folder,
+        input.fileName,
+        input.contentType,
+        buffer,
+        authUser.organizationId
+      );
+    },
+
     // ─── KYC Mutations (Provn) ───
     submitKyc: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       const authUser = requireAuth(context);
