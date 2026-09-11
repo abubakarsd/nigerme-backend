@@ -149,8 +149,12 @@ const EmailSchema = new mongoose_1.Schema({
     },
     status: {
         type: String,
-        enum: ["QUEUED", "SENT", "DELIVERED", "BOUNCED", "RECEIVED", "QUARANTINED"],
+        enum: ["QUEUED", "SENT", "DELIVERED", "BOUNCED", "RECEIVED", "QUARANTINED", "SCHEDULED", "CANCELLED"],
         default: "SENT",
+    },
+    scheduledAt: {
+        type: String,
+        default: null,
     },
     receivedAt: {
         type: Date,

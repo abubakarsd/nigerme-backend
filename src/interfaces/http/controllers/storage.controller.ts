@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { StorageService } from "../../../application/services/storage.service.js";
+import { ResendEmailService } from "../../../services/resend/email.service.js";
+import { EmailModel } from "../../../infrastructure/database/models/email.model.js";
 
 export const presignedUploadSchema = z.object({
   folder: z.enum(["kyc-documents", "avatars", "attachments", "receipts"]),
@@ -49,7 +51,37 @@ export class StorageController {
         return;
       }
 
-      const response = await fetch(targetUrl);
+      const fetchHeaders: Record<string, string> = {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "*/*",
+      };
+
+      let response = await fetch(targetUrl, { headers: fetchHeaders });
+
+      // If remote fetch returned 403/401 (e.g. expired CloudFront signature on Resend inbound attachment)
+      // auto-refresh by fetching a fresh signed download URL from Resend Receiving Attachments API
+      if (!response.ok && (response.status === 403 || response.status === 401)) {
+        const match = targetUrl.match(/\/receiving\/([a-zA-Z0-9_-]+)\/attachments\/([a-zA-Z0-9_-]+)/);
+        if (match) {
+          const [, emailId, attachmentId] = match;
+          try {
+            const fresh = await ResendEmailService.getReceivedAttachment(emailId, attachmentId);
+            const freshUrl = fresh?.data?.download_url || (fresh as any)?.download_url;
+            if (freshUrl && freshUrl !== targetUrl) {
+              response = await fetch(freshUrl, { headers: fetchHeaders });
+              // Asynchronously update matching attachment downloadUrl in database
+              EmailModel.updateOne(
+                { "attachments.id": attachmentId },
+                { $set: { "attachments.$.downloadUrl": freshUrl } }
+              ).catch(() => {});
+            }
+          } catch (refreshErr: any) {
+            console.warn(`[proxyFile] Could not auto-refresh Resend attachment:`, refreshErr?.message || refreshErr);
+          }
+        }
+      }
+
       if (!response.ok) {
         res.status(response.status).json({ success: false, error: { message: `Remote fetch failed with status ${response.status}` } });
         return;
@@ -58,6 +90,7 @@ export class StorageController {
       const contentType = response.headers.get("content-type") || "application/octet-stream";
       res.setHeader("Content-Type", contentType);
       res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=3600");
       const buffer = await response.arrayBuffer();
       res.send(Buffer.from(buffer));
     } catch (error) {

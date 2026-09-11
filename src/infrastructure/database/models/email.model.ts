@@ -37,7 +37,8 @@ export interface IEmail extends Document {
   starredAt?: Date;
   isImportant: boolean;
   labels: string[];
-  status: "QUEUED" | "SENT" | "DELIVERED" | "BOUNCED" | "RECEIVED" | "QUARANTINED";
+  status: "QUEUED" | "SENT" | "DELIVERED" | "BOUNCED" | "RECEIVED" | "QUARANTINED" | "SCHEDULED" | "CANCELLED";
+  scheduledAt?: string;
   receivedAt?: Date;
   sentAt?: Date;
   createdAt: Date;
@@ -167,8 +168,12 @@ const EmailSchema = new Schema<IEmail>(
     },
     status: {
       type: String,
-      enum: ["QUEUED", "SENT", "DELIVERED", "BOUNCED", "RECEIVED", "QUARANTINED"],
+      enum: ["QUEUED", "SENT", "DELIVERED", "BOUNCED", "RECEIVED", "QUARANTINED", "SCHEDULED", "CANCELLED"],
       default: "SENT",
+    },
+    scheduledAt: {
+      type: String,
+      default: null,
     },
     receivedAt: {
       type: Date,

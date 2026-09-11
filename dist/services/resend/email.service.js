@@ -882,6 +882,8 @@ class ResendEmailService {
                 payload.bcc = options.bcc;
             if (options.replyTo)
                 payload.replyTo = options.replyTo;
+            if (options.scheduledAt)
+                payload.scheduledAt = options.scheduledAt;
             if (options.attachments && options.attachments.length > 0) {
                 const validAttachments = options.attachments
                     .filter((a) => a && (a.content || (a.path && (a.path.startsWith("http://") || a.path.startsWith("https://")) && !a.path.startsWith("blob:"))))
@@ -892,6 +894,10 @@ class ResendEmailService {
                     }
                     else if (a.path && (a.path.startsWith("http://") || a.path.startsWith("https://")) && !a.path.startsWith("blob:")) {
                         att.path = a.path;
+                    }
+                    const rawCid = a.contentId || a.content_id;
+                    if (rawCid) {
+                        att.contentId = String(rawCid).replace(/^<|>$/g, "").trim();
                     }
                     return att;
                 })
@@ -905,12 +911,44 @@ class ResendEmailService {
                 console.error("❌ Resend sendUserEmail error:", response.error);
                 return { success: false, error: response.error.message };
             }
-            console.log(`✉️ Webmail dispatched via Resend: ${response.data?.id} from ${options.from}`);
+            console.log(`✉️ Webmail dispatched via Resend: ${response.data?.id} from ${options.from}${options.scheduledAt ? ` (Scheduled for ${options.scheduledAt})` : ""}`);
             return { success: true, id: response.data?.id };
         }
         catch (err) {
             console.error("❌ Failed to send user email:", err?.message || err);
             return { success: false, error: err?.message || "Failed to dispatch email via Resend" };
+        }
+    }
+    /**
+     * Reschedules an existing scheduled email via Resend
+     */
+    static async rescheduleEmail(id, scheduledAt) {
+        try {
+            const client = this.getOrgClient();
+            const response = await client.emails.update({ id, scheduledAt });
+            if (response?.error) {
+                return { success: false, error: response.error.message };
+            }
+            return { success: true, data: response?.data || response };
+        }
+        catch (err) {
+            return { success: false, error: err?.message || "Failed to reschedule email" };
+        }
+    }
+    /**
+     * Cancels a scheduled email via Resend
+     */
+    static async cancelScheduledEmail(id) {
+        try {
+            const client = this.getOrgClient();
+            const response = await client.emails.cancel(id);
+            if (response?.error) {
+                return { success: false, error: response.error.message };
+            }
+            return { success: true, data: response?.data || response };
+        }
+        catch (err) {
+            return { success: false, error: err?.message || "Failed to cancel scheduled email" };
         }
     }
     /**

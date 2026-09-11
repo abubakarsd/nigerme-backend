@@ -996,7 +996,10 @@ export class ResendEmailService {
       filename: string;
       content?: string;
       path?: string;
+      contentId?: string;
+      content_id?: string;
     }>;
+    scheduledAt?: string;
   }): Promise<{ success: boolean; id?: string; error?: string }> {
     try {
       const client = this.getOrgClient();
@@ -1022,6 +1025,8 @@ export class ResendEmailService {
       if (options.cc && options.cc.length > 0) payload.cc = options.cc;
       if (options.bcc && options.bcc.length > 0) payload.bcc = options.bcc;
       if (options.replyTo) payload.replyTo = options.replyTo;
+      if (options.scheduledAt) payload.scheduledAt = options.scheduledAt;
+
       if (options.attachments && options.attachments.length > 0) {
         const validAttachments = options.attachments
           .filter((a) => a && (a.content || (a.path && (a.path.startsWith("http://") || a.path.startsWith("https://")) && !a.path.startsWith("blob:"))))
@@ -1031,6 +1036,10 @@ export class ResendEmailService {
               att.content = a.content.includes("base64,") ? a.content.split("base64,")[1] : a.content;
             } else if (a.path && (a.path.startsWith("http://") || a.path.startsWith("https://")) && !a.path.startsWith("blob:")) {
               att.path = a.path;
+            }
+            const rawCid = a.contentId || (a as any).content_id;
+            if (rawCid) {
+              att.contentId = String(rawCid).replace(/^<|>$/g, "").trim();
             }
             return att;
           })
@@ -1047,11 +1056,43 @@ export class ResendEmailService {
         return { success: false, error: response.error.message };
       }
 
-      console.log(`✉️ Webmail dispatched via Resend: ${response.data?.id} from ${options.from}`);
+      console.log(`✉️ Webmail dispatched via Resend: ${response.data?.id} from ${options.from}${options.scheduledAt ? ` (Scheduled for ${options.scheduledAt})` : ""}`);
       return { success: true, id: response.data?.id };
     } catch (err: any) {
       console.error("❌ Failed to send user email:", err?.message || err);
       return { success: false, error: err?.message || "Failed to dispatch email via Resend" };
+    }
+  }
+
+  /**
+   * Reschedules an existing scheduled email via Resend
+   */
+  static async rescheduleEmail(id: string, scheduledAt: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const client = this.getOrgClient();
+      const response = await (client.emails as any).update({ id, scheduledAt });
+      if (response?.error) {
+        return { success: false, error: response.error.message };
+      }
+      return { success: true, data: response?.data || response };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Failed to reschedule email" };
+    }
+  }
+
+  /**
+   * Cancels a scheduled email via Resend
+   */
+  static async cancelScheduledEmail(id: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const client = this.getOrgClient();
+      const response = await (client.emails as any).cancel(id);
+      if (response?.error) {
+        return { success: false, error: response.error.message };
+      }
+      return { success: true, data: response?.data || response };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Failed to cancel scheduled email" };
     }
   }
 

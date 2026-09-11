@@ -573,6 +573,7 @@ exports.resolvers = {
                 status: m.status || "SENT",
                 receivedAt: m.receivedAt?.toISOString(),
                 sentAt: m.sentAt?.toISOString(),
+                scheduledAt: m.scheduledAt || null,
                 createdAt: m.createdAt.toISOString(),
             }));
         },
@@ -584,11 +585,19 @@ exports.resolvers = {
             });
             if (!email)
                 throw new Error("Email not found");
-            // Auto-enrich inbound attachments missing signed download URLs
+            // Auto-enrich inbound attachments missing or expired signed download URLs
             if (email.resendId && email.attachments && email.attachments.length > 0) {
                 let hasModifiedAttachments = false;
                 for (const att of email.attachments) {
-                    if (!att.downloadUrl || (!att.downloadUrl.includes("X-Amz-Signature") && att.downloadUrl.includes("s3.resend.com"))) {
+                    const isExpired = att.downloadUrl
+                        ? (() => {
+                            const match = att.downloadUrl.match(/[?&]Expires=(\d+)/);
+                            return match ? Date.now() / 1000 > parseInt(match[1]) : false;
+                        })()
+                        : true;
+                    if (!att.downloadUrl ||
+                        isExpired ||
+                        (!att.downloadUrl.includes("X-Amz-Signature") && att.downloadUrl.includes("s3.resend.com"))) {
                         try {
                             const enriched = await index_js_6.ResendEmailService.getReceivedAttachment(email.resendId, att.id);
                             const signedUrl = enriched?.data?.download_url || enriched?.download_url;
@@ -636,6 +645,7 @@ exports.resolvers = {
                 status: email.status,
                 receivedAt: email.receivedAt?.toISOString(),
                 sentAt: email.sentAt?.toISOString(),
+                scheduledAt: email.scheduledAt || null,
                 createdAt: email.createdAt.toISOString(),
             };
         },
@@ -1987,6 +1997,7 @@ exports.resolvers = {
                 subject: input.subject || "(No subject)",
                 html: input.bodyHtml,
                 text: input.bodyText || input.bodyHtml.replace(/<[^>]*>?/gm, ""),
+                scheduledAt: input.scheduledAt || undefined,
                 attachments: (input.attachments || [])
                     .filter((a) => a && (a.content || (a.downloadUrl && (a.downloadUrl.startsWith("http://") || a.downloadUrl.startsWith("https://")) && !a.downloadUrl.startsWith("blob:"))))
                     .map((a) => {
@@ -2001,6 +2012,9 @@ exports.resolvers = {
                         !a.downloadUrl.startsWith("blob:")) {
                         att.path = a.downloadUrl;
                     }
+                    if (a.contentId) {
+                        att.contentId = a.contentId.replace(/^<|>$/g, "").trim();
+                    }
                     return att;
                 })
                     .filter((a) => a.content || a.path),
@@ -2008,7 +2022,7 @@ exports.resolvers = {
             if (!resendResult.success) {
                 throw new Error(resendResult.error || "Failed to dispatch email via Resend.");
             }
-            // ── 5. Save in Sent Mailbox in MongoDB ──
+            // ── 5. Save in Mailbox in MongoDB ──
             const preview = (input.bodyText || input.bodyHtml.replace(/<[^>]*>?/gm, "")).slice(0, 160).trim();
             // Resolve threadId: prioritize explicit input, then lookup existing thread by subject
             let resolvedThreadId = input.threadId;
@@ -2030,12 +2044,15 @@ exports.resolvers = {
             if (!resolvedThreadId) {
                 resolvedThreadId = `thread-outbound-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
             }
+            const isScheduled = Boolean(input.scheduledAt);
+            const mailFolder = isScheduled ? "outbox" : "sent";
+            const mailStatus = isScheduled ? "SCHEDULED" : "SENT";
             const newEmail = await index_js_7.EmailModel.create({
                 organizationId: org._id,
                 userId: authUser.userId || authUser.id,
                 threadId: resolvedThreadId,
                 resendId: resendResult.id,
-                folder: "sent",
+                folder: mailFolder,
                 category: "primary",
                 from: {
                     name: cleanSenderName,
@@ -2084,9 +2101,10 @@ exports.resolvers = {
                 isRead: true,
                 isStarred: false,
                 isImportant: false,
-                labels: ["sent"],
-                status: "SENT",
-                sentAt: new Date(),
+                labels: isScheduled ? ["outbox", "scheduled"] : ["sent"],
+                status: mailStatus,
+                scheduledAt: input.scheduledAt || null,
+                sentAt: isScheduled ? null : new Date(),
             });
             // Increment org daily count
             org.emailsSentToday = (org.emailsSentToday || 0) + 1;
@@ -2111,8 +2129,94 @@ exports.resolvers = {
                 isImportant: newEmail.isImportant,
                 labels: newEmail.labels,
                 status: newEmail.status,
+                scheduledAt: newEmail.scheduledAt || null,
                 sentAt: newEmail.sentAt?.toISOString(),
                 createdAt: newEmail.createdAt.toISOString(),
+            };
+        },
+        rescheduleMail: async (_, { id, scheduledAt }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            const email = await index_js_7.EmailModel.findOne({
+                _id: id,
+                organizationId: authUser.organizationId,
+            });
+            if (!email)
+                throw new Error("Email not found");
+            if (email.resendId) {
+                const updateRes = await index_js_6.ResendEmailService.rescheduleEmail(email.resendId, scheduledAt);
+                if (!updateRes.success) {
+                    throw new Error(updateRes.error || "Failed to reschedule email via Resend");
+                }
+            }
+            email.scheduledAt = scheduledAt;
+            email.status = "SCHEDULED";
+            email.folder = "outbox";
+            await email.save();
+            return {
+                id: email._id.toString(),
+                threadId: email.threadId,
+                folder: email.folder,
+                category: email.category,
+                from: email.from,
+                to: email.to,
+                cc: email.cc,
+                bcc: email.bcc,
+                replyTo: email.replyTo,
+                subject: email.subject,
+                preview: email.preview,
+                bodyHtml: email.bodyHtml,
+                bodyText: email.bodyText,
+                attachments: email.attachments,
+                isRead: email.isRead,
+                isStarred: email.isStarred,
+                isImportant: email.isImportant,
+                labels: email.labels,
+                status: email.status,
+                scheduledAt: email.scheduledAt || null,
+                sentAt: email.sentAt?.toISOString(),
+                createdAt: email.createdAt.toISOString(),
+            };
+        },
+        cancelScheduledMail: async (_, { id }, context) => {
+            const authUser = (0, context_js_1.requireAuth)(context);
+            const email = await index_js_7.EmailModel.findOne({
+                _id: id,
+                organizationId: authUser.organizationId,
+            });
+            if (!email)
+                throw new Error("Email not found");
+            if (email.resendId) {
+                const cancelRes = await index_js_6.ResendEmailService.cancelScheduledEmail(email.resendId);
+                if (!cancelRes.success) {
+                    throw new Error(cancelRes.error || "Failed to cancel scheduled email via Resend");
+                }
+            }
+            email.status = "CANCELLED";
+            email.folder = "drafts";
+            await email.save();
+            return {
+                id: email._id.toString(),
+                threadId: email.threadId,
+                folder: email.folder,
+                category: email.category,
+                from: email.from,
+                to: email.to,
+                cc: email.cc,
+                bcc: email.bcc,
+                replyTo: email.replyTo,
+                subject: email.subject,
+                preview: email.preview,
+                bodyHtml: email.bodyHtml,
+                bodyText: email.bodyText,
+                attachments: email.attachments,
+                isRead: email.isRead,
+                isStarred: email.isStarred,
+                isImportant: email.isImportant,
+                labels: email.labels,
+                status: email.status,
+                scheduledAt: email.scheduledAt || null,
+                sentAt: email.sentAt?.toISOString(),
+                createdAt: email.createdAt.toISOString(),
             };
         },
         updateEmailStatus: async (_, { id, folder, isRead, isStarred, isImportant, category }, context) => {

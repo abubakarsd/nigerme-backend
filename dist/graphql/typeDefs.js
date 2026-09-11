@@ -590,6 +590,8 @@ exports.typeDefs = (0, graphql_tag_1.default) `
 
     # ── Webmail Client Dispatch & Management ──
     sendMail(input: SendMailInput!): WebmailMessage!
+    rescheduleMail(id: ID!, scheduledAt: String!): WebmailMessage!
+    cancelScheduledMail(id: ID!): WebmailMessage!
     updateEmailStatus(id: ID!, folder: String, isRead: Boolean, isStarred: Boolean, isImportant: Boolean, category: String): WebmailMessage!
     deleteEmail(id: ID!, permanent: Boolean): Boolean!
 
@@ -744,6 +746,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     status: String!
     receivedAt: String
     sentAt: String
+    scheduledAt: String
     createdAt: String!
   }
 
@@ -784,6 +787,7 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     bodyHtml: String!
     bodyText: String
     attachments: [EmailAttachmentInput!]
+    scheduledAt: String
   }
 
   input UpdatePackagePricingInput {

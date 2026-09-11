@@ -585,6 +585,8 @@ export const typeDefs = gql`
 
     # ── Webmail Client Dispatch & Management ──
     sendMail(input: SendMailInput!): WebmailMessage!
+    rescheduleMail(id: ID!, scheduledAt: String!): WebmailMessage!
+    cancelScheduledMail(id: ID!): WebmailMessage!
     updateEmailStatus(id: ID!, folder: String, isRead: Boolean, isStarred: Boolean, isImportant: Boolean, category: String): WebmailMessage!
     deleteEmail(id: ID!, permanent: Boolean): Boolean!
 
@@ -739,6 +741,7 @@ export const typeDefs = gql`
     status: String!
     receivedAt: String
     sentAt: String
+    scheduledAt: String
     createdAt: String!
   }
 
@@ -779,6 +782,7 @@ export const typeDefs = gql`
     bodyHtml: String!
     bodyText: String
     attachments: [EmailAttachmentInput!]
+    scheduledAt: String
   }
 
   input UpdatePackagePricingInput {
