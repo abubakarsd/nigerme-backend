@@ -8,6 +8,7 @@ const email_service_js_1 = require("../../../services/resend/email.service.js");
 const audit_log_model_js_1 = require("../../../infrastructure/database/models/audit-log.model.js");
 const classifier_service_js_1 = require("../../../services/mail/classifier.service.js");
 const realtime_service_js_1 = require("../../../services/realtime/realtime.service.js");
+const notification_service_js_1 = require("../../../services/notification/notification.service.js");
 class MailWebhookController {
     /**
      * Handles Resend Inbound Email Webhook (POST /webhooks/resend)
@@ -250,6 +251,16 @@ class MailWebhookController {
                     };
                     realtime_service_js_1.RealtimeService.emitToUser(user._id.toString(), "mail:received", realtimeEmailPayload);
                     realtime_service_js_1.RealtimeService.emitToOrganization(org._id.toString(), "mail:received", realtimeEmailPayload);
+                    // Also generate and push an in-app workspace notification
+                    await notification_service_js_1.NotificationService.sendNotification({
+                        organizationId: org._id,
+                        userId: user._id,
+                        title: `New Email from ${senderName}`,
+                        message: subject,
+                        type: "EMAIL",
+                        link: "/mail",
+                        metadata: { emailId: createdEmail._id.toString() },
+                    });
                 }
             }
             // ─── 2. OUTBOUND DELIVERY EVENTS: email.sent, email.delivered, email.bounced, email.complained ───

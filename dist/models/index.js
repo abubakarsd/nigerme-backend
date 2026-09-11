@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CRMActivityModel = exports.DealModel = exports.CustomerModel = exports.TaskModel = exports.WalletModel = exports.PasskeyModel = exports.DepartmentModel = exports.CalendarEventModel = exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
+exports.TicketModel = exports.NotificationModel = exports.CRMActivityModel = exports.DealModel = exports.CustomerModel = exports.TaskModel = exports.WalletModel = exports.PasskeyModel = exports.DepartmentModel = exports.CalendarEventModel = exports.EmailModel = exports.PermissionModel = exports.RoleModel = exports.SubscriptionModel = exports.PackageModel = exports.AbuseCaseModel = exports.AuditLogModel = exports.TransactionModel = exports.OtpModel = exports.KycRecordModel = exports.OrganizationModel = exports.UserModel = void 0;
 var user_model_js_1 = require("../infrastructure/database/models/user.model.js");
 Object.defineProperty(exports, "UserModel", { enumerable: true, get: function () { return user_model_js_1.UserModel; } });
 var organization_model_js_1 = require("../infrastructure/database/models/organization.model.js");
@@ -41,3 +41,7 @@ var deal_model_js_1 = require("../infrastructure/database/models/deal.model.js")
 Object.defineProperty(exports, "DealModel", { enumerable: true, get: function () { return deal_model_js_1.DealModel; } });
 var crm_activity_model_js_1 = require("../infrastructure/database/models/crm-activity.model.js");
 Object.defineProperty(exports, "CRMActivityModel", { enumerable: true, get: function () { return crm_activity_model_js_1.CRMActivityModel; } });
+var notification_model_js_1 = require("../infrastructure/database/models/notification.model.js");
+Object.defineProperty(exports, "NotificationModel", { enumerable: true, get: function () { return notification_model_js_1.NotificationModel; } });
+var ticket_model_js_1 = require("../infrastructure/database/models/ticket.model.js");
+Object.defineProperty(exports, "TicketModel", { enumerable: true, get: function () { return ticket_model_js_1.TicketModel; } });

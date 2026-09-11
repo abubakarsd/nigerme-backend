@@ -18,5 +18,7 @@ export { TaskModel, ITask } from "../infrastructure/database/models/task.model.j
 export { CustomerModel, ICustomer } from "../infrastructure/database/models/customer.model.js";
 export { DealModel, IDeal } from "../infrastructure/database/models/deal.model.js";
 export { CRMActivityModel, ICRMActivity } from "../infrastructure/database/models/crm-activity.model.js";
+export { NotificationModel, INotification } from "../infrastructure/database/models/notification.model.js";
+export { TicketModel, ITicket } from "../infrastructure/database/models/ticket.model.js";
 
 

@@ -6,6 +6,7 @@ import { ResendEmailService } from "../../../services/resend/email.service.js";
 import { AuditLogModel } from "../../../infrastructure/database/models/audit-log.model.js";
 import { EmailClassifierService } from "../../../services/mail/classifier.service.js";
 import { RealtimeService } from "../../../services/realtime/realtime.service.js";
+import { NotificationService } from "../../../services/notification/notification.service.js";
 
 export class MailWebhookController {
   /**
@@ -279,6 +280,17 @@ export class MailWebhookController {
 
           RealtimeService.emitToUser(user._id.toString(), "mail:received", realtimeEmailPayload);
           RealtimeService.emitToOrganization(org._id.toString(), "mail:received", realtimeEmailPayload);
+
+          // Also generate and push an in-app workspace notification
+          await NotificationService.sendNotification({
+            organizationId: org._id,
+            userId: user._id,
+            title: `New Email from ${senderName}`,
+            message: subject,
+            type: "EMAIL",
+            link: "/mail",
+            metadata: { emailId: createdEmail._id.toString() },
+          });
         }
       }
 

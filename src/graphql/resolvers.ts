@@ -9,7 +9,9 @@ import { OrganizationService } from "../application/services/organization.servic
 import { AuditService } from "../application/services/audit.service.js";
 import { AbuseService } from "../application/services/abuse.service.js";
 import { PackageService } from "../application/services/package.service.js";
-import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, DepartmentModel, EmailModel, CalendarEventModel, PasskeyModel, WalletModel, TaskModel, CustomerModel, DealModel, CRMActivityModel } from "../models/index.js";
+import { UserModel, OrganizationModel, TransactionModel, KycRecordModel, SubscriptionModel, RoleModel, PermissionModel, DepartmentModel, EmailModel, CalendarEventModel, PasskeyModel, WalletModel, TaskModel, CustomerModel, DealModel, CRMActivityModel, NotificationModel, TicketModel } from "../models/index.js";
+import { RealtimeService } from "../services/realtime/realtime.service.js";
+import { NotificationService } from "../services/notification/notification.service.js";
 import { TokenManager } from "../infrastructure/security/token.manager.js";
 import { OtpService, maskEmail } from "../application/services/otp.service.js";
 import { PasskeyService } from "../application/services/passkey.service.js";
@@ -891,6 +893,39 @@ export const resolvers = {
       const activities = await CRMActivityModel.find({ organizationId: authUser.organizationId, customerId })
         .sort({ createdAt: -1 }).limit(limit);
       return activities.map(formatCrmActivity);
+    },
+
+    // ─── Ticket Queries ───
+    getCrmTickets: async (_: any, { status, priority, search }: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return [];
+      const query: any = { organizationId: authUser.organizationId };
+      if (status) query.status = status;
+      if (priority) query.priority = priority;
+      if (search && search.trim()) {
+        const regex = new RegExp(search.trim(), "i");
+        query.$or = [{ subject: regex }, { customerName: regex }, { customerEmail: regex }, { ticketNumber: regex }];
+      }
+      const tickets = await TicketModel.find(query).sort({ createdAt: -1 });
+      return tickets.map(formatTicket);
+    },
+
+    getTicketById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) return null;
+      const t = await TicketModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      return t ? formatTicket(t) : null;
+    },
+
+    // ─── Notification Queries ───
+    getMyNotifications: async (_: any, { limit = 50 }: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      const userId = authUser.userId || (authUser as any).id;
+      if (!userId) return [];
+      const notifications = await NotificationModel.find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(limit);
+      return notifications.map(formatNotification);
     },
 
     // ─── Passkey & WebAuthn Queries ───
@@ -2559,6 +2594,21 @@ export const resolvers = {
         relatedEmailId: input.relatedEmailId,
       });
 
+      // Notify invited attendees who have user accounts in the organization
+      for (const att of attendees) {
+        if (att.userId && att.userId.toString() !== (authUser.userId || (authUser as any).id)?.toString()) {
+          NotificationService.sendNotification({
+            organizationId: authUser.organizationId,
+            userId: att.userId,
+            title: "New Meeting Invitation",
+            message: `${event.organizerName} invited you to: "${event.title}"`,
+            type: "CALENDAR",
+            link: "/calendar",
+            metadata: { eventId: event._id.toString() },
+          }).catch((err) => console.warn("Failed to notify attendee:", err));
+        }
+      }
+
       return formatCalendarEvent(event);
     },
 
@@ -2677,7 +2727,25 @@ export const resolvers = {
         sourceEmailId: input.sourceEmailId || null,
         sourceEmailSubject: input.sourceEmailSubject || null,
       });
-      return formatTask(task);
+
+      const formatted = formatTask(task);
+
+      // If assigned to a team member, push a real-time notification
+      if (task.assigneeId) {
+        await NotificationService.sendNotification({
+          organizationId: authUser.organizationId,
+          userId: task.assigneeId,
+          title: "New Task Assigned",
+          message: `${task.creatorName} assigned you task: "${task.title}"`,
+          type: "TASK",
+          link: "/tasks",
+          metadata: { taskId: task._id.toString() },
+        });
+        RealtimeService.emitToUser(task.assigneeId.toString(), "task:assigned", formatted);
+      }
+      RealtimeService.emitToOrganization(authUser.organizationId.toString(), "task:created", formatted);
+
+      return formatted;
     },
 
     updateTask: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
@@ -2685,6 +2753,9 @@ export const resolvers = {
       if (!authUser.organizationId) throw new Error("No active organization found");
       const task = await TaskModel.findOne({ _id: id, organizationId: authUser.organizationId });
       if (!task) throw new Error("Task not found");
+
+      const previousAssignee = task.assigneeId ? task.assigneeId.toString() : null;
+
       if (input.title !== undefined) task.title = input.title.trim();
       if (input.description !== undefined) task.description = input.description;
       if (input.status !== undefined) task.status = input.status;
@@ -2694,7 +2765,39 @@ export const resolvers = {
       if (input.dueDate !== undefined) task.dueDate = input.dueDate ? new Date(input.dueDate) : undefined;
       if (input.labels !== undefined) task.labels = input.labels;
       await task.save();
-      return formatTask(task);
+
+      const formatted = formatTask(task);
+
+      // If assignee changed, notify the new assignee
+      if (task.assigneeId && task.assigneeId.toString() !== previousAssignee) {
+        await NotificationService.sendNotification({
+          organizationId: authUser.organizationId,
+          userId: task.assigneeId,
+          title: "Task Assigned to You",
+          message: `${authUser.name || "A team member"} assigned you task: "${task.title}"`,
+          type: "TASK",
+          link: "/tasks",
+          metadata: { taskId: task._id.toString() },
+        });
+        RealtimeService.emitToUser(task.assigneeId.toString(), "task:assigned", formatted);
+      }
+
+      // If task is completed, notify the creator if different from current user
+      if (input.status === "DONE" && task.creatorId && task.creatorId.toString() !== (authUser.userId || (authUser as any).id)?.toString()) {
+        NotificationService.sendNotification({
+          organizationId: authUser.organizationId,
+          userId: task.creatorId,
+          title: "Task Completed",
+          message: `${authUser.name || "Assignee"} completed your task: "${task.title}"`,
+          type: "TASK",
+          link: "/tasks",
+          metadata: { taskId: task._id.toString() },
+        }).catch((err) => console.warn("Failed to notify task creator:", err));
+      }
+
+      RealtimeService.emitToOrganization(authUser.organizationId.toString(), "task:updated", formatted);
+
+      return formatted;
     },
 
     deleteTask: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
@@ -2795,6 +2898,134 @@ export const resolvers = {
         actorEmail: authUser.email,
       });
       return formatCrmActivity(activity);
+    },
+
+    // ─── Ticket Mutations ───
+    createCrmTicket: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+      let organizationId: any = context.user?.organizationId;
+      if (!organizationId) {
+        if (input.orgDomain) {
+          const org = await OrganizationModel.findOne({ domain: input.orgDomain.trim().toLowerCase() });
+          if (org) organizationId = org._id;
+        }
+        if (!organizationId) {
+          const defaultOrg = await OrganizationModel.findOne().sort({ createdAt: 1 });
+          if (defaultOrg) organizationId = defaultOrg._id;
+        }
+      }
+      if (!organizationId) throw new Error("No active organization found to file ticket under");
+
+      const ticketNumber = `TCK-${Date.now().toString().slice(-6)}`;
+      const slaDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h SLA default
+
+      const ticket = await TicketModel.create({
+        ticketNumber,
+        organizationId,
+        customerName: input.customerName.trim(),
+        customerEmail: input.customerEmail.toLowerCase().trim(),
+        subject: input.subject.trim(),
+        type: input.type || "SUPPORT",
+        department: input.department || "Customer Support",
+        priority: input.priority || "MEDIUM",
+        status: "OPEN",
+        assignedToUserId: input.assignedToUserId || null,
+        assignedToName: input.assignedToName || null,
+        slaDeadline,
+        messages: input.message ? [{
+          id: `msg-${Date.now()}`,
+          senderType: "CUSTOMER",
+          senderName: input.customerName.trim(),
+          senderEmail: input.customerEmail.toLowerCase().trim(),
+          body: input.message.trim(),
+          isInternalNote: false,
+          createdAt: new Date(),
+        }] : [],
+      });
+
+      const formatted = formatTicket(ticket);
+
+      if (ticket.assignedToUserId) {
+        await NotificationService.sendNotification({
+          organizationId,
+          userId: ticket.assignedToUserId,
+          title: `New Ticket #${ticketNumber}`,
+          message: `Assigned ticket: "${ticket.subject}" from ${ticket.customerName}`,
+          type: "TICKET",
+          link: "/crm",
+          metadata: { ticketId: ticket._id.toString() },
+        });
+        RealtimeService.emitToUser(ticket.assignedToUserId.toString(), "ticket:assigned", formatted);
+      } else {
+        // Broadcast notification to active members of this organization
+        const usersInOrg = await UserModel.find({ organizationId }, "_id");
+        if (usersInOrg.length > 0) {
+          NotificationService.broadcastOrgNotification(
+            organizationId,
+            usersInOrg.map((u) => u._id),
+            {
+              title: `New Support Ticket #${ticketNumber}`,
+              message: `Inquiry: "${ticket.subject}" from ${ticket.customerName}`,
+              type: "TICKET",
+              link: "/crm",
+              metadata: { ticketId: ticket._id.toString() },
+            }
+          ).catch((err) => console.warn("Failed to broadcast ticket notification:", err));
+        }
+      }
+      RealtimeService.emitToOrganization(organizationId.toString(), "ticket:created", formatted);
+
+      return formatted;
+    },
+
+    updateCrmTicket: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      if (!authUser.organizationId) throw new Error("No active organization found");
+      const ticket = await TicketModel.findOne({ _id: id, organizationId: authUser.organizationId });
+      if (!ticket) throw new Error("Ticket not found");
+
+      const previousAssignee = ticket.assignedToUserId ? ticket.assignedToUserId.toString() : null;
+
+      if (input.status !== undefined) ticket.status = input.status;
+      if (input.priority !== undefined) ticket.priority = input.priority;
+      if (input.department !== undefined) ticket.department = input.department;
+      if (input.assignedToUserId !== undefined) ticket.assignedToUserId = input.assignedToUserId;
+      if (input.assignedToName !== undefined) ticket.assignedToName = input.assignedToName;
+
+      await ticket.save();
+      const formatted = formatTicket(ticket);
+
+      if (ticket.assignedToUserId && ticket.assignedToUserId.toString() !== previousAssignee) {
+        await NotificationService.sendNotification({
+          organizationId: authUser.organizationId,
+          userId: ticket.assignedToUserId,
+          title: "Ticket Assigned to You",
+          message: `Ticket #${ticket.ticketNumber}: "${ticket.subject}"`,
+          type: "TICKET",
+          link: "/crm",
+          metadata: { ticketId: ticket._id.toString() },
+        });
+        RealtimeService.emitToUser(ticket.assignedToUserId.toString(), "ticket:assigned", formatted);
+      }
+      RealtimeService.emitToOrganization(authUser.organizationId.toString(), "ticket:updated", formatted);
+
+      return formatted;
+    },
+
+    // ─── Notification Mutations ───
+    markNotificationRead: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      const userId = authUser.userId || (authUser as any).id;
+      if (!userId) return false;
+      const res = await NotificationModel.updateOne({ _id: id, userId }, { $set: { read: true } });
+      return res.modifiedCount > 0;
+    },
+
+    markAllNotificationsRead: async (_: any, __: any, context: GraphQLContext) => {
+      const authUser = requireAuth(context);
+      const userId = authUser.userId || (authUser as any).id;
+      if (!userId) return false;
+      await NotificationModel.updateMany({ userId, read: false }, { $set: { read: true } });
+      return true;
     },
   },
 
@@ -2983,3 +3214,43 @@ function formatCrmActivity(doc: any) {
     createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
   };
 }
+
+function formatTicket(doc: any) {
+  if (!doc) return null;
+  const t = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: t._id ? t._id.toString() : t.id,
+    ticketNumber: t.ticketNumber || `TCK-${Date.now().toString().slice(-6)}`,
+    organizationId: t.organizationId ? t.organizationId.toString() : "",
+    customerId: t.customerId ? t.customerId.toString() : null,
+    customerName: t.customerName || "Customer",
+    customerEmail: t.customerEmail || "",
+    subject: t.subject || "(No subject)",
+    type: t.type || "SUPPORT",
+    department: t.department || "Customer Support",
+    priority: t.priority || "MEDIUM",
+    status: t.status || "OPEN",
+    assignedToUserId: t.assignedToUserId ? t.assignedToUserId.toString() : null,
+    assignedToName: t.assignedToName || null,
+    slaDeadline: t.slaDeadline ? new Date(t.slaDeadline).toISOString() : null,
+    createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
+  };
+}
+
+function formatNotification(doc: any) {
+  if (!doc) return null;
+  const n = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: n._id ? n._id.toString() : n.id,
+    organizationId: n.organizationId ? n.organizationId.toString() : "",
+    userId: n.userId ? n.userId.toString() : "",
+    title: n.title || "",
+    message: n.message || "",
+    type: n.type || "SYSTEM",
+    read: Boolean(n.read),
+    link: n.link || null,
+    createdAt: n.createdAt ? new Date(n.createdAt).toISOString() : new Date().toISOString(),
+  };
+}
+

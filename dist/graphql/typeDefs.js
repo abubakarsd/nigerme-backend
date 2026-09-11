@@ -517,6 +517,13 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     getCrmDeals(stage: String, customerId: ID): [CrmDeal!]!
     getCrmActivities(customerId: ID!, limit: Int): [CrmActivity!]!
 
+    # Tickets
+    getCrmTickets(status: String, priority: String, search: String): [CrmTicket!]!
+    getTicketById(id: ID!): CrmTicket
+
+    # Notifications
+    getMyNotifications(limit: Int): [AppNotification!]!
+
     # Passkey & WebAuthn Queries
     getPasskeyRegistrationOptions: String!
     getPasskeyAuthOptions(email: String!): String!
@@ -612,6 +619,14 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     updateCrmDeal(id: ID!, input: UpdateCrmDealInput!): CrmDeal!
     deleteCrmDeal(id: ID!): Boolean!
     createCrmActivity(input: CreateCrmActivityInput!): CrmActivity!
+
+    # ── Ticket Management ──
+    createCrmTicket(input: CreateCrmTicketInput!): CrmTicket!
+    updateCrmTicket(id: ID!, input: UpdateCrmTicketInput!): CrmTicket!
+
+    # ── Notifications ──
+    markNotificationRead(id: ID!): Boolean!
+    markAllNotificationsRead: Boolean!
   }
 
   type PasskeyCredentialInfo {
@@ -969,5 +984,59 @@ exports.typeDefs = (0, graphql_tag_1.default) `
     type: String!
     title: String!
     description: String
+  }
+
+  # ─── Ticket Types ───
+  type CrmTicket {
+    id: ID!
+    ticketNumber: String!
+    organizationId: ID!
+    customerId: ID
+    customerName: String!
+    customerEmail: String!
+    subject: String!
+    type: String!
+    department: String!
+    priority: String!
+    status: String!
+    assignedToUserId: ID
+    assignedToName: String
+    slaDeadline: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input CreateCrmTicketInput {
+    customerName: String!
+    customerEmail: String!
+    subject: String!
+    type: String
+    department: String
+    priority: String
+    assignedToUserId: ID
+    assignedToName: String
+    message: String
+    orgDomain: String
+  }
+
+  input UpdateCrmTicketInput {
+    status: String
+    priority: String
+    department: String
+    assignedToUserId: ID
+    assignedToName: String
+  }
+
+  # ─── Notification Types ───
+  type AppNotification {
+    id: ID!
+    organizationId: ID!
+    userId: ID!
+    title: String!
+    message: String!
+    type: String!
+    read: Boolean!
+    link: String
+    createdAt: String!
   }
 `;
