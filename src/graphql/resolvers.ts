@@ -1089,6 +1089,18 @@ export const resolvers = {
       };
     },
 
+    upgradeToAdminSession: async (_: any, { webmailToken }: { webmailToken: string }) => {
+      const result = await AuthService.upgradeToAdminSession(webmailToken);
+      AuditService.record({
+        actorEmail: result.user.email,
+        actorRole: result.user.role,
+        action: "SESSION_UPGRADE",
+        targetResource: "auth/upgrade-to-admin",
+        details: `Webmail user ${result.user.email} upgraded to admin session via SSO`,
+      }).catch(() => {});
+      return result;
+    },
+
     // ─── Passkey Mutations ───
     verifyPasskeyRegistration: async (
       _: any,

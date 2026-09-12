@@ -577,6 +577,8 @@ export const typeDefs = gql`
     signup(input: SignupInput!): AuthPayload!
     login(input: LoginInput!): LoginResponse!
     mailLogin(input: LoginInput!): LoginResponse!
+    """Exchange an active webmail token for an admin-scoped JWT (SSO session upgrade)."""
+    upgradeToAdminSession(webmailToken: String!): AuthPayload!
     setInitialPassword(input: SetInitialPasswordInput!): AuthPayload!
     verify2fa(phone: String!, code: String!): AuthPayload!
     requestPhoneOtp(phone: String!, purpose: String): OtpResponse!

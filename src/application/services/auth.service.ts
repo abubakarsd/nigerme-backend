@@ -569,7 +569,84 @@ export class AuthService {
   }
 
   /**
-   * 6. Rotates refreshed JWT
+   * 6. SSO Session Upgrade: Exchanges a valid webmail JWT for an admin-scoped JWT.
+   * The user must already be authenticated via Webmail and possess admin privileges.
+   */
+  static async upgradeToAdminSession(webmailToken: string): Promise<AuthTokens> {
+    // Verify the webmail token is valid
+    let payload: TokenPayload;
+    try {
+      payload = TokenManager.verifyAccessToken(webmailToken);
+    } catch {
+      throw new Error("Invalid or expired webmail session. Please sign in again.");
+    }
+
+    const user = await UserModel.findById(payload.userId);
+    if (!user || user.status !== "active") {
+      throw new Error("User account is inactive or not found.");
+    }
+
+    // Check admin privileges
+    const isAdminRole =
+      user.userType === "saas_admin" ||
+      user.role === "owner" ||
+      user.role === "superadmin" ||
+      user.role === "admin";
+
+    let hasAdminAccess = isAdminRole;
+    if (!hasAdminAccess && user.roleId) {
+      const roleDoc = await RoleModel.findById(user.roleId);
+      if (roleDoc?.permissions?.canAccessAdminConsole) {
+        hasAdminAccess = true;
+      }
+    }
+
+    if (!hasAdminAccess) {
+      throw new Error(
+        "Access Restricted: Your account does not have Admin Console privileges."
+      );
+    }
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const tokenPayload: Omit<TokenPayload, "iat" | "exp"> = {
+      userId: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      userType: user.userType,
+      organizationId: user.organizationId?.toString(),
+      sessionType: "admin",
+    };
+
+    return {
+      accessToken: TokenManager.generateAccessToken(tokenPayload),
+      refreshToken: TokenManager.generateRefreshToken(tokenPayload),
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        personalEmail: user.personalEmail ?? null,
+        name: user.name,
+        role: user.role,
+        userType: user.userType,
+        phone: user.phone ?? null,
+        organizationId: user.organizationId?.toString() ?? null,
+        isEmailVerified: user.isEmailVerified ?? false,
+        isPhoneVerified: user.isPhoneVerified ?? false,
+        twoFactorEnabled: user.twoFactorEnabled ?? false,
+        mustChangePassword: user.mustChangePassword ?? false,
+        canAccessEmail: user.canAccessEmail ?? false,
+        avatarUrl: user.avatarUrl ?? null,
+        status: user.status ?? "active",
+        lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+        createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
+      },
+    };
+  }
+
+  /**
+   * 7. Rotates refreshed JWT
    */
   static async refreshSession(refreshToken: string): Promise<{ accessToken: string }> {
     const payload = TokenManager.verifyRefreshToken(refreshToken);
